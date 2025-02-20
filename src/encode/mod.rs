@@ -12,19 +12,10 @@ type Result<T> = ::core::result::Result<T, Error>;
 /// A type which can be encoded to MessagePack
 pub trait Encode {
     /// encode to MessagePack
-    fn encode(&self) -> Result<impl Iterator<Item = u8>>;
+    fn encode<T>(&self, buf: &mut T) -> Result<usize>
+    where
+        T: Extend<u8>;
 
     /// encode to slice
-    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<()> {
-        let encoded = self.encode()?;
-        for (idx, byte) in encoded.enumerate() {
-            if let Some(v) = buf.get_mut(idx) {
-                *v = byte;
-            } else {
-                return Err(Error::BufferFull);
-            }
-        }
-
-        Ok(())
-    }
+    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize>;
 }
