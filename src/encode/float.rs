@@ -12,10 +12,10 @@ impl Encode for f32 {
         buf.extend(it);
         Ok(5)
     }
-    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         const SIZE: usize = 5;
         let mut it = iter::once(formats::FLOAT32).chain(self.to_be_bytes());
-        for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
+        for (to, byte) in buf.take(SIZE).zip(&mut it) {
             *to = byte
         }
         if it.next().is_none() {
@@ -35,10 +35,10 @@ impl Encode for f64 {
         buf.extend(it);
         Ok(9)
     }
-    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         const SIZE: usize = 9;
         let mut it = iter::once(formats::FLOAT64).chain(self.to_be_bytes());
-        for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
+        for (to, byte) in buf.take(SIZE).zip(&mut it) {
             *to = byte
         }
         if it.next().is_none() {

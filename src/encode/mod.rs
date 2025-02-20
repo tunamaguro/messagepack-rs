@@ -1,3 +1,4 @@
+mod array;
 mod bin;
 mod bool;
 mod float;
@@ -22,6 +23,11 @@ pub trait Encode {
     where
         T: Extend<u8>;
 
+    /// encode to IterMut
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize>;
+
     /// encode to slice
-    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize>;
+    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
+        self.encode_to_iter_mut(&mut buf.iter_mut())
+    }
 }

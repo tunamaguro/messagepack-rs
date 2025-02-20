@@ -19,8 +19,8 @@ impl Encode for bool {
             }
         }
     }
-    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
-        if let Some(v) = buf.get_mut(0) {
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
+        if let Some(v) = buf.next() {
             match self {
                 true => *v = formats::TRUE,
                 false => *v = formats::FALSE,

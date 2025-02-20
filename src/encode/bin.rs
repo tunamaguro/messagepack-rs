@@ -34,14 +34,14 @@ impl Encode for [u8] {
         buf.extend(self.iter().cloned());
         Ok(format_len + self_len)
     }
-    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         let self_len = self.len();
         let format_len = match self_len {
             0x00..0xff => {
                 const SIZE: usize = 2;
                 let cast = self_len as u8;
                 let mut it = iter::once(formats::BIN8).chain(cast.to_be_bytes());
-                for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.take(SIZE).zip(&mut it) {
                     *to = byte
                 }
 
@@ -55,7 +55,7 @@ impl Encode for [u8] {
                 const SIZE: usize = 3;
                 let cast = self_len as u16;
                 let mut it = iter::once(formats::BIN16).chain(cast.to_be_bytes());
-                for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.take(SIZE).zip(&mut it) {
                     *to = byte
                 }
 
@@ -70,7 +70,7 @@ impl Encode for [u8] {
                 let cast = self_len as u32;
                 let mut it = iter::once(formats::BIN32).chain(cast.to_be_bytes());
 
-                for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.take(SIZE).zip(&mut it) {
                     *to = byte
                 }
 
@@ -85,7 +85,7 @@ impl Encode for [u8] {
 
         let mut it = self.iter();
 
-        for (to, byte) in buf.iter_mut().skip(format_len).take(self_len).zip(&mut it) {
+        for (to, byte) in buf.take(self_len).zip(&mut it) {
             *to = *byte
         }
         if it.next().is_none() {

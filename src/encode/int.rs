@@ -19,12 +19,12 @@ impl Encode for u8 {
             }
         }
     }
-    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         match self {
             0x00..=0x7f => {
                 const SIZE: usize = 1;
                 let mut it = iter::once(*self);
-                for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.take(SIZE).zip(&mut it) {
                     *to = byte
                 }
                 if it.next().is_none() {
@@ -36,7 +36,7 @@ impl Encode for u8 {
             _ => {
                 const SIZE: usize = 2;
                 let mut it = iter::once(formats::UINT8).chain(self.to_be_bytes());
-                for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.take(SIZE).zip(&mut it) {
                     *to = byte
                 }
                 if it.next().is_none() {
@@ -65,13 +65,16 @@ macro_rules! impl_encode_unsigned {
                 }
             }
 
-            fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
+            fn encode_to_iter_mut<'a>(
+                &self,
+                buf: &mut impl Iterator<Item = &'a mut u8>,
+            ) -> Result<usize> {
                 match <$lower>::try_from(*self) {
-                    Ok(lower_val) => lower_val.encode_to_slice(buf),
+                    Ok(lower_val) => lower_val.encode_to_iter_mut(buf),
                     Err(_) => {
                         const SIZE: usize = $size;
                         let mut it = core::iter::once($format).chain(self.to_be_bytes());
-                        for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
+                        for (to, byte) in buf.take(SIZE).zip(&mut it) {
                             *to = byte;
                         }
                         if it.next().is_none() {
@@ -99,9 +102,9 @@ impl Encode for u128 {
             Err(_) => Err(Error::InvalidType),
         }
     }
-    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         match u64::try_from(*self) {
-            Ok(u64_uint) => u64_uint.encode_to_slice(buf),
+            Ok(u64_uint) => u64_uint.encode_to_iter_mut(buf),
             Err(_) => Err(Error::InvalidType),
         }
     }
@@ -130,15 +133,15 @@ impl Encode for i8 {
         }
     }
 
-    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         match u8::try_from(*self) {
-            Ok(u8_int) => u8_int.encode_to_slice(buf),
+            Ok(u8_int) => u8_int.encode_to_iter_mut(buf),
             Err(_) => match self {
                 -0b11111..=0b00000 => {
                     const SIZE: usize = 1;
                     let cast = *self as u8;
                     let mut it = iter::once(formats::NEGATIVE_FIXINT | cast);
-                    for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
+                    for (to, byte) in buf.take(SIZE).zip(&mut it) {
                         *to = byte
                     }
                     if it.next().is_none() {
@@ -150,7 +153,7 @@ impl Encode for i8 {
                 _ => {
                     const SIZE: usize = 2;
                     let mut it = iter::once(formats::INT8).chain(self.to_be_bytes());
-                    for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
+                    for (to, byte) in buf.take(SIZE).zip(&mut it) {
                         *to = byte
                     }
                     if it.next().is_none() {
@@ -181,13 +184,16 @@ macro_rules! impl_encode_signed {
                 }
             }
 
-            fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
+            fn encode_to_iter_mut<'a>(
+                &self,
+                buf: &mut impl Iterator<Item = &'a mut u8>,
+            ) -> Result<usize> {
                 match <$lower>::try_from(*self) {
-                    Ok(lower_val) => lower_val.encode_to_slice(buf),
+                    Ok(lower_val) => lower_val.encode_to_iter_mut(buf),
                     Err(_) => {
                         const SIZE: usize = $size;
                         let mut it = core::iter::once($format).chain(self.to_be_bytes());
-                        for (slot, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
+                        for (slot, byte) in buf.take(SIZE).zip(&mut it) {
                             *slot = byte;
                         }
                         if it.next().is_none() {
@@ -215,9 +221,9 @@ impl Encode for i128 {
             Err(_) => Err(Error::InvalidType),
         }
     }
-    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         match i64::try_from(*self) {
-            Ok(i64_int) => i64_int.encode_to_slice(buf),
+            Ok(i64_int) => i64_int.encode_to_iter_mut(buf),
             Err(_) => Err(Error::InvalidType),
         }
     }
