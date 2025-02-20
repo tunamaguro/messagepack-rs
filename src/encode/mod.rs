@@ -1,4 +1,5 @@
 mod bool;
+mod float;
 mod int;
 
 /// Messagepack Encode Error
