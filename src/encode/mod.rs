@@ -1,6 +1,7 @@
 mod bool;
 mod float;
 mod int;
+mod str;
 
 /// Messagepack Encode Error
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
