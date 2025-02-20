@@ -27,19 +27,19 @@ impl Encode for BinaryEncoder<'_> {
     {
         let self_len = self.len();
         let format_len = match self_len {
-            0x00..0xff => {
+            0x00..=0xff => {
                 let cast = self_len as u8;
                 let it = iter::once(formats::BIN8).chain(cast.to_be_bytes());
                 buf.extend(it);
                 Ok(2)
             }
-            0xff..0xffff => {
+            0x100..=0xffff => {
                 let cast = self_len as u16;
                 let it = iter::once(formats::BIN16).chain(cast.to_be_bytes());
                 buf.extend(it);
                 Ok(3)
             }
-            0xffff..=0xffffffff => {
+            0x10000..=0xffffffff => {
                 let cast = self_len as u32;
                 let it = iter::once(formats::BIN32).chain(cast.to_be_bytes());
                 buf.extend(it);
@@ -54,7 +54,7 @@ impl Encode for BinaryEncoder<'_> {
     fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         let self_len = self.len();
         let format_len = match self_len {
-            0x00..0xff => {
+            0x00..=0xff => {
                 const SIZE: usize = 2;
                 let cast = self_len as u8;
                 let mut it = iter::once(formats::BIN8).chain(cast.to_be_bytes());
@@ -68,7 +68,7 @@ impl Encode for BinaryEncoder<'_> {
                     Err(Error::BufferFull)
                 }
             }
-            0xff..0xffff => {
+            0x100..=0xffff => {
                 const SIZE: usize = 3;
                 let cast = self_len as u16;
                 let mut it = iter::once(formats::BIN16).chain(cast.to_be_bytes());
@@ -82,7 +82,7 @@ impl Encode for BinaryEncoder<'_> {
                     Err(Error::BufferFull)
                 }
             }
-            0xffff..=0xffffffff => {
+            0x10000..=0xffffffff => {
                 const SIZE: usize = 5;
                 let cast = self_len as u32;
                 let mut it = iter::once(formats::BIN32).chain(cast.to_be_bytes());

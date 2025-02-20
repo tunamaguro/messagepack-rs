@@ -56,7 +56,7 @@ impl Encode for ExtensionEncoder<'_> {
                 buf.extend(it);
                 Ok(2 + data_len)
             }
-            0x00..0xff => {
+            0x00..=0xff => {
                 let cast = data_len as u8;
                 let it = iter::once(formats::EXT8)
                     .chain(cast.to_be_bytes())
@@ -65,7 +65,7 @@ impl Encode for ExtensionEncoder<'_> {
                 buf.extend(it);
                 Ok(3 + data_len)
             }
-            0xff..0xffff => {
+            0x100..=0xffff => {
                 let cast = data_len as u16;
                 let it = iter::once(formats::EXT8)
                     .chain(cast.to_be_bytes())
@@ -74,7 +74,7 @@ impl Encode for ExtensionEncoder<'_> {
                 buf.extend(it);
                 Ok(4 + data_len)
             }
-            0xffff..0xffffffff => {
+            0x10000..0xffffffff => {
                 let cast = data_len as u32;
                 let it = iter::once(formats::EXT8)
                     .chain(cast.to_be_bytes())
@@ -170,7 +170,7 @@ impl Encode for ExtensionEncoder<'_> {
                     Err(Error::BufferFull)
                 }
             }
-            0x00..0xff => {
+            0x00..=0xff => {
                 const SIZE: usize = 3;
                 let cast = data_len as u8;
 
@@ -189,7 +189,7 @@ impl Encode for ExtensionEncoder<'_> {
                     Err(Error::BufferFull)
                 }
             }
-            0xff..0xffff => {
+            0x100..=0xffff => {
                 const SIZE: usize = 4;
                 let cast = data_len as u16;
 
@@ -208,7 +208,7 @@ impl Encode for ExtensionEncoder<'_> {
                     Err(Error::BufferFull)
                 }
             }
-            0xffff..0xffffffff => {
+            0x10000..0xffffffff => {
                 const SIZE: usize = 6;
                 let cast = data_len as u32;
 
