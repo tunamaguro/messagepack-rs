@@ -1,3 +1,4 @@
+mod bin;
 mod bool;
 mod float;
 mod int;
@@ -9,7 +10,7 @@ pub enum Error {
     /// buffer is full
     BufferFull,
     /// Cannot mapped messagepack type
-    InvalidType
+    InvalidType,
 }
 
 type Result<T> = ::core::result::Result<T, Error>;
