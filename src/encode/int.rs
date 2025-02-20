@@ -27,7 +27,7 @@ impl Encode for u8 {
                 for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
                     *to = byte
                 }
-                if it.next().is_some() {
+                if it.next().is_none() {
                     Ok(SIZE)
                 } else {
                     Err(Error::BufferFull)
@@ -39,7 +39,7 @@ impl Encode for u8 {
                 for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
                     *to = byte
                 }
-                if it.next().is_some() {
+                if it.next().is_none() {
                     Ok(SIZE)
                 } else {
                     Err(Error::BufferFull)
@@ -74,7 +74,7 @@ macro_rules! impl_encode_unsigned {
                         for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
                             *to = byte;
                         }
-                        if it.next().is_some() {
+                        if it.next().is_none() {
                             Ok(SIZE)
                         } else {
                             Err(Error::BufferFull)
@@ -141,7 +141,7 @@ impl Encode for i8 {
                     for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
                         *to = byte
                     }
-                    if it.next().is_some() {
+                    if it.next().is_none() {
                         Ok(SIZE)
                     } else {
                         Err(Error::BufferFull)
@@ -153,7 +153,7 @@ impl Encode for i8 {
                     for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
                         *to = byte
                     }
-                    if it.next().is_some() {
+                    if it.next().is_none() {
                         Ok(SIZE)
                     } else {
                         Err(Error::BufferFull)
@@ -190,7 +190,7 @@ macro_rules! impl_encode_signed {
                         for (slot, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
                             *slot = byte;
                         }
-                        if it.next().is_some() {
+                        if it.next().is_none() {
                             Ok(SIZE)
                         } else {
                             Err(Error::BufferFull)

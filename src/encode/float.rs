@@ -18,7 +18,7 @@ impl Encode for f32 {
         for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
             *to = byte
         }
-        if it.next().is_some() {
+        if it.next().is_none() {
             Ok(SIZE)
         } else {
             Err(Error::BufferFull)
@@ -41,7 +41,7 @@ impl Encode for f64 {
         for (to, byte) in buf.iter_mut().take(SIZE).zip(&mut it) {
             *to = byte
         }
-        if it.next().is_some() {
+        if it.next().is_none() {
             Ok(SIZE)
         } else {
             Err(Error::BufferFull)
