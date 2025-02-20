@@ -28,7 +28,7 @@ impl Encode for str {
                 buf.extend(it);
                 Ok(3)
             }
-            0xffff..=0xffffff => {
+            0xffff..=0xffffffff => {
                 let cast = self_len as u32;
                 let it = iter::once(formats::STR32).chain(cast.to_be_bytes());
                 buf.extend(it);
@@ -85,7 +85,7 @@ impl Encode for str {
                     Err(Error::BufferFull)
                 }
             }
-            0xffff..=0xffffff => {
+            0xffff..=0xffffffff => {
                 const SIZE: usize = 5;
                 let cast = self_len as u32;
                 let mut it = iter::once(formats::STR32).chain(cast.to_be_bytes());
