@@ -89,6 +89,24 @@ impl_encode_unsigned!(u16, u8, formats::UINT16, 3);
 impl_encode_unsigned!(u32, u16, formats::UINT32, 5);
 impl_encode_unsigned!(u64, u32, formats::UINT64, 9);
 
+impl Encode for u128 {
+    fn encode<T>(&self, buf: &mut T) -> Result<usize>
+    where
+        T: Extend<u8>,
+    {
+        match u64::try_from(*self) {
+            Ok(u64_uint) => u64_uint.encode(buf),
+            Err(_) => Err(Error::InvalidType),
+        }
+    }
+    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
+        match u64::try_from(*self) {
+            Ok(u64_uint) => u64_uint.encode_to_slice(buf),
+            Err(_) => Err(Error::InvalidType),
+        }
+    }
+}
+
 impl Encode for i8 {
     fn encode<T>(&self, buf: &mut T) -> Result<usize>
     where
@@ -186,3 +204,21 @@ macro_rules! impl_encode_signed {
 impl_encode_signed!(i16, i8, formats::INT16, 3);
 impl_encode_signed!(i32, i16, formats::INT32, 5);
 impl_encode_signed!(i64, i32, formats::INT64, 9);
+
+impl Encode for i128 {
+    fn encode<T>(&self, buf: &mut T) -> Result<usize>
+    where
+        T: Extend<u8>,
+    {
+        match i64::try_from(*self) {
+            Ok(i64_int) => i64_int.encode(buf),
+            Err(_) => Err(Error::InvalidType),
+        }
+    }
+    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
+        match i64::try_from(*self) {
+            Ok(i64_int) => i64_int.encode_to_slice(buf),
+            Err(_) => Err(Error::InvalidType),
+        }
+    }
+}

@@ -7,6 +7,8 @@ mod int;
 pub enum Error {
     /// buffer is full
     BufferFull,
+    /// Cannot mapped messagepack type
+    InvalidType
 }
 
 type Result<T> = ::core::result::Result<T, Error>;
