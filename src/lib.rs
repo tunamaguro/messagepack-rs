@@ -6,4 +6,3 @@ pub mod encode;
 mod formats;
 
 pub use formats::Format;
-
