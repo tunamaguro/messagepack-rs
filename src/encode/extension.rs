@@ -67,7 +67,7 @@ impl Encode for ExtensionEncoder<'_> {
             }
             0x100..=0xffff => {
                 let cast = data_len as u16;
-                let it = iter::once(formats::EXT8)
+                let it = iter::once(formats::EXT16)
                     .chain(cast.to_be_bytes())
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
@@ -76,7 +76,7 @@ impl Encode for ExtensionEncoder<'_> {
             }
             0x10000..0xffffffff => {
                 let cast = data_len as u32;
-                let it = iter::once(formats::EXT8)
+                let it = iter::once(formats::EXT32)
                     .chain(cast.to_be_bytes())
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
@@ -193,7 +193,7 @@ impl Encode for ExtensionEncoder<'_> {
                 const SIZE: usize = 4;
                 let cast = data_len as u16;
 
-                let mut it = iter::once(formats::EXT8)
+                let mut it = iter::once(formats::EXT16)
                     .chain(cast.to_be_bytes())
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
@@ -212,7 +212,7 @@ impl Encode for ExtensionEncoder<'_> {
                 const SIZE: usize = 6;
                 let cast = data_len as u32;
 
-                let mut it = iter::once(formats::EXT8)
+                let mut it = iter::once(formats::EXT32)
                     .chain(cast.to_be_bytes())
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());

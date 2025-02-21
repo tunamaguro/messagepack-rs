@@ -1,11 +1,11 @@
 mod array;
 mod bin;
 mod bool;
+mod extension;
 mod float;
 mod int;
-mod str;
 mod map;
-mod extension;
+mod str;
 
 /// Messagepack Encode Error
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -31,5 +31,37 @@ pub trait Encode {
     /// encode to slice
     fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
         self.encode_to_iter_mut(&mut buf.iter_mut())
+    }
+}
+
+impl<V> Encode for &V
+where
+    V: Encode,
+{
+    fn encode<T>(&self, buf: &mut T) -> Result<usize>
+    where
+        T: Extend<u8>,
+    {
+        V::encode(self, buf)
+    }
+
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
+        V::encode_to_iter_mut(self, buf)
+    }
+}
+
+impl<V> Encode for &mut V
+where
+    V: Encode,
+{
+    fn encode<T>(&self, buf: &mut T) -> Result<usize>
+    where
+        T: Extend<u8>,
+    {
+        V::encode(self, buf)
+    }
+
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
+        V::encode_to_iter_mut(self, buf)
     }
 }

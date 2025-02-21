@@ -3,22 +3,22 @@ use core::{borrow::Borrow, iter, marker::PhantomData};
 use super::{Encode, Error, Result};
 use crate::formats;
 
-pub struct MapEncoder<'b, MapLike, B, K, V> {
+pub struct MapEncoder<MapLike, B, K, V> {
     map: MapLike,
-    _phantom: PhantomData<(B, K, V, &'b ())>,
+    _phantom: PhantomData<(B, K, V)>,
 }
 
-impl<MapLike, B, K, V> core::ops::Deref for MapEncoder<'_, MapLike, B, K, V> {
+impl<MapLike, B, K, V> core::ops::Deref for MapEncoder<MapLike, B, K, V> {
     type Target = MapLike;
     fn deref(&self) -> &Self::Target {
         &self.map
     }
 }
 
-impl<'b, MapLike, B, K, V> MapEncoder<'b, MapLike, B, K, V>
+impl<MapLike, B, K, V> MapEncoder<MapLike, B, K, V>
 where
-    MapLike: Iterator<Item = &'b B> + ExactSizeIterator + Clone,
-    B: Borrow<(K, V)> + 'b,
+    MapLike: Iterator<Item = B> + ExactSizeIterator + Clone,
+    B: Borrow<(K, V)>,
     K: Encode,
     V: Encode,
 {
@@ -30,7 +30,7 @@ where
     }
 }
 
-impl<MapLike, B, K, V> Encode for MapEncoder<'_, MapLike, B, K, V>
+impl<MapLike, B, K, V> Encode for MapEncoder<MapLike, B, K, V>
 where
     MapLike: Iterator<Item = B> + ExactSizeIterator + Clone,
     B: Borrow<(K, V)>,

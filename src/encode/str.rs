@@ -3,7 +3,7 @@ use core::iter;
 use super::{Encode, Error, Result};
 use crate::formats;
 
-impl Encode for str {
+impl Encode for &str {
     fn encode<T>(&self, buf: &mut T) -> Result<usize>
     where
         T: Extend<u8>,
