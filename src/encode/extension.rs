@@ -1,7 +1,7 @@
 use core::iter;
 
 use super::{Encode, Error, Result};
-use crate::formats;
+use crate::formats::Format;
 
 pub struct ExtensionEncoder<'data> {
     r#type: u8,
@@ -22,35 +22,40 @@ impl Encode for ExtensionEncoder<'_> {
         let data_len = self.data.len();
         match data_len {
             1 => {
-                let it = iter::once(formats::FIXEXT1)
+                let it = Format::FixExt1
+                    .into_iter()
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
                 buf.extend(it);
                 Ok(2 + data_len)
             }
             2 => {
-                let it = iter::once(formats::FIXEXT2)
+                let it = Format::FixExt2
+                    .into_iter()
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
                 buf.extend(it);
                 Ok(2 + data_len)
             }
             4 => {
-                let it = iter::once(formats::FIXEXT4)
+                let it = Format::FixExt4
+                    .into_iter()
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
                 buf.extend(it);
                 Ok(2 + data_len)
             }
             8 => {
-                let it = iter::once(formats::FIXEXT8)
+                let it = Format::FixExt8
+                    .into_iter()
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
                 buf.extend(it);
                 Ok(2 + data_len)
             }
             16 => {
-                let it = iter::once(formats::FIXEXT16)
+                let it = Format::FixExt16
+                    .into_iter()
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
                 buf.extend(it);
@@ -58,7 +63,8 @@ impl Encode for ExtensionEncoder<'_> {
             }
             0x00..=0xff => {
                 let cast = data_len as u8;
-                let it = iter::once(formats::EXT8)
+                let it = Format::Ext8
+                    .into_iter()
                     .chain(cast.to_be_bytes())
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
@@ -67,7 +73,8 @@ impl Encode for ExtensionEncoder<'_> {
             }
             0x100..=0xffff => {
                 let cast = data_len as u16;
-                let it = iter::once(formats::EXT16)
+                let it = Format::Ext16
+                    .into_iter()
                     .chain(cast.to_be_bytes())
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
@@ -76,7 +83,8 @@ impl Encode for ExtensionEncoder<'_> {
             }
             0x10000..0xffffffff => {
                 let cast = data_len as u32;
-                let it = iter::once(formats::EXT32)
+                let it = Format::Ext32
+                    .into_iter()
                     .chain(cast.to_be_bytes())
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
@@ -92,11 +100,12 @@ impl Encode for ExtensionEncoder<'_> {
         match data_len {
             1 => {
                 const SIZE: usize = 2;
-                let mut it = iter::once(formats::FIXEXT1)
+                let mut it = Format::FixExt1
+                    .into_iter()
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
 
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -108,11 +117,12 @@ impl Encode for ExtensionEncoder<'_> {
             }
             2 => {
                 const SIZE: usize = 2;
-                let mut it = iter::once(formats::FIXEXT2)
+                let mut it = Format::FixExt2
+                    .into_iter()
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
 
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -124,11 +134,12 @@ impl Encode for ExtensionEncoder<'_> {
             }
             4 => {
                 const SIZE: usize = 2;
-                let mut it = iter::once(formats::FIXEXT4)
+                let mut it = Format::FixExt4
+                    .into_iter()
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
 
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -140,11 +151,12 @@ impl Encode for ExtensionEncoder<'_> {
             }
             8 => {
                 const SIZE: usize = 2;
-                let mut it = iter::once(formats::FIXEXT8)
+                let mut it = Format::FixExt8
+                    .into_iter()
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
 
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -156,11 +168,12 @@ impl Encode for ExtensionEncoder<'_> {
             }
             16 => {
                 const SIZE: usize = 2;
-                let mut it = iter::once(formats::FIXEXT16)
+                let mut it = Format::FixExt16
+                    .into_iter()
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
 
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -174,12 +187,13 @@ impl Encode for ExtensionEncoder<'_> {
                 const SIZE: usize = 3;
                 let cast = data_len as u8;
 
-                let mut it = iter::once(formats::EXT8)
+                let mut it = Format::Ext8
+                    .into_iter()
                     .chain(cast.to_be_bytes())
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
 
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -193,12 +207,13 @@ impl Encode for ExtensionEncoder<'_> {
                 const SIZE: usize = 4;
                 let cast = data_len as u16;
 
-                let mut it = iter::once(formats::EXT16)
+                let mut it = Format::Ext16
+                    .into_iter()
                     .chain(cast.to_be_bytes())
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
 
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -212,12 +227,13 @@ impl Encode for ExtensionEncoder<'_> {
                 const SIZE: usize = 6;
                 let cast = data_len as u32;
 
-                let mut it = iter::once(formats::EXT32)
+                let mut it = Format::Ext32
+                    .into_iter()
                     .chain(cast.to_be_bytes())
                     .chain(iter::once(self.r#type))
                     .chain(self.data.iter().cloned());
 
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 

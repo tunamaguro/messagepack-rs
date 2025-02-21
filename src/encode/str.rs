@@ -1,7 +1,6 @@
-use core::iter;
 
 use super::{Encode, Error, Result};
-use crate::formats;
+use crate::formats::{Format};
 
 impl Encode for &str {
     fn encode<T>(&self, buf: &mut T) -> Result<usize>
@@ -12,25 +11,25 @@ impl Encode for &str {
         let format_len = match self_len {
             0x00..=31 => {
                 let cast = self_len as u8;
-                let it = iter::once(cast | formats::FIX_STR);
+                let it = Format::FixStr(cast).into_iter();
                 buf.extend(it);
                 Ok(1)
             }
             32..=0xff => {
                 let cast = self_len as u8;
-                let it = iter::once(formats::STR8).chain(cast.to_be_bytes());
+                let it = Format::Str8.into_iter().chain(cast.to_be_bytes());
                 buf.extend(it);
                 Ok(2)
             }
             0x100..=0xffff => {
                 let cast = self_len as u16;
-                let it = iter::once(formats::STR16).chain(cast.to_be_bytes());
+                let it = Format::Str16.into_iter().chain(cast.to_be_bytes());
                 buf.extend(it);
                 Ok(3)
             }
             0x10000..=0xffffffff => {
                 let cast = self_len as u32;
-                let it = iter::once(formats::STR32).chain(cast.to_be_bytes());
+                let it = Format::Str32.into_iter().chain(cast.to_be_bytes());
                 buf.extend(it);
                 Ok(5)
             }
@@ -46,8 +45,8 @@ impl Encode for &str {
             0x00..=31 => {
                 const SIZE: usize = 1;
                 let cast = self_len as u8;
-                let mut it = iter::once(cast | formats::FIX_STR);
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                let mut it = Format::FixStr(cast).into_iter();
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -60,8 +59,8 @@ impl Encode for &str {
             32..=0xff => {
                 const SIZE: usize = 2;
                 let cast = self_len as u8;
-                let mut it = iter::once(formats::STR8).chain(cast.to_be_bytes());
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                let mut it = Format::Str8.into_iter().chain(cast.to_be_bytes());
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -74,8 +73,8 @@ impl Encode for &str {
             0x100..=0xffff => {
                 const SIZE: usize = 3;
                 let cast = self_len as u16;
-                let mut it = iter::once(formats::STR16).chain(cast.to_be_bytes());
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                let mut it = Format::Str16.into_iter().chain(cast.to_be_bytes());
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -88,8 +87,8 @@ impl Encode for &str {
             0x10000..=0xffffffff => {
                 const SIZE: usize = 5;
                 let cast = self_len as u32;
-                let mut it = iter::once(formats::STR32).chain(cast.to_be_bytes());
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                let mut it = Format::Str32.into_iter().chain(cast.to_be_bytes());
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 

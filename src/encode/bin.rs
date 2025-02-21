@@ -1,7 +1,6 @@
-use core::iter;
 
 use super::{Encode, Error, Result};
-use crate::formats;
+use crate::formats::{Format};
 
 pub struct BinaryEncoder<'blob> {
     blob: &'blob [u8],
@@ -29,19 +28,19 @@ impl Encode for BinaryEncoder<'_> {
         let format_len = match self_len {
             0x00..=0xff => {
                 let cast = self_len as u8;
-                let it = iter::once(formats::BIN8).chain(cast.to_be_bytes());
+                let it = Format::Bin8.into_iter().chain(cast.to_be_bytes());
                 buf.extend(it);
                 Ok(2)
             }
             0x100..=0xffff => {
                 let cast = self_len as u16;
-                let it = iter::once(formats::BIN16).chain(cast.to_be_bytes());
+                let it = Format::Bin16.into_iter().chain(cast.to_be_bytes());
                 buf.extend(it);
                 Ok(3)
             }
             0x10000..=0xffffffff => {
                 let cast = self_len as u32;
-                let it = iter::once(formats::BIN32).chain(cast.to_be_bytes());
+                let it = Format::Bin32.into_iter().chain(cast.to_be_bytes());
                 buf.extend(it);
                 Ok(5)
             }
@@ -57,8 +56,8 @@ impl Encode for BinaryEncoder<'_> {
             0x00..=0xff => {
                 const SIZE: usize = 2;
                 let cast = self_len as u8;
-                let mut it = iter::once(formats::BIN8).chain(cast.to_be_bytes());
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                let mut it = Format::Bin8.into_iter().chain(cast.to_be_bytes());
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -71,8 +70,8 @@ impl Encode for BinaryEncoder<'_> {
             0x100..=0xffff => {
                 const SIZE: usize = 3;
                 let cast = self_len as u16;
-                let mut it = iter::once(formats::BIN16).chain(cast.to_be_bytes());
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                let mut it = Format::Bin16.into_iter().chain(cast.to_be_bytes());
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -85,9 +84,9 @@ impl Encode for BinaryEncoder<'_> {
             0x10000..=0xffffffff => {
                 const SIZE: usize = 5;
                 let cast = self_len as u32;
-                let mut it = iter::once(formats::BIN32).chain(cast.to_be_bytes());
+                let mut it = Format::Bin32.into_iter().chain(cast.to_be_bytes());
 
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 

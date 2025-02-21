@@ -1,7 +1,7 @@
-use core::{borrow::Borrow, iter, marker::PhantomData};
+use core::{borrow::Borrow, marker::PhantomData};
 
 use super::{Encode, Error, Result};
-use crate::formats;
+use crate::formats::{Format};
 
 pub struct MapEncoder<MapLike, B, K, V> {
     map: MapLike,
@@ -46,19 +46,19 @@ where
         let format_len = match self_len {
             0x00..=0xf => {
                 let cast = self_len as u8;
-                let it = iter::once(cast | formats::FIX_MAP);
+                let it = Format::FixMap(cast).into_iter();
                 buf.extend(it);
                 Ok(1)
             }
             0x10..=0xffff => {
                 let cast = self_len as u16;
-                let it = iter::once(formats::MAP16).chain(cast.to_be_bytes());
+                let it = Format::Map16.into_iter().chain(cast.to_be_bytes());
                 buf.extend(it);
                 Ok(3)
             }
             0x10000..=0xffffffff => {
                 let cast = self_len as u32;
-                let it = iter::once(formats::MAP32).chain(cast.to_be_bytes());
+                let it = Format::Map32.into_iter().chain(cast.to_be_bytes());
                 buf.extend(it);
                 Ok(5)
             }
@@ -82,8 +82,8 @@ where
             0x00..=0xf => {
                 const SIZE: usize = 1;
                 let cast = self_len as u8;
-                let mut it = iter::once(cast | formats::FIX_MAP);
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                let mut it = Format::FixMap(cast).into_iter();
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -96,8 +96,8 @@ where
             0x10..=0xffff => {
                 const SIZE: usize = 3;
                 let cast = self_len as u16;
-                let mut it = iter::once(formats::MAP16).chain(cast.to_be_bytes());
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                let mut it = Format::Map16.into_iter().chain(cast.to_be_bytes());
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 
@@ -110,8 +110,8 @@ where
             0x10000..=0xffffffff => {
                 const SIZE: usize = 5;
                 let cast = self_len as u32;
-                let mut it = iter::once(formats::MAP32).chain(cast.to_be_bytes());
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                let mut it = Format::Map32.into_iter().chain(cast.to_be_bytes());
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
 

@@ -1,7 +1,6 @@
-use core::iter;
 
 use super::{Encode, Error, Result};
-use crate::formats;
+use crate::formats::{Format};
 
 impl Encode for u8 {
     fn encode<T>(&self, buf: &mut T) -> Result<usize>
@@ -10,11 +9,11 @@ impl Encode for u8 {
     {
         match self {
             0x00..=0x7f => {
-                buf.extend(iter::once(*self | formats::POSITIVE_FIXINT));
+                buf.extend(Format::PositiveFixInt(*self));
                 Ok(1)
             }
             _ => {
-                buf.extend(iter::once(formats::UINT8).chain(self.to_be_bytes()));
+                buf.extend(Format::Uint8.into_iter().chain(self.to_be_bytes()));
                 Ok(2)
             }
         }
@@ -23,8 +22,8 @@ impl Encode for u8 {
         match self {
             0x00..=0x7f => {
                 const SIZE: usize = 1;
-                let mut it = iter::once(*self);
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                let mut it = Format::PositiveFixInt(*self).into_iter();
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
                 if it.next().is_none() {
@@ -35,8 +34,8 @@ impl Encode for u8 {
             }
             _ => {
                 const SIZE: usize = 2;
-                let mut it = iter::once(formats::UINT8).chain(self.to_be_bytes());
-                for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                let mut it = Format::Uint8.into_iter().chain(self.to_be_bytes());
+                for (to, byte) in buf.zip(&mut it) {
                     *to = byte
                 }
                 if it.next().is_none() {
@@ -59,7 +58,7 @@ macro_rules! impl_encode_unsigned {
                 match <$lower>::try_from(*self) {
                     Ok(lower_val) => lower_val.encode(buf),
                     Err(_) => {
-                        buf.extend(core::iter::once($format).chain(self.to_be_bytes()));
+                        buf.extend($format.into_iter().chain(self.to_be_bytes()));
                         Ok($size)
                     }
                 }
@@ -73,8 +72,8 @@ macro_rules! impl_encode_unsigned {
                     Ok(lower_val) => lower_val.encode_to_iter_mut(buf),
                     Err(_) => {
                         const SIZE: usize = $size;
-                        let mut it = core::iter::once($format).chain(self.to_be_bytes());
-                        for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                        let mut it = $format.into_iter().chain(self.to_be_bytes());
+                        for (to, byte) in buf.zip(&mut it) {
                             *to = byte;
                         }
                         if it.next().is_none() {
@@ -88,9 +87,9 @@ macro_rules! impl_encode_unsigned {
         }
     };
 }
-impl_encode_unsigned!(u16, u8, formats::UINT16, 3);
-impl_encode_unsigned!(u32, u16, formats::UINT32, 5);
-impl_encode_unsigned!(u64, u32, formats::UINT64, 9);
+impl_encode_unsigned!(u16, u8, Format::Uint16, 3);
+impl_encode_unsigned!(u32, u16, Format::Uint32, 5);
+impl_encode_unsigned!(u64, u32, Format::Uint64, 9);
 
 impl Encode for u128 {
     fn encode<T>(&self, buf: &mut T) -> Result<usize>
@@ -119,13 +118,12 @@ impl Encode for i8 {
             Ok(u8_int) => u8_int.encode(buf),
             Err(_) => match self {
                 -0b11111..=0b00000 => {
-                    let cast = *self as u8;
-                    let it = iter::once(formats::NEGATIVE_FIXINT | cast);
+                    let it = Format::NegativeFixInt(*self);
                     buf.extend(it);
                     Ok(1)
                 }
                 _ => {
-                    let it = iter::once(formats::INT8).chain(self.to_be_bytes());
+                    let it = Format::Int8.into_iter().chain(self.to_be_bytes());
                     buf.extend(it);
                     Ok(2)
                 }
@@ -139,9 +137,8 @@ impl Encode for i8 {
             Err(_) => match self {
                 -0b11111..=0b00000 => {
                     const SIZE: usize = 1;
-                    let cast = *self as u8;
-                    let mut it = iter::once(formats::NEGATIVE_FIXINT | cast);
-                    for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                    let mut it = Format::NegativeFixInt(*self).into_iter();
+                    for (to, byte) in buf.zip(&mut it) {
                         *to = byte
                     }
                     if it.next().is_none() {
@@ -152,7 +149,7 @@ impl Encode for i8 {
                 }
                 _ => {
                     const SIZE: usize = 2;
-                    let mut it = iter::once(formats::INT8).chain(self.to_be_bytes());
+                    let mut it = Format::Int8.into_iter().chain(self.to_be_bytes());
                     for (to, byte) in buf.take(SIZE).zip(&mut it) {
                         *to = byte
                     }
@@ -179,7 +176,7 @@ macro_rules! impl_encode_signed {
                 } else if let Ok(lower_val) = <$lower_sign>::try_from(*self) {
                     lower_val.encode(buf)
                 } else {
-                    buf.extend(core::iter::once($format).chain(self.to_be_bytes()));
+                    buf.extend($format.into_iter().chain(self.to_be_bytes()));
                     Ok($size)
                 }
             }
@@ -194,8 +191,8 @@ macro_rules! impl_encode_signed {
                     lower_val.encode_to_iter_mut(buf)
                 } else {
                     const SIZE: usize = $size;
-                    let mut it = core::iter::once($format).chain(self.to_be_bytes());
-                    for (slot, byte) in buf.take(SIZE).zip(&mut it) {
+                    let mut it = $format.into_iter();
+                    for (slot, byte) in buf.zip(&mut it) {
                         *slot = byte;
                     }
                     if it.next().is_none() {
@@ -208,9 +205,9 @@ macro_rules! impl_encode_signed {
         }
     };
 }
-impl_encode_signed!(i16, u8, i8, formats::INT16, 3);
-impl_encode_signed!(i32, u16, i16, formats::INT32, 5);
-impl_encode_signed!(i64, u32, i32, formats::INT64, 9);
+impl_encode_signed!(i16, u8, i8, Format::Int16, 3);
+impl_encode_signed!(i32, u16, i16, Format::Int32, 5);
+impl_encode_signed!(i64, u32, i32, Format::Int64, 9);
 
 impl Encode for i128 {
     fn encode<T>(&self, buf: &mut T) -> Result<usize>
@@ -249,17 +246,17 @@ mod tests {
 
     #[test]
     fn encode_uint_8bit() {
-        let expect: &[u8] = &[formats::UINT8, 0x80];
+        let expect: &[u8] = &[Format::Uint8.as_byte(), 0x80];
         let buf = &mut [0xff; 2];
         128_u8.encode_to_slice(buf).unwrap();
         assert_eq!(buf, expect);
 
-        let expect: &[u8] = &[formats::UINT8, 0xff];
+        let expect: &[u8] = &[Format::Uint8.as_byte(), 0xff];
         let buf = &mut [0xff; 2];
         255_u8.encode_to_slice(buf).unwrap();
         assert_eq!(buf, expect);
 
-        let expect: &[u8] = &[formats::UINT8, 0xff];
+        let expect: &[u8] = &[Format::Uint8.as_byte(), 0xff];
         let buf = &mut [0xff; 2];
         255_i16.encode_to_slice(buf).unwrap();
         assert_eq!(buf, expect);
