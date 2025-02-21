@@ -5,6 +5,7 @@ mod extension;
 mod float;
 mod int;
 mod map;
+mod nil;
 mod str;
 
 /// Messagepack Encode Error
