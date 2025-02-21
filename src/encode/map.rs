@@ -50,13 +50,13 @@ where
                 buf.extend(it);
                 Ok(1)
             }
-            0xf0..=0xff => {
+            0x10..=0xffff => {
                 let cast = self_len as u16;
                 let it = iter::once(formats::MAP16).chain(cast.to_be_bytes());
                 buf.extend(it);
                 Ok(3)
             }
-            0xffff..=0xffff => {
+            0x10000..=0xffffffff => {
                 let cast = self_len as u32;
                 let it = iter::once(formats::MAP32).chain(cast.to_be_bytes());
                 buf.extend(it);
@@ -93,7 +93,7 @@ where
                     Err(Error::BufferFull)
                 }
             }
-            0xf0..=0xff => {
+            0x10..=0xffff => {
                 const SIZE: usize = 3;
                 let cast = self_len as u16;
                 let mut it = iter::once(formats::MAP16).chain(cast.to_be_bytes());
@@ -107,7 +107,7 @@ where
                     Err(Error::BufferFull)
                 }
             }
-            0xffff..=0xffff => {
+            0x10000..=0xffffffff => {
                 const SIZE: usize = 5;
                 let cast = self_len as u32;
                 let mut it = iter::once(formats::MAP32).chain(cast.to_be_bytes());

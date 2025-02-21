@@ -30,19 +30,19 @@ where
     {
         let self_len = self.len();
         let format_len = match self_len {
-            0x00..=0xf => {
+            0x00..=0b1111 => {
                 let cast = self_len as u8;
                 let it = iter::once(cast | formats::FIX_ARRAY);
                 buf.extend(it);
                 Ok(1)
             }
-            0xf0..=0xff => {
+            0x10..=0xffff => {
                 let cast = self_len as u16;
                 let it = iter::once(formats::ARRAY16).chain(cast.to_be_bytes());
                 buf.extend(it);
                 Ok(3)
             }
-            0xffff..=0xffff => {
+            0x10000..=0xffffffff => {
                 let cast = self_len as u32;
                 let it = iter::once(formats::ARRAY32).chain(cast.to_be_bytes());
                 buf.extend(it);
@@ -60,7 +60,7 @@ where
     fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         let self_len = self.len();
         let format_len = match self_len {
-            0x00..=0xf => {
+            0x00..=0b1111 => {
                 const SIZE: usize = 1;
                 let cast = self_len as u8;
                 let mut it = iter::once(cast | formats::FIX_ARRAY);
@@ -74,7 +74,7 @@ where
                     Err(Error::BufferFull)
                 }
             }
-            0xf0..=0xff => {
+            0x10..=0xffff => {
                 const SIZE: usize = 3;
                 let cast = self_len as u16;
                 let mut it = iter::once(formats::ARRAY16).chain(cast.to_be_bytes());
@@ -88,7 +88,7 @@ where
                     Err(Error::BufferFull)
                 }
             }
-            0xffff..=0xffff => {
+            0x10000..=0xffffffff => {
                 const SIZE: usize = 5;
                 let cast = self_len as u32;
                 let mut it = iter::once(formats::ARRAY32).chain(cast.to_be_bytes());

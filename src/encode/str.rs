@@ -10,13 +10,13 @@ impl Encode for str {
     {
         let self_len = self.len();
         let format_len = match self_len {
-            0x00..=0x1f => {
+            0x00..=31 => {
                 let cast = self_len as u8;
                 let it = iter::once(cast | formats::FIX_STR);
                 buf.extend(it);
                 Ok(1)
             }
-            0x20..=0xff => {
+            32..=0xff => {
                 let cast = self_len as u8;
                 let it = iter::once(formats::STR8).chain(cast.to_be_bytes());
                 buf.extend(it);
@@ -43,7 +43,7 @@ impl Encode for str {
     fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         let self_len = self.len();
         let format_len = match self_len {
-            0x00..=0x1f => {
+            0x00..=31 => {
                 const SIZE: usize = 1;
                 let cast = self_len as u8;
                 let mut it = iter::once(cast | formats::FIX_STR);
@@ -57,7 +57,7 @@ impl Encode for str {
                     Err(Error::BufferFull)
                 }
             }
-            0x20..=0xff => {
+            32..=0xff => {
                 const SIZE: usize = 2;
                 let cast = self_len as u8;
                 let mut it = iter::once(formats::STR8).chain(cast.to_be_bytes());
