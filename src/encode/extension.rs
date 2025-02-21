@@ -10,7 +10,7 @@ pub struct ExtensionEncoder<'data> {
 }
 
 impl<'data> ExtensionEncoder<'data> {
-    fn new(r#type: u8, data: &'data [u8]) -> Self {
+    pub fn new(r#type: u8, data: &'data [u8]) -> Self {
         Self { r#type, data }
     }
 }

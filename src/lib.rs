@@ -1,6 +1,9 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(all(not(test), not(feature = "std")), no_std)]
 
-mod decode;
-mod encode;
+pub mod decode;
+pub mod encode;
 mod formats;
+
+pub use formats::Format;
+

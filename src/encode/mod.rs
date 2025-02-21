@@ -8,6 +8,11 @@ mod map;
 mod nil;
 mod str;
 
+pub use array::ArrayEncoder;
+pub use bin::BinaryEncoder;
+pub use extension::ExtensionEncoder;
+pub use map::MapEncoder;
+
 /// Messagepack Encode Error
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Error {
