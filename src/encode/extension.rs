@@ -3,6 +3,7 @@ use core::iter;
 use super::{Encode, Error, Result};
 use crate::formats::Format;
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ExtensionEncoder<'data> {
     r#type: u8,
     data: &'data [u8],

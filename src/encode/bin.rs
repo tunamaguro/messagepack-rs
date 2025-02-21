@@ -1,6 +1,7 @@
 use super::{Encode, Error, Result};
 use crate::formats::Format;
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BinaryEncoder<'blob> {
     blob: &'blob [u8],
 }
