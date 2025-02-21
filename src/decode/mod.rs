@@ -1,5 +1,7 @@
 use core::borrow::Borrow;
 
+use crate::Format;
+
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Error {
@@ -22,4 +24,16 @@ pub trait Decode: Sized {
     where
         I: Iterator<Item = B>,
         B: Borrow<u8>;
+}
+
+impl Decode for Format {
+    fn decode<I, B>(buf: &mut I) -> Result<Self>
+    where
+        I: Iterator<Item = B>,
+        B: Borrow<u8>,
+    {
+        let binding = buf.next().ok_or(Error::EofFormat)?;
+        let byte = binding.borrow();
+        Ok(Self::from_byte(*byte))
+    }
 }
