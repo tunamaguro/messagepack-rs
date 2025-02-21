@@ -2,6 +2,8 @@ use core::borrow::Borrow;
 
 use crate::Format;
 
+mod bool;
+
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Error {
