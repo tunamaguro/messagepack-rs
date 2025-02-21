@@ -232,32 +232,32 @@ mod tests {
 
     #[test]
     fn encode_pos_7bit() {
+        let mut buf = vec![];
+        0x00_u8.encode(&mut buf).unwrap();
         let expect: &[u8] = &[0x00];
-        let buf = &mut [0xff];
-        0x00_u8.encode_to_slice(buf).unwrap();
         assert_eq!(buf, expect);
 
+        let mut buf = vec![];
+        0x7f_u8.encode(&mut buf).unwrap();
         let expect: &[u8] = &[0x7f];
-        let buf = &mut [0xff];
-        0x7f_u8.encode_to_slice(buf).unwrap();
         assert_eq!(buf, expect)
     }
 
     #[test]
     fn encode_uint_8bit() {
+        let mut buf = vec![];
+        128_u8.encode(&mut buf).unwrap();
         let expect: &[u8] = &[Format::Uint8.as_byte(), 0x80];
-        let buf = &mut [0xff; 2];
-        128_u8.encode_to_slice(buf).unwrap();
         assert_eq!(buf, expect);
 
+        let mut buf = vec![];
+        255_u8.encode(&mut buf).unwrap();
         let expect: &[u8] = &[Format::Uint8.as_byte(), 0xff];
-        let buf = &mut [0xff; 2];
-        255_u8.encode_to_slice(buf).unwrap();
         assert_eq!(buf, expect);
 
+        let mut buf = vec![];
+        255_i16.encode(&mut buf).unwrap();
         let expect: &[u8] = &[Format::Uint8.as_byte(), 0xff];
-        let buf = &mut [0xff; 2];
-        255_i16.encode_to_slice(buf).unwrap();
         assert_eq!(buf, expect);
     }
 }

@@ -141,15 +141,14 @@ mod tests {
 
     #[test]
     fn encode_map() {
-        let a = [("123", 123), ("456", 456)];
-        let encoder = MapEncoder::new(a.iter());
+        let mut buf = vec![];
+        let map = [("123", 123), ("456", 456)];
+        let encoder = MapEncoder::new(map.iter());
+        encoder.encode(&mut buf).unwrap();
 
         let expect: &[u8] = &[
             0x82, 0xa3, 0x31, 0x32, 0x33, 0x7b, 0xa3, 0x34, 0x35, 0x36, 0xcd, 0x01, 0xc8,
         ];
-
-        let buf: &mut [u8] = &mut [0x0; 13];
-        encoder.encode_to_iter_mut(&mut buf.iter_mut()).unwrap();
 
         assert_eq!(buf, expect)
     }

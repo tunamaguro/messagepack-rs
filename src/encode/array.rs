@@ -110,3 +110,19 @@ where
         Ok(format_len + array_len)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn encode_array() {
+        let mut buf = vec![];
+        let arr = [1, 2, 3];
+        ArrayEncoder::new(&arr).encode(&mut buf).unwrap();
+
+        let expected: &[u8] = &[0x93, 0x01, 0x02, 0x03];
+
+        assert_eq!(buf, expected)
+    }
+}
