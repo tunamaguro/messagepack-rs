@@ -10,7 +10,7 @@ impl Encode for u8 {
     {
         match self {
             0x00..=0x7f => {
-                buf.extend(iter::once(*self));
+                buf.extend(iter::once(*self | formats::POSITIVE_FIXINT));
                 Ok(1)
             }
             _ => {
