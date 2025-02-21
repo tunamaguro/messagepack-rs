@@ -1,4 +1,3 @@
-
 use super::{Encode, Error, Result};
 use crate::formats::Format;
 

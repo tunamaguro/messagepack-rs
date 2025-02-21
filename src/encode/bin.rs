@@ -1,6 +1,5 @@
-
 use super::{Encode, Error, Result};
-use crate::formats::{Format};
+use crate::formats::Format;
 
 pub struct BinaryEncoder<'blob> {
     blob: &'blob [u8],

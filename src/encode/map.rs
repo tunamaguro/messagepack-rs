@@ -1,7 +1,7 @@
 use core::{borrow::Borrow, marker::PhantomData};
 
 use super::{Encode, Error, Result};
-use crate::formats::{Format};
+use crate::formats::Format;
 
 pub struct MapEncoder<MapLike, B, K, V> {
     map: MapLike,

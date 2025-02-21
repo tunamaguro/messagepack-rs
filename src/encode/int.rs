@@ -1,6 +1,5 @@
-
 use super::{Encode, Error, Result};
-use crate::formats::{Format};
+use crate::formats::Format;
 
 impl Encode for u8 {
     fn encode<T>(&self, buf: &mut T) -> Result<usize>
