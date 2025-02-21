@@ -168,19 +168,19 @@ impl Encode for i8 {
 }
 
 macro_rules! impl_encode_signed {
-    ($ty:ty, $lower:ty, $format:expr, $size:expr) => {
+    ($ty:ty,$lower_unsign:ty, $lower_sign:ty, $format:expr, $size:expr) => {
         impl Encode for $ty {
             fn encode<T>(&self, buf: &mut T) -> Result<usize>
             where
                 T: Extend<u8>,
             {
-                // まずより小さい型に変換できるか試みる
-                match <$lower>::try_from(*self) {
-                    Ok(lower_val) => lower_val.encode(buf),
-                    Err(_) => {
-                        buf.extend(core::iter::once($format).chain(self.to_be_bytes()));
-                        Ok($size)
-                    }
+                if let Ok(lower_val) = <$lower_unsign>::try_from(*self) {
+                    lower_val.encode(buf)
+                } else if let Ok(lower_val) = <$lower_sign>::try_from(*self) {
+                    lower_val.encode(buf)
+                } else {
+                    buf.extend(core::iter::once($format).chain(self.to_be_bytes()));
+                    Ok($size)
                 }
             }
 
@@ -188,28 +188,29 @@ macro_rules! impl_encode_signed {
                 &self,
                 buf: &mut impl Iterator<Item = &'a mut u8>,
             ) -> Result<usize> {
-                match <$lower>::try_from(*self) {
-                    Ok(lower_val) => lower_val.encode_to_iter_mut(buf),
-                    Err(_) => {
-                        const SIZE: usize = $size;
-                        let mut it = core::iter::once($format).chain(self.to_be_bytes());
-                        for (slot, byte) in buf.take(SIZE).zip(&mut it) {
-                            *slot = byte;
-                        }
-                        if it.next().is_none() {
-                            Ok(SIZE)
-                        } else {
-                            Err(Error::BufferFull)
-                        }
+                if let Ok(lower_val) = <$lower_unsign>::try_from(*self) {
+                    lower_val.encode_to_iter_mut(buf)
+                } else if let Ok(lower_val) = <$lower_sign>::try_from(*self) {
+                    lower_val.encode_to_iter_mut(buf)
+                } else {
+                    const SIZE: usize = $size;
+                    let mut it = core::iter::once($format).chain(self.to_be_bytes());
+                    for (slot, byte) in buf.take(SIZE).zip(&mut it) {
+                        *slot = byte;
+                    }
+                    if it.next().is_none() {
+                        Ok(SIZE)
+                    } else {
+                        Err(Error::BufferFull)
                     }
                 }
             }
         }
     };
 }
-impl_encode_signed!(i16, i8, formats::INT16, 3);
-impl_encode_signed!(i32, i16, formats::INT32, 5);
-impl_encode_signed!(i64, i32, formats::INT64, 9);
+impl_encode_signed!(i16, u8, i8, formats::INT16, 3);
+impl_encode_signed!(i32, u16, i16, formats::INT32, 5);
+impl_encode_signed!(i64, u32, i32, formats::INT64, 9);
 
 impl Encode for i128 {
     fn encode<T>(&self, buf: &mut T) -> Result<usize>
@@ -226,5 +227,41 @@ impl Encode for i128 {
             Ok(i64_int) => i64_int.encode_to_iter_mut(buf),
             Err(_) => Err(Error::InvalidType),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn encode_pos_7bit() {
+        let expect: &[u8] = &[0x00];
+        let buf = &mut [0xff];
+        0x00_u8.encode_to_slice(buf).unwrap();
+        assert_eq!(buf, expect);
+
+        let expect: &[u8] = &[0x7f];
+        let buf = &mut [0xff];
+        0x7f_u8.encode_to_slice(buf).unwrap();
+        assert_eq!(buf, expect)
+    }
+
+    #[test]
+    fn encode_uint_8bit() {
+        let expect: &[u8] = &[formats::UINT8, 0x80];
+        let buf = &mut [0xff; 2];
+        128_u8.encode_to_slice(buf).unwrap();
+        assert_eq!(buf, expect);
+
+        let expect: &[u8] = &[formats::UINT8, 0xff];
+        let buf = &mut [0xff; 2];
+        255_u8.encode_to_slice(buf).unwrap();
+        assert_eq!(buf, expect);
+
+        let expect: &[u8] = &[formats::UINT8, 0xff];
+        let buf = &mut [0xff; 2];
+        255_i16.encode_to_slice(buf).unwrap();
+        assert_eq!(buf, expect);
     }
 }
