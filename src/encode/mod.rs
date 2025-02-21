@@ -18,8 +18,8 @@ pub use map::MapEncoder;
 pub enum Error {
     /// buffer is full
     BufferFull,
-    /// Cannot mapped messagepack type
-    InvalidType,
+    /// Cannot mapped messagepack format
+    InvalidFormat,
 }
 
 type Result<T> = ::core::result::Result<T, Error>;

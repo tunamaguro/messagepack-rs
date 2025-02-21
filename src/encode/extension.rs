@@ -92,7 +92,7 @@ impl Encode for ExtensionEncoder<'_> {
                 buf.extend(it);
                 Ok(6 + data_len)
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }
     }
     fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
@@ -244,7 +244,7 @@ impl Encode for ExtensionEncoder<'_> {
                     Err(Error::BufferFull)
                 }
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }
     }
 }

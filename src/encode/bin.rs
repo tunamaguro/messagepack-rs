@@ -44,7 +44,7 @@ impl Encode for BinaryEncoder<'_> {
                 buf.extend(it);
                 Ok(5)
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
 
         buf.extend(self.iter().cloned());
@@ -96,7 +96,7 @@ impl Encode for BinaryEncoder<'_> {
                     Err(Error::BufferFull)
                 }
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
 
         let mut it = self.iter();

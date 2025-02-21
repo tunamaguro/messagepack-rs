@@ -47,7 +47,7 @@ where
                 buf.extend(it);
                 Ok(5)
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
 
         let array_len = self
@@ -101,7 +101,7 @@ where
                     Err(Error::BufferFull)
                 }
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
         let array_len = self
             .iter()

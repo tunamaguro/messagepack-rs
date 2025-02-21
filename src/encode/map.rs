@@ -62,7 +62,7 @@ where
                 buf.extend(it);
                 Ok(5)
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
 
         let map_len = clone_map
@@ -121,7 +121,7 @@ where
                     Err(Error::BufferFull)
                 }
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
         let map_len = clone_map
             .flat_map(|v| {

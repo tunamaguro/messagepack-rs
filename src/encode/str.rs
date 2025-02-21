@@ -32,7 +32,7 @@ impl Encode for &str {
                 buf.extend(it);
                 Ok(5)
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
 
         buf.extend(self.as_bytes().iter().cloned());
@@ -97,7 +97,7 @@ impl Encode for &str {
                     Err(Error::BufferFull)
                 }
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
 
         let mut it = self.as_bytes().iter();

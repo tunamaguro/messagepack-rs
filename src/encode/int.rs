@@ -97,13 +97,13 @@ impl Encode for u128 {
     {
         match u64::try_from(*self) {
             Ok(u64_uint) => u64_uint.encode(buf),
-            Err(_) => Err(Error::InvalidType),
+            Err(_) => Err(Error::InvalidFormat),
         }
     }
     fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         match u64::try_from(*self) {
             Ok(u64_uint) => u64_uint.encode_to_iter_mut(buf),
-            Err(_) => Err(Error::InvalidType),
+            Err(_) => Err(Error::InvalidFormat),
         }
     }
 }
@@ -215,13 +215,13 @@ impl Encode for i128 {
     {
         match i64::try_from(*self) {
             Ok(i64_int) => i64_int.encode(buf),
-            Err(_) => Err(Error::InvalidType),
+            Err(_) => Err(Error::InvalidFormat),
         }
     }
     fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         match i64::try_from(*self) {
             Ok(i64_int) => i64_int.encode_to_iter_mut(buf),
-            Err(_) => Err(Error::InvalidType),
+            Err(_) => Err(Error::InvalidFormat),
         }
     }
 }

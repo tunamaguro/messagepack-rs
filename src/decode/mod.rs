@@ -3,14 +3,14 @@ use core::borrow::Borrow;
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Error {
-    /// Invalid Type
-    InvalidType,
+    /// Invalid format
+    InvalidFormat,
     /// Invalid data
     InvalidData,
-    /// Unexpected type
-    UnexpectedType,
-    /// Eof while decode type
-    EofType,
+    /// Unexpected format
+    UnexpectedFormat,
+    /// Eof while decode format
+    EofFormat,
     /// Eof while decode data
     EofData,
 }
