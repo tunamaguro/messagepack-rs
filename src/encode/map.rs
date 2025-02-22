@@ -24,7 +24,7 @@ impl<'data, B, K, V> Deref for MapSliceEncoder<'data, B, K, V> {
     }
 }
 
-impl<'data, B, K, V> Encode for MapSliceEncoder<'data, B, K, V>
+impl<B, K, V> Encode for MapSliceEncoder<'_, B, K, V>
 where
     B: Borrow<(K, V)>,
     K: Encode,

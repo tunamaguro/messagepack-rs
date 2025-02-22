@@ -11,7 +11,7 @@ pub(crate) mod str;
 pub use array::ArrayEncoder;
 pub use bin::BinaryEncoder;
 pub use extension::ExtensionEncoder;
-pub use map::MapEncoder;
+pub use map::{MapEncoder, MapSliceEncoder};
 
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
