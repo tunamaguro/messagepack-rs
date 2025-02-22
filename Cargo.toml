@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+num-traits = { version = "0.2", default-features = false }
+
+[dev-dependencies]
+rstest = "0.24.0"
+
 
 [features]
 default = []
