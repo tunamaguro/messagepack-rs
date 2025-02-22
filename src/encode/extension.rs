@@ -21,6 +21,7 @@ impl Encode for ExtensionEncoder<'_> {
         T: Extend<u8>,
     {
         let data_len = self.data.len();
+
         match data_len {
             1 => {
                 let it = &mut Format::FixExt1
@@ -245,6 +246,84 @@ impl Encode for ExtensionEncoder<'_> {
                 }
             }
             _ => Err(Error::InvalidFormat),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case(0xd4_u8.to_be_bytes(),123,[0x12])]
+    #[case(0xd5_u8.to_be_bytes(),123,[0x12,0x34])]
+    #[case(0xd6_u8.to_be_bytes(),123,[0x12,0x34,0x56,0x78])]
+    #[case(0xd7_u8.to_be_bytes(),123,[0x12;8])]
+    #[case(0xd8_u8.to_be_bytes(),123,[0x12;16])]
+    fn encode_ext_fixed<M: AsRef<[u8]>, D: AsRef<[u8]>>(
+        #[case] marker: M,
+        #[case] ty: u8,
+        #[case] data: D,
+    ) {
+        let expected = marker
+            .as_ref()
+            .iter()
+            .chain(ty.to_be_bytes().iter())
+            .chain(data.as_ref())
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let encoder = ExtensionEncoder::new(ty, data.as_ref());
+        {
+            let mut buf = vec![];
+            let n = encoder.encode(&mut buf).unwrap();
+
+            assert_eq!(&buf, &expected);
+            assert_eq!(n, expected.len());
+        }
+
+        {
+            let mut buf = vec![0xff; expected.len()];
+            let n = encoder.encode_to_slice(buf.as_mut_slice()).unwrap();
+            assert_eq!(&buf, &expected);
+            assert_eq!(n, expected.len());
+        }
+    }
+
+    #[rstest]
+    #[case(0xc7_u8.to_be_bytes(),123,5u8.to_be_bytes(),[0x12;5])]
+    #[case(0xc8_u8.to_be_bytes(),123,65535_u16.to_be_bytes(),[0x34;65535])]
+    #[case(0xc9_u8.to_be_bytes(),123,65536_u32.to_be_bytes(),[0x56;65536])]
+    fn encode_ext_sized<M: AsRef<[u8]>, S: AsRef<[u8]>, D: AsRef<[u8]>>(
+        #[case] marker: M,
+        #[case] ty: u8,
+        #[case] size: S,
+        #[case] data: D,
+    ) {
+        let expected = marker
+            .as_ref()
+            .iter()
+            .chain(size.as_ref())
+            .chain(ty.to_be_bytes().iter())
+            .chain(data.as_ref())
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let encoder = ExtensionEncoder::new(ty, data.as_ref());
+        {
+            let mut buf = vec![];
+            let n = encoder.encode(&mut buf).unwrap();
+
+            assert_eq!(&buf, &expected);
+            assert_eq!(n, expected.len());
+        }
+
+        {
+            let mut buf = vec![0xff; expected.len()];
+            let n = encoder.encode_to_slice(buf.as_mut_slice()).unwrap();
+            assert_eq!(&buf, &expected);
+            assert_eq!(n, expected.len());
         }
     }
 }
