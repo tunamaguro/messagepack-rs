@@ -118,8 +118,8 @@ mod tests {
     #[test]
     fn encode_array() {
         let mut buf = vec![];
-        let arr = [1, 2, 3];
-        ArrayEncoder::new(&arr).encode(&mut buf).unwrap();
+        let arr: &[u8] = &[1, 2, 3];
+        ArrayEncoder::new(arr).encode(&mut buf).unwrap();
 
         let expected: &[u8] = &[0x93, 0x01, 0x02, 0x03];
 

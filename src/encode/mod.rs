@@ -1,12 +1,12 @@
-mod array;
-mod bin;
-mod bool;
-mod extension;
-mod float;
-mod int;
-mod map;
-mod nil;
-mod str;
+pub(crate) mod array;
+pub(crate) mod bin;
+pub(crate) mod bool;
+pub(crate) mod extension;
+pub(crate) mod float;
+pub(crate) mod int;
+pub(crate) mod map;
+pub(crate) mod nil;
+pub(crate) mod str;
 
 pub use array::ArrayEncoder;
 pub use bin::BinaryEncoder;

@@ -141,11 +141,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::encode::int::EncodeMinimizeInt;
 
     #[test]
     fn encode_map_extend() {
         let mut buf = vec![];
-        let map = [("123", 123), ("456", 456)];
+        let map = &[("123", 123), ("456", 456)].map(|(k, v)| (k, EncodeMinimizeInt(v)));
         let encoder = MapEncoder::new(map.iter());
         encoder.encode(&mut buf).unwrap();
 
@@ -159,7 +160,7 @@ mod tests {
     #[test]
     fn encode_map_slice() {
         let buf = &mut [0x00; 13];
-        let map = [("123", 123), ("456", 456)];
+        let map = &[("123", 123), ("456", 456)].map(|(k, v)| (k, EncodeMinimizeInt(v)));
         let encoder = MapEncoder::new(map.iter());
         encoder.encode_to_iter_mut(&mut buf.iter_mut()).unwrap();
 
