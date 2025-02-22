@@ -22,3 +22,24 @@ impl Encode for () {
         }
     }
 }
+
+impl<V> Encode for Option<V>
+where
+    V: Encode,
+{
+    fn encode<T>(&self, buf: &mut T) -> Result<usize>
+    where
+        T: Extend<u8>,
+    {
+        match self {
+            Some(other) => other.encode(buf),
+            _ => ().encode(buf),
+        }
+    }
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
+        match self {
+            Some(other) => other.encode_to_iter_mut(buf),
+            _ => ().encode_to_iter_mut(buf),
+        }
+    }
+}

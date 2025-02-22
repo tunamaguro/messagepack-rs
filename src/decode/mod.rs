@@ -4,6 +4,7 @@ use crate::Format;
 
 mod bool;
 mod int;
+mod nil;
 
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -29,6 +30,12 @@ pub trait Decode {
     where
         I: Iterator<Item = B>,
         B: Borrow<u8>;
+
+    // decode with format
+    fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
+    where
+        I: Iterator<Item = B>,
+        B: Borrow<u8>;
 }
 
 impl Decode for Format {
@@ -41,5 +48,14 @@ impl Decode for Format {
         let binding = buf.next().ok_or(Error::EofFormat)?;
         let byte = binding.borrow();
         Ok(Self::from_byte(*byte))
+    }
+
+    fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
+    where
+        I: Iterator<Item = B>,
+        B: Borrow<u8>,
+    {
+        let _ = (format, buf);
+        unreachable!()
     }
 }
