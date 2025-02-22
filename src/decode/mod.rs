@@ -2,10 +2,11 @@ use core::borrow::Borrow;
 
 use crate::Format;
 
+mod array;
 mod bool;
+mod float;
 mod int;
 mod nil;
-mod float;
 
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -59,4 +60,39 @@ impl Decode for Format {
         let _ = (format, buf);
         unreachable!()
     }
+}
+
+struct NbyteReader<const NBYTE: usize>;
+
+macro_rules! impl_read {
+    ($ty:ty,$size:expr) => {
+        fn read<I, B>(buf: &mut I) -> Result<usize>
+        where
+            I: Iterator<Item = B>,
+            B: Borrow<u8>,
+        {
+            let mut bytes = [0_u8; $size];
+            let mut bytes_mut = bytes.iter_mut();
+
+            for (to, byte) in bytes_mut.by_ref().zip(buf) {
+                *to = *byte.borrow();
+            }
+
+            if bytes_mut.next().is_some() {
+                return Err(Error::EofData);
+            };
+            usize::try_from(<$ty>::from_be_bytes(bytes)).map_err(|_| Error::InvalidData)
+        }
+    };
+}
+
+impl NbyteReader<1> {
+    impl_read! {u8,1}
+}
+
+impl NbyteReader<2> {
+    impl_read! {u16,2}
+}
+impl NbyteReader<4> {
+    impl_read! {u32,4}
 }
