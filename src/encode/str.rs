@@ -45,9 +45,9 @@ impl Encode for &str {
             0x00..=31 => {
                 const SIZE: usize = 1;
                 let cast = self_len as u8;
-                let mut it = Format::FixStr(cast).into_iter().chain(data_it);
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                let it = &mut Format::FixStr(cast).into_iter().chain(data_it);
+                for (byte, to) in it.zip(buf) {
+                    *to = byte;
                 }
 
                 if it.next().is_none() {
@@ -59,12 +59,12 @@ impl Encode for &str {
             32..=0xff => {
                 const SIZE: usize = 2;
                 let cast = self_len as u8;
-                let mut it = Format::Str8
+                let it = &mut Format::Str8
                     .into_iter()
                     .chain(cast.to_be_bytes())
                     .chain(data_it);
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                for (byte, to) in it.zip(buf) {
+                    *to = byte;
                 }
 
                 if it.next().is_none() {
@@ -76,12 +76,12 @@ impl Encode for &str {
             0x100..=0xffff => {
                 const SIZE: usize = 3;
                 let cast = self_len as u16;
-                let mut it = Format::Str16
+                let it = &mut Format::Str16
                     .into_iter()
                     .chain(cast.to_be_bytes())
                     .chain(data_it);
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                for (byte, to) in it.zip(buf) {
+                    *to = byte;
                 }
 
                 if it.next().is_none() {
@@ -93,12 +93,12 @@ impl Encode for &str {
             0x10000..=0xffffffff => {
                 const SIZE: usize = 5;
                 let cast = self_len as u32;
-                let mut it = Format::Str32
+                let it = &mut Format::Str32
                     .into_iter()
                     .chain(cast.to_be_bytes())
                     .chain(data_it);
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                for (byte, to) in it.zip(buf) {
+                    *to = byte;
                 }
 
                 if it.next().is_none() {

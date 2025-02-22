@@ -12,8 +12,8 @@ impl Encode for f32 {
     }
     fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         const SIZE: usize = 5;
-        let mut it = Format::Float32.into_iter().chain(self.to_be_bytes());
-        for (to, byte) in buf.zip(&mut it) {
+        let it = &mut Format::Float32.into_iter().chain(self.to_be_bytes());
+        for (byte, to) in it.zip(buf) {
             *to = byte
         }
         if it.next().is_none() {
@@ -35,8 +35,8 @@ impl Encode for f64 {
     }
     fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         const SIZE: usize = 9;
-        let mut it = Format::Float64.into_iter().chain(self.to_be_bytes());
-        for (to, byte) in buf.zip(&mut it) {
+        let it = &mut Format::Float64.into_iter().chain(self.to_be_bytes());
+        for (byte, to) in it.zip(buf) {
             *to = byte
         }
         if it.next().is_none() {

@@ -11,8 +11,8 @@ impl Encode for () {
     }
 
     fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        let mut it = Format::Nil.into_iter();
-        for (to, byte) in buf.zip(&mut it) {
+        let it = &mut Format::Nil.into_iter();
+        for (byte, to) in it.zip(buf) {
             *to = byte;
         }
         if it.next().is_none() {

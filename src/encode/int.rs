@@ -21,9 +21,10 @@ impl Encode for u8 {
         match self {
             0x00..=0x7f => {
                 const SIZE: usize = 1;
-                let mut it = Format::PositiveFixInt(*self).into_iter();
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                let it = &mut Format::PositiveFixInt(*self).into_iter();
+
+                for (byte, to) in it.zip(buf) {
+                    *to = byte;
                 }
                 if it.next().is_none() {
                     Ok(SIZE)
@@ -33,9 +34,10 @@ impl Encode for u8 {
             }
             _ => {
                 const SIZE: usize = 2;
-                let mut it = Format::Uint8.into_iter().chain(self.to_be_bytes());
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                let it = &mut Format::Uint8.into_iter().chain(self.to_be_bytes());
+
+                for (byte, to) in it.zip(buf) {
+                    *to = byte;
                 }
                 if it.next().is_none() {
                     Ok(SIZE)
@@ -71,8 +73,8 @@ macro_rules! impl_encode_unsigned {
                     Ok(lower_val) => lower_val.encode_to_iter_mut(buf),
                     Err(_) => {
                         const SIZE: usize = $size;
-                        let mut it = $format.into_iter().chain(self.to_be_bytes());
-                        for (to, byte) in buf.zip(&mut it) {
+                        let it = &mut $format.into_iter().chain(self.to_be_bytes());
+                        for (byte, to) in it.zip(buf) {
                             *to = byte;
                         }
                         if it.next().is_none() {
@@ -136,8 +138,8 @@ impl Encode for i8 {
             Err(_) => match self {
                 -0b11111..=0b00000 => {
                     const SIZE: usize = 1;
-                    let mut it = Format::NegativeFixInt(*self).into_iter();
-                    for (to, byte) in buf.zip(&mut it) {
+                    let it = &mut Format::NegativeFixInt(*self).into_iter();
+                    for (byte, to) in it.zip(buf) {
                         *to = byte
                     }
                     if it.next().is_none() {
@@ -148,8 +150,8 @@ impl Encode for i8 {
                 }
                 _ => {
                     const SIZE: usize = 2;
-                    let mut it = Format::Int8.into_iter().chain(self.to_be_bytes());
-                    for (to, byte) in buf.take(SIZE).zip(&mut it) {
+                    let it = &mut Format::Int8.into_iter().chain(self.to_be_bytes());
+                    for (byte, to) in it.zip(buf) {
                         *to = byte
                     }
                     if it.next().is_none() {
@@ -190,9 +192,9 @@ macro_rules! impl_encode_signed {
                     lower_val.encode_to_iter_mut(buf)
                 } else {
                     const SIZE: usize = $size;
-                    let mut it = $format.into_iter();
-                    for (slot, byte) in buf.zip(&mut it) {
-                        *slot = byte;
+                    let it = &mut $format.into_iter();
+                    for (byte, to) in it.zip(buf) {
+                        *to = byte;
                     }
                     if it.next().is_none() {
                         Ok(SIZE)
