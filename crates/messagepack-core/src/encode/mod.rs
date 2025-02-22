@@ -22,6 +22,17 @@ pub enum Error {
     InvalidFormat,
 }
 
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Error::BufferFull => write!(f, "Buffer is full"),
+            Error::InvalidFormat => write!(f, "Cannot encode value"),
+        }
+    }
+}
+
+impl core::error::Error for Error {}
+
 type Result<T> = ::core::result::Result<T, Error>;
 
 /// A type which can be encoded to MessagePack
