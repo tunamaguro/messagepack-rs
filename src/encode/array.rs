@@ -110,7 +110,7 @@ mod tests {
 
     #[rstest]
     #[case([1u8, 2u8, 3u8],[0x93, 0x01, 0x02, 0x03])]
-    fn encode_array<V: Encode, Array: AsRef<[V]>, E: AsRef<[u8]> + Sized>(
+    fn encode_fix_array<V: Encode, Array: AsRef<[V]>, E: AsRef<[u8]> + Sized>(
         #[case] value: Array,
         #[case] expected: E,
     ) {
@@ -127,6 +127,39 @@ mod tests {
             let mut buf = vec![0xff; core::mem::size_of::<E>()];
             let n = encoder.encode_to_slice(buf.as_mut_slice()).unwrap();
             assert_eq!(&buf, expected);
+            assert_eq!(n, expected.len());
+        }
+    }
+
+    #[rstest]
+    #[case(0xdc_u8.to_be_bytes(), 65535_u16.to_be_bytes(),[0x34;65535])]
+    #[case(0xdd_u8.to_be_bytes(), 65536_u32.to_be_bytes(),[0x56;65536])]
+    fn encode_array_sized<M: AsRef<[u8]>, S: AsRef<[u8]>, D: AsRef<[u8]>>(
+        #[case] marker: M,
+        #[case] size: S,
+        #[case] data: D,
+    ) {
+        let expected = marker
+            .as_ref()
+            .iter()
+            .chain(size.as_ref())
+            .chain(data.as_ref())
+            .cloned()
+            .collect::<Vec<u8>>();
+
+        let encoder = ArrayEncoder(data.as_ref());
+        {
+            let mut buf = vec![];
+            let n = encoder.encode(&mut buf).unwrap();
+
+            assert_eq!(&buf, &expected);
+            assert_eq!(n, expected.len());
+        }
+
+        {
+            let mut buf = vec![0xff; expected.len()];
+            let n = encoder.encode_to_slice(buf.as_mut_slice()).unwrap();
+            assert_eq!(&buf, &expected);
             assert_eq!(n, expected.len());
         }
     }
