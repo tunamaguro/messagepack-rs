@@ -161,4 +161,39 @@ mod tests {
             assert_eq!(n, expected.len());
         }
     }
+
+    #[rstest]
+    #[case(0xd9_u8.to_be_bytes(), 255_u8.to_be_bytes(),255)]
+    #[case(0xda_u8.to_be_bytes(), 65535_u16.to_be_bytes(),65535)]
+    #[case(0xdb_u8.to_be_bytes(), 65536_u32.to_be_bytes(),65536)]
+    fn encode_str_sized<M: AsRef<[u8]>, L: AsRef<[u8]>>(
+        #[case] marker: M,
+        #[case] size: L,
+        #[case] len: usize,
+    ) {
+        let value = core::iter::repeat_n("a", len).collect::<String>();
+        let expected = marker
+            .as_ref()
+            .iter()
+            .chain(size.as_ref())
+            .cloned()
+            .chain(value.chars().map(|c| c as u8))
+            .collect::<Vec<u8>>();
+
+        let encoder = StrEncoder(&value);
+        {
+            let mut buf = vec![];
+            let n = encoder.encode(&mut buf).unwrap();
+
+            assert_eq!(&buf, &expected);
+            assert_eq!(n, expected.len());
+        }
+
+        {
+            let mut buf = vec![0xff; expected.len()];
+            let n = encoder.encode_to_slice(buf.as_mut_slice()).unwrap();
+            assert_eq!(&buf, &expected);
+            assert_eq!(n, expected.len());
+        }
+    }
 }
