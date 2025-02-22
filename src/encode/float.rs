@@ -46,3 +46,26 @@ impl Encode for f64 {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn encode_float32() {
+        let mut buf = vec![];
+        (123.456_f32).encode(&mut buf).unwrap();
+
+        let expected: &[u8] = &[0xca, 0x42, 0xf6, 0xe9, 0x79];
+        assert_eq!(&buf, expected);
+    }
+
+    #[test]
+    fn encode_float64() {
+        let mut buf = vec![];
+        (123456.789_f64).encode(&mut buf).unwrap();
+
+        let expected: &[u8] = &[0xcb, 0x40, 0xfe, 0x24, 0x0c, 0x9f, 0xbe, 0x76, 0xc9];
+        assert_eq!(&buf, expected);
+    }
+}
