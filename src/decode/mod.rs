@@ -5,6 +5,7 @@ use crate::Format;
 mod bool;
 mod int;
 mod nil;
+mod float;
 
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
