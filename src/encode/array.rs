@@ -47,7 +47,7 @@ where
                 buf.extend(it);
                 Ok(5)
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
 
         let array_len = self
@@ -62,9 +62,9 @@ where
             0x00..=0b1111 => {
                 const SIZE: usize = 1;
                 let cast = self_len as u8;
-                let mut it = Format::FixArray(cast).into_iter();
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                let it = &mut Format::FixArray(cast).into_iter();
+                for (byte, to) in it.zip(buf.by_ref()) {
+                    *to = byte;
                 }
 
                 if it.next().is_none() {
@@ -76,9 +76,9 @@ where
             0x10..=0xffff => {
                 const SIZE: usize = 3;
                 let cast = self_len as u16;
-                let mut it = Format::Array16.into_iter().chain(cast.to_be_bytes());
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                let it = &mut Format::Array16.into_iter().chain(cast.to_be_bytes());
+                for (byte, to) in it.zip(buf.by_ref()) {
+                    *to = byte;
                 }
 
                 if it.next().is_none() {
@@ -90,9 +90,9 @@ where
             0x10000..=0xffffffff => {
                 const SIZE: usize = 5;
                 let cast = self_len as u32;
-                let mut it = Format::Array32.into_iter().chain(cast.to_be_bytes());
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                let it = &mut Format::Array32.into_iter().chain(cast.to_be_bytes());
+                for (byte, to) in it.zip(buf.by_ref()) {
+                    *to = byte;
                 }
 
                 if it.next().is_none() {
@@ -101,7 +101,7 @@ where
                     Err(Error::BufferFull)
                 }
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
         let array_len = self
             .iter()

@@ -1,6 +1,7 @@
 //! See https://github.com/msgpack/msgpack/blob/master/spec.md#formats
 
 const POSITIVE_FIXINT: u8 = 0x00;
+#[allow(dead_code)]
 const NEGATIVE_FIXINT: u8 = 0xe0;
 const FIX_MAP: u8 = 0x80;
 const FIX_ARRAY: u8 = 0x90;
@@ -39,6 +40,7 @@ const ARRAY32: u8 = 0xdd;
 const MAP16: u8 = 0xde;
 const MAP32: u8 = 0xdf;
 
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Format {
     PositiveFixInt(u8),
     FixMap(u8),
@@ -118,7 +120,7 @@ impl Format {
             Format::Array32 => ARRAY32,
             Format::Map16 => MAP16,
             Format::Map32 => MAP32,
-            Format::NegativeFixInt(v) => NEGATIVE_FIXINT | (*v as u8),
+            Format::NegativeFixInt(v) => *v as u8,
         }
     }
 
@@ -160,7 +162,7 @@ impl Format {
             ARRAY32 => Self::Array32,
             MAP16 => Self::Map16,
             MAP32 => Self::Map32,
-            0xe0..=0xff => Self::NegativeFixInt((byte & !NEGATIVE_FIXINT) as i8),
+            0xe0..=0xff => Self::NegativeFixInt(byte as i8),
         }
     }
 }

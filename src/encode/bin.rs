@@ -44,7 +44,7 @@ impl Encode for BinaryEncoder<'_> {
                 buf.extend(it);
                 Ok(5)
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
 
         buf.extend(self.iter().cloned());
@@ -56,9 +56,9 @@ impl Encode for BinaryEncoder<'_> {
             0x00..=0xff => {
                 const SIZE: usize = 2;
                 let cast = self_len as u8;
-                let mut it = Format::Bin8.into_iter().chain(cast.to_be_bytes());
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                let it = &mut Format::Bin8.into_iter().chain(cast.to_be_bytes());
+                for (byte, to) in it.zip(buf.by_ref()) {
+                    *to = byte;
                 }
 
                 if it.next().is_none() {
@@ -70,9 +70,9 @@ impl Encode for BinaryEncoder<'_> {
             0x100..=0xffff => {
                 const SIZE: usize = 3;
                 let cast = self_len as u16;
-                let mut it = Format::Bin16.into_iter().chain(cast.to_be_bytes());
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                let it = &mut Format::Bin16.into_iter().chain(cast.to_be_bytes());
+                for (byte, to) in it.zip(buf.by_ref()) {
+                    *to = byte;
                 }
 
                 if it.next().is_none() {
@@ -84,10 +84,10 @@ impl Encode for BinaryEncoder<'_> {
             0x10000..=0xffffffff => {
                 const SIZE: usize = 5;
                 let cast = self_len as u32;
-                let mut it = Format::Bin32.into_iter().chain(cast.to_be_bytes());
+                let it = &mut Format::Bin32.into_iter().chain(cast.to_be_bytes());
 
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                for (byte, to) in it.zip(buf.by_ref()) {
+                    *to = byte;
                 }
 
                 if it.next().is_none() {
@@ -96,14 +96,15 @@ impl Encode for BinaryEncoder<'_> {
                     Err(Error::BufferFull)
                 }
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
 
-        let mut it = self.iter();
+        let it = &mut self.iter();
 
-        for (to, byte) in buf.take(self_len).zip(&mut it) {
+        for (byte, to) in it.zip(buf) {
             *to = *byte
         }
+
         if it.next().is_none() {
             Ok(format_len + self_len)
         } else {

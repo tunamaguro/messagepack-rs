@@ -62,7 +62,7 @@ where
                 buf.extend(it);
                 Ok(5)
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
 
         let map_len = clone_map
@@ -82,8 +82,9 @@ where
             0x00..=0xf => {
                 const SIZE: usize = 1;
                 let cast = self_len as u8;
-                let mut it = Format::FixMap(cast).into_iter();
-                for (to, byte) in buf.zip(&mut it) {
+                let it = &mut Format::FixMap(cast).into_iter();
+
+                for (byte, to) in it.zip(buf.by_ref()) {
                     *to = byte
                 }
 
@@ -96,9 +97,10 @@ where
             0x10..=0xffff => {
                 const SIZE: usize = 3;
                 let cast = self_len as u16;
-                let mut it = Format::Map16.into_iter().chain(cast.to_be_bytes());
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                let it = &mut Format::Map16.into_iter().chain(cast.to_be_bytes());
+
+                for (byte, to) in it.zip(buf.by_ref()) {
+                    *to = byte;
                 }
 
                 if it.next().is_none() {
@@ -110,9 +112,9 @@ where
             0x10000..=0xffffffff => {
                 const SIZE: usize = 5;
                 let cast = self_len as u32;
-                let mut it = Format::Map32.into_iter().chain(cast.to_be_bytes());
-                for (to, byte) in buf.zip(&mut it) {
-                    *to = byte
+                let it = &mut Format::Map32.into_iter().chain(cast.to_be_bytes());
+                for (byte, to) in it.zip(buf.by_ref()) {
+                    *to = byte;
                 }
 
                 if it.next().is_none() {
@@ -121,8 +123,9 @@ where
                     Err(Error::BufferFull)
                 }
             }
-            _ => Err(Error::InvalidType),
+            _ => Err(Error::InvalidFormat),
         }?;
+
         let map_len = clone_map
             .flat_map(|v| {
                 let (k, v) = v.borrow();
@@ -140,11 +143,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn encode_map() {
+    fn encode_map_extend() {
         let mut buf = vec![];
         let map = [("123", 123), ("456", 456)];
         let encoder = MapEncoder::new(map.iter());
         encoder.encode(&mut buf).unwrap();
+
+        let expect: &[u8] = &[
+            0x82, 0xa3, 0x31, 0x32, 0x33, 0x7b, 0xa3, 0x34, 0x35, 0x36, 0xcd, 0x01, 0xc8,
+        ];
+
+        assert_eq!(buf, expect)
+    }
+
+    #[test]
+    fn encode_map_slice() {
+        let buf = &mut [0x00; 13];
+        let map = [("123", 123), ("456", 456)];
+        let encoder = MapEncoder::new(map.iter());
+        encoder.encode_to_iter_mut(&mut buf.iter_mut()).unwrap();
 
         let expect: &[u8] = &[
             0x82, 0xa3, 0x31, 0x32, 0x33, 0x7b, 0xa3, 0x34, 0x35, 0x36, 0xcd, 0x01, 0xc8,

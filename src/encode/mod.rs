@@ -14,12 +14,12 @@ pub use extension::ExtensionEncoder;
 pub use map::MapEncoder;
 
 /// Messagepack Encode Error
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Error {
     /// buffer is full
     BufferFull,
-    /// Cannot mapped messagepack type
-    InvalidType,
+    /// Cannot mapped messagepack format
+    InvalidFormat,
 }
 
 type Result<T> = ::core::result::Result<T, Error>;
