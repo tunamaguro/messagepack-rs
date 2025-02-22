@@ -1,6 +1,7 @@
 //! See https://github.com/msgpack/msgpack/blob/master/spec.md#formats
 
 const POSITIVE_FIXINT: u8 = 0x00;
+#[allow(dead_code)]
 const NEGATIVE_FIXINT: u8 = 0xe0;
 const FIX_MAP: u8 = 0x80;
 const FIX_ARRAY: u8 = 0x90;
