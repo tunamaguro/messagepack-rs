@@ -3,6 +3,7 @@ use core::borrow::Borrow;
 use crate::Format;
 
 mod bool;
+mod int;
 
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -21,15 +22,18 @@ pub enum Error {
 
 type Result<T> = ::core::result::Result<T, Error>;
 
-pub trait Decode: Sized {
-    fn decode<I, B>(buf: &mut I) -> Result<Self>
+pub trait Decode {
+    type Value: Sized;
+    // decode from iter
+    fn decode<I, B>(buf: &mut I) -> Result<Self::Value>
     where
         I: Iterator<Item = B>,
         B: Borrow<u8>;
 }
 
 impl Decode for Format {
-    fn decode<I, B>(buf: &mut I) -> Result<Self>
+    type Value = Self;
+    fn decode<I, B>(buf: &mut I) -> Result<Self::Value>
     where
         I: Iterator<Item = B>,
         B: Borrow<u8>,

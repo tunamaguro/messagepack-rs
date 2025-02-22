@@ -2,7 +2,8 @@ use super::{Decode, Error, Result};
 use crate::formats::Format;
 
 impl Decode for bool {
-    fn decode<I, B>(buf: &mut I) -> Result<Self>
+    type Value = Self;
+    fn decode<I, B>(buf: &mut I) -> Result<Self::Value>
     where
         I: Iterator<Item = B>,
         B: core::borrow::Borrow<u8>,
