@@ -2,20 +2,12 @@ use super::{Encode, Error, Result};
 use crate::formats::Format;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct BinaryEncoder<'blob> {
-    blob: &'blob [u8],
-}
+pub struct BinaryEncoder<'blob>(pub &'blob [u8]);
 
 impl<'blob> core::ops::Deref for BinaryEncoder<'blob> {
     type Target = &'blob [u8];
     fn deref(&self) -> &Self::Target {
-        &self.blob
-    }
-}
-
-impl<'blob> BinaryEncoder<'blob> {
-    pub fn new(blob: &'blob [u8]) -> Self {
-        Self { blob }
+        &self.0
     }
 }
 
@@ -109,6 +101,46 @@ impl Encode for BinaryEncoder<'_> {
             Ok(format_len + self_len)
         } else {
             Err(Error::BufferFull)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case(0xc4_u8.to_be_bytes(), 255_u8.to_be_bytes(),[0x12;255])]
+    #[case(0xc5_u8.to_be_bytes(), 65535_u16.to_be_bytes(),[0x34;65535])]
+    #[case(0xc6_u8.to_be_bytes(), 65536_u32.to_be_bytes(),[0x56;65536])]
+    fn encode_str_sized<M: AsRef<[u8]>, S: AsRef<[u8]>, D: AsRef<[u8]>>(
+        #[case] marker: M,
+        #[case] size: S,
+        #[case] data: D,
+    ) {
+        let expected = marker
+            .as_ref()
+            .iter()
+            .chain(size.as_ref())
+            .chain(data.as_ref())
+            .cloned()
+            .collect::<Vec<u8>>();
+
+        let encoder = BinaryEncoder(data.as_ref());
+        {
+            let mut buf = vec![];
+            let n = encoder.encode(&mut buf).unwrap();
+
+            assert_eq!(&buf, &expected);
+            assert_eq!(n, expected.len());
+        }
+
+        {
+            let mut buf = vec![0xff; expected.len()];
+            let n = encoder.encode_to_slice(buf.as_mut_slice()).unwrap();
+            assert_eq!(&buf, &expected);
+            assert_eq!(n, expected.len());
         }
     }
 }
