@@ -13,7 +13,7 @@ impl<'s> Deref for StrEncoder<'s> {
     }
 }
 
-impl<'s> Encode for StrEncoder<'s> {
+impl Encode for StrEncoder<'_> {
     fn encode<T>(&self, buf: &mut T) -> Result<usize>
     where
         T: Extend<u8>,
