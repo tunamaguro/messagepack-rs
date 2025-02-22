@@ -1,0 +1,21 @@
+[package]
+name = "messagepack-serde"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+messagepack-core = { workspace = true }
+
+[dependencies.serde]
+default-features = false
+features = ["derive"]
+version = "1.0"
+
+
+[dev-dependencies]
+rstest = { workspace = true }
+
+
+[features]
+default = ["std"]
+std = ["serde/std", "messagepack-core/std"]
