@@ -5,16 +5,14 @@ use crate::formats::Format;
 
 pub struct MapDecoder<Map, K, V>(PhantomData<(Map, K, V)>);
 
-fn decode_kv<K, V, I, B>(buf: &mut I) -> Result<(K::Value, V::Value)>
+fn decode_kv<K, V>(buf: &[u8]) -> Result<(K::Value, V::Value, &[u8])>
 where
     K: Decode,
     V: Decode,
-    I: Iterator<Item = B>,
-    B: core::borrow::Borrow<u8>,
 {
-    let k = K::decode(buf)?;
-    let v = V::decode(buf)?;
-    Ok((k, v))
+    let (k, buf) = K::decode(buf)?;
+    let (v, buf) = V::decode(buf)?;
+    Ok((k, v, buf))
 }
 
 impl<Map, K, V> Decode for MapDecoder<Map, K, V>
@@ -25,12 +23,8 @@ where
 {
     type Value = Map;
 
-    fn decode<I, B>(buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
-        let format = Format::decode(buf)?;
+    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+        let (format, buf) = Format::decode(buf)?;
         match format {
             Format::FixMap(_) | Format::Map16 | Format::Map32 => {
                 Self::decode_with_format(format, buf)
@@ -39,22 +33,22 @@ where
         }
     }
 
-    fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
-        let len = match format {
-            Format::FixMap(len) => len.into(),
+    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+        let (len, buf) = match format {
+            Format::FixMap(len) => (len.into(), buf),
             Format::Map16 => NbyteReader::<2>::read(buf)?,
             Format::Map32 => NbyteReader::<4>::read(buf)?,
             _ => return Err(Error::UnexpectedFormat),
         };
 
         let mut has_err = None;
+        let mut buf_ptr = buf;
         let collector =
-            core::iter::repeat_n((), len).map_while(|_| match decode_kv::<K, V, I, B>(buf) {
-                Ok(v) => Some(v),
+            core::iter::repeat_n((), len).map_while(|_| match decode_kv::<K, V>(buf_ptr) {
+                Ok((k, v, b)) => {
+                    buf_ptr = b;
+                    Some((k, v))
+                }
                 Err(e) => {
                     has_err = Some(e);
                     None
@@ -65,7 +59,7 @@ where
         if let Some(e) = has_err {
             Err(e)
         } else {
-            Ok(res)
+            Ok((res, buf_ptr))
         }
     }
 }

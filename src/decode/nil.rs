@@ -5,41 +5,27 @@ pub struct NilDecoder;
 
 impl Decode for NilDecoder {
     type Value = ();
-    fn decode<I, B>(buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
-        match Format::decode(buf)? {
-            Format::Nil => Ok(()),
+    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+        let (format, buf) = Format::decode(buf)?;
+
+        match format {
+            Format::Nil => Ok(((), buf)),
             _ => Err(Error::UnexpectedFormat),
         }
     }
 
-    fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
-        let _ = (format, buf);
-        Ok(())
+    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+        let _ = format;
+        Ok(((), buf))
     }
 }
 
 impl Decode for () {
     type Value = ();
-    fn decode<I, B>(buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
+    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
         NilDecoder::decode(buf)
     }
-    fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
+    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
         NilDecoder::decode_with_format(format, buf)
     }
 }
@@ -49,25 +35,18 @@ where
     V: Decode,
 {
     type Value = Option<V::Value>;
-    fn decode<I, B>(buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
-        let format = Format::decode(buf)?;
+    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+        let (format, buf) = Format::decode(buf)?;
         Self::decode_with_format(format, buf)
     }
-    fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
-        let op = match format {
-            Format::Nil => None,
-            other => Some(V::decode_with_format(other, buf)?),
-        };
-
-        Ok(op)
+    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+        match format {
+            Format::Nil => Ok((None, buf)),
+            other => {
+                let (val, buf) = V::decode_with_format(other, buf)?;
+                Ok((Some(val), buf))
+            }
+        }
     }
 }
 
@@ -78,17 +57,20 @@ mod tests {
     #[test]
     fn decode_nil() {
         let buf: &[u8] = &[0xc0];
-        NilDecoder::decode(&mut buf.iter()).unwrap();
+        let (_, rest) = NilDecoder::decode(buf).unwrap();
+        assert_eq!(rest.len(), 0);
     }
 
     #[test]
     fn decode_option() {
         let buf: &[u8] = &[0xc0];
-        let decoded = Option::<bool>::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = Option::<bool>::decode(buf).unwrap();
         assert_eq!(decoded, None);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0xc3];
-        let decoded = Option::<bool>::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = Option::<bool>::decode(buf).unwrap();
         assert_eq!(decoded, Some(true));
+        assert_eq!(rest.len(), 0);
     }
 }

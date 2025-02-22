@@ -7,17 +7,13 @@ pub struct ArrayDecoder<Array, V>(PhantomData<(Array, V)>);
 
 impl<Array, V> Decode for ArrayDecoder<Array, V>
 where
-    Array: FromIterator<V::Value>,
     V: Decode,
+    Array: FromIterator<V::Value>,
 {
     type Value = Array;
 
-    fn decode<I, B>(buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
-        let format = Format::decode(buf)?;
+    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+        let (format, buf) = Format::decode(buf)?;
         match format {
             Format::FixArray(_) | Format::Array16 | Format::Array32 => {
                 Self::decode_with_format(format, buf)
@@ -26,21 +22,21 @@ where
         }
     }
 
-    fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
-        let len = match format {
-            Format::FixArray(len) => len.into(),
+    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+        let (len, buf) = match format {
+            Format::FixArray(len) => (len.into(), buf),
             Format::Array16 => NbyteReader::<2>::read(buf)?,
             Format::Array32 => NbyteReader::<4>::read(buf)?,
             _ => return Err(Error::UnexpectedFormat),
         };
 
         let mut has_err = None;
-        let collector = core::iter::repeat_n((), len).map_while(|_| match V::decode(buf) {
-            Ok(v) => Some(v),
+        let mut buf_ptr = buf;
+        let collector = core::iter::repeat_n((), len).map_while(|_| match V::decode(buf_ptr) {
+            Ok((v, b)) => {
+                buf_ptr = b;
+                Some(v)
+            }
             Err(e) => {
                 has_err = Some(e);
                 None
@@ -51,7 +47,7 @@ where
         if let Some(e) = has_err {
             Err(e)
         } else {
-            Ok(res)
+            Ok((res, buf_ptr))
         }
     }
 }
@@ -63,9 +59,10 @@ mod tests {
     #[test]
     fn decode_int_array() {
         let buf: &[u8] = &[0x95, 0x01, 0x02, 0x03, 0x04, 0x05];
-        let decoded: Vec<u8> = ArrayDecoder::<Vec<u8>, u8>::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = ArrayDecoder::<Vec<u8>, u8>::decode(buf).unwrap();
 
         let expect: &[u8] = &[1, 2, 3, 4, 5];
-        assert_eq!(decoded, expect)
+        assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
     }
 }

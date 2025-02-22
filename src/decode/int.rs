@@ -3,29 +3,17 @@ use crate::formats::Format;
 
 impl Decode for u8 {
     type Value = Self;
-    fn decode<I, B>(buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
-        let format = Format::decode(buf)?;
+    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+        let (format, buf) = Format::decode(buf)?;
         Self::decode_with_format(format, buf)
     }
 
-    fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
+    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
         match format {
-            Format::PositiveFixInt(v) => Ok(v),
+            Format::PositiveFixInt(v) => Ok((v, buf)),
             Format::Uint8 => {
-                let mut bytes = [0_u8; core::mem::size_of::<u8>()];
-                let mut bytes_mut = bytes.iter_mut();
-                for (to, byte) in bytes_mut.by_ref().zip(buf) {
-                    *to = *byte.borrow();
-                }
-                Ok(u8::from_be_bytes(bytes))
+                let (first, rest) = buf.split_first().ok_or(Error::EofData)?;
+                Ok((*first, rest))
             }
             _ => Err(Error::UnexpectedFormat),
         }
@@ -34,29 +22,17 @@ impl Decode for u8 {
 
 impl Decode for i8 {
     type Value = Self;
-    fn decode<I, B>(buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
-        let format = Format::decode(buf)?;
+    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+        let (format, buf) = Format::decode(buf)?;
         Self::decode_with_format(format, buf)
     }
-    fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
-    where
-        I: Iterator<Item = B>,
-        B: core::borrow::Borrow<u8>,
-    {
+    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
         match format {
             Format::Int8 => {
-                let mut bytes = [0_u8; core::mem::size_of::<u8>()];
-                let mut bytes_mut = bytes.iter_mut();
-                for (to, byte) in bytes_mut.by_ref().zip(buf) {
-                    *to = *byte.borrow();
-                }
-                Ok(i8::from_be_bytes(bytes))
+                let (first, rest) = buf.split_first().ok_or(Error::EofData)?;
+                Ok((*first as i8, rest))
             }
-            Format::NegativeFixInt(v) => Ok(v),
+            Format::NegativeFixInt(v) => Ok((v, buf)),
             _ => Err(Error::UnexpectedFormat),
         }
     }
@@ -66,31 +42,20 @@ macro_rules! impl_decode_int {
     ($ty:ty,$format:path) => {
         impl Decode for $ty {
             type Value = Self;
-            fn decode<I, B>(buf: &mut I) -> Result<Self::Value>
-            where
-                I: Iterator<Item = B>,
-                B: core::borrow::Borrow<u8>,
-            {
-                let format = Format::decode(buf)?;
+
+            fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+                let (format, buf) = Format::decode(buf)?;
                 Self::decode_with_format(format, buf)
             }
-            fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
-            where
-                I: Iterator<Item = B>,
-                B: core::borrow::Borrow<u8>,
-            {
+            fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
                 match format {
                     $format => {
-                        let mut bytes = [0_u8; core::mem::size_of::<Self>()];
-                        let mut bytes_mut = bytes.iter_mut();
-                        for (to, byte) in bytes_mut.by_ref().zip(buf) {
-                            *to = *byte.borrow();
-                        }
-                        if bytes_mut.next().is_none() {
-                            Ok(<Self>::from_be_bytes(bytes))
-                        } else {
-                            Err(Error::EofData)
-                        }
+                        const SIZE: usize = core::mem::size_of::<$ty>();
+
+                        let (data, rest) = buf.split_at_checked(SIZE).ok_or(Error::EofData)?;
+                        let data: [u8; SIZE] = data.try_into().map_err(|_| Error::EofData)?;
+                        let val = <$ty>::from_be_bytes(data);
+                        Ok((val, rest))
                     }
                     _ => Err(Error::UnexpectedFormat),
                 }
@@ -114,154 +79,177 @@ mod tests {
     fn decode_u8_fix_pos_int() {
         // FixPosInt
         let buf: &[u8] = &[0x00];
-        let decoded = u8::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = u8::decode(buf).unwrap();
         let expect = u8::MIN;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0x7f];
-        let decoded = u8::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = u8::decode(buf).unwrap();
         let expect = 0x7f;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
     }
 
     #[test]
     fn decode_u8() {
         // Uint8
         let buf: &[u8] = &[0xcc, 0x00];
-        let decoded = u8::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = u8::decode(buf).unwrap();
         let expect = u8::MIN;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0xcc, 0xff];
-        let decoded = u8::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = u8::decode(buf).unwrap();
         let expect = u8::MAX;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
     }
 
     #[test]
     fn decode_u16() {
         // Uint16
         let buf: &[u8] = &[0xcd, 0x00, 0x00];
-        let decoded = u16::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = u16::decode(buf).unwrap();
         let expect = u16::MIN;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0xcd, 0x12, 0x34];
-        let decoded = u16::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = u16::decode(buf).unwrap();
         let expect = 0x1234;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0xcd, 0xff, 0xff];
-        let decoded = u16::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = u16::decode(buf).unwrap();
         let expect = u16::MAX;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
     }
 
     #[test]
     fn decode_u32() {
         // Uint32
         let buf: &[u8] = &[0xce, 0x00, 0x00, 0x00, 0x00];
-        let decoded = u32::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = u32::decode(buf).unwrap();
         let expect = u32::MIN;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0xce, 0x12, 0x34, 0x56, 0x78];
-        let decoded = u32::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = u32::decode(buf).unwrap();
         let expect = 0x12345678;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0xce, 0xff, 0xff, 0xff, 0xff];
-        let decoded = u32::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = u32::decode(buf).unwrap();
         let expect = u32::MAX;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
     }
 
     #[test]
     fn decode_u64() {
         // Uint64
         let buf: &[u8] = &[0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-        let decoded = u64::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = u64::decode(buf).unwrap();
         let expect = u64::MIN;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0xcf, 0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78];
-        let decoded = u64::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = u64::decode(buf).unwrap();
         let expect = 0x1234567812345678;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0xcf, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
-        let decoded = u64::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = u64::decode(buf).unwrap();
         let expect = u64::MAX;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
     }
 
     #[test]
     fn decode_i8_fix_neg_int() {
         // FixNegInt
         let buf: &[u8] = &[0xff];
-        let decoded = i8::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = i8::decode(buf).unwrap();
         let expect = -1;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0xe0];
-        let decoded = i8::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = i8::decode(buf).unwrap();
         let expect = -32;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
     }
 
     #[test]
     fn decode_i8() {
         // Int8
         let buf: &[u8] = &[0xd0, 0x80];
-        let decoded = i8::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = i8::decode(buf).unwrap();
         let expect = i8::MIN;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0xd0, 0x7f];
-        let decoded = i8::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = i8::decode(buf).unwrap();
         let expect = i8::MAX;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
     }
 
     #[test]
     fn decode_i16() {
         // Int16
         let buf: &[u8] = &[0xd1, 0x80, 0x00];
-        let decoded = i16::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = i16::decode(buf).unwrap();
         let expect = i16::MIN;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0xd1, 0x7f, 0xff];
-        let decoded = i16::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = i16::decode(buf).unwrap();
         let expect = i16::MAX;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
     }
 
     #[test]
     fn decode_i32() {
         // Int16
         let buf: &[u8] = &[0xd2, 0x80, 0x00, 0x00, 0x00];
-        let decoded = i32::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = i32::decode(buf).unwrap();
         let expect = i32::MIN;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0xd2, 0x7f, 0xff, 0xff, 0xff];
-        let decoded = i32::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = i32::decode(buf).unwrap();
         let expect = i32::MAX;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
     }
 
     #[test]
     fn decode_i64() {
         // Int16
         let buf: &[u8] = &[0xd3, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-        let decoded = i64::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = i64::decode(buf).unwrap();
         let expect = i64::MIN;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
 
         let buf: &[u8] = &[0xd3, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
-        let decoded = i64::decode(&mut buf.iter()).unwrap();
+        let (decoded, rest) = i64::decode(buf).unwrap();
         let expect = i64::MAX;
         assert_eq!(decoded, expect);
+        assert_eq!(rest.len(), 0);
     }
 }
