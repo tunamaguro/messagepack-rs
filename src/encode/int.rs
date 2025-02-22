@@ -203,6 +203,7 @@ impl Encode for i128 {
 }
 
 /// encode minimum byte size
+#[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub struct EncodeMinimizeInt<N>(pub N);
 
 impl<N> Encode for EncodeMinimizeInt<N>
