@@ -9,6 +9,14 @@ impl Decode for u8 {
         B: core::borrow::Borrow<u8>,
     {
         let format = Format::decode(buf)?;
+        Self::decode_with_format(format, buf)
+    }
+
+    fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
+    where
+        I: Iterator<Item = B>,
+        B: core::borrow::Borrow<u8>,
+    {
         match format {
             Format::PositiveFixInt(v) => Ok(v),
             Format::Uint8 => {
@@ -34,6 +42,13 @@ macro_rules! impl_decode_unsigned {
                 B: core::borrow::Borrow<u8>,
             {
                 let format = Format::decode(buf)?;
+                Self::decode_with_format(format, buf)
+            }
+            fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
+            where
+                I: Iterator<Item = B>,
+                B: core::borrow::Borrow<u8>,
+            {
                 match format {
                     $format => {
                         let mut bytes = [0_u8; core::mem::size_of::<$ty>()];
@@ -60,7 +75,15 @@ impl Decode for i8 {
         I: Iterator<Item = B>,
         B: core::borrow::Borrow<u8>,
     {
-        match Format::decode(buf)? {
+        let format = Format::decode(buf)?;
+        Self::decode_with_format(format, buf)
+    }
+    fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
+    where
+        I: Iterator<Item = B>,
+        B: core::borrow::Borrow<u8>,
+    {
+        match format {
             Format::Int8 => {
                 let mut bytes = [0_u8; core::mem::size_of::<u8>()];
                 let mut bytes_mut = bytes.iter_mut();
@@ -84,7 +107,15 @@ macro_rules! impl_decode_signed {
                 I: Iterator<Item = B>,
                 B: core::borrow::Borrow<u8>,
             {
-                match Format::decode(buf)? {
+                let format = Format::decode(buf)?;
+                Self::decode_with_format(format, buf)
+            }
+            fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
+            where
+                I: Iterator<Item = B>,
+                B: core::borrow::Borrow<u8>,
+            {
+                match format {
                     $format => {
                         let mut bytes = [0_u8; core::mem::size_of::<$ty>()];
                         let mut bytes_mut = bytes.iter_mut();
