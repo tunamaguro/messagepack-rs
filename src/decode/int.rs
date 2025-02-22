@@ -3,12 +3,12 @@ use crate::formats::Format;
 
 impl<'a> Decode<'a> for u8 {
     type Value = Self;
-    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let (format, buf) = Format::decode(buf)?;
         Self::decode_with_format(format, buf)
     }
 
-    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         match format {
             Format::PositiveFixInt(v) => Ok((v, buf)),
             Format::Uint8 => {
@@ -22,11 +22,11 @@ impl<'a> Decode<'a> for u8 {
 
 impl<'a> Decode<'a> for i8 {
     type Value = Self;
-    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let (format, buf) = Format::decode(buf)?;
         Self::decode_with_format(format, buf)
     }
-    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         match format {
             Format::Int8 => {
                 let (first, rest) = buf.split_first().ok_or(Error::EofData)?;
@@ -43,11 +43,14 @@ macro_rules! impl_decode_int {
         impl<'a> Decode<'a> for $ty {
             type Value = Self;
 
-            fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+            fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
                 let (format, buf) = Format::decode(buf)?;
                 Self::decode_with_format(format, buf)
             }
-            fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+            fn decode_with_format(
+                format: Format,
+                buf: &'a [u8],
+            ) -> Result<(Self::Value, &'a [u8])> {
                 match format {
                     $format => {
                         const SIZE: usize = core::mem::size_of::<$ty>();

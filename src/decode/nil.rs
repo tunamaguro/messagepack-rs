@@ -5,7 +5,7 @@ pub struct NilDecoder;
 
 impl<'a> Decode<'a> for NilDecoder {
     type Value = ();
-    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let (format, buf) = Format::decode(buf)?;
 
         match format {
@@ -14,7 +14,7 @@ impl<'a> Decode<'a> for NilDecoder {
         }
     }
 
-    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let _ = format;
         Ok(((), buf))
     }
@@ -22,10 +22,10 @@ impl<'a> Decode<'a> for NilDecoder {
 
 impl<'a> Decode<'a> for () {
     type Value = ();
-    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         NilDecoder::decode(buf)
     }
-    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         NilDecoder::decode_with_format(format, buf)
     }
 }

@@ -3,11 +3,11 @@ use crate::formats::Format;
 
 impl<'a> Decode<'a> for bool {
     type Value = Self;
-    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let (format, buf) = Format::decode(buf)?;
         Self::decode_with_format(format, buf)
     }
-    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let val = match format {
             Format::True => Ok(true),
             Format::False => Ok(false),
