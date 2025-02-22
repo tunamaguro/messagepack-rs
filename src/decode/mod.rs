@@ -6,7 +6,7 @@ mod float;
 mod int;
 mod map;
 mod nil;
-// mod str;
+mod str;
 
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -36,13 +36,13 @@ pub trait Decode<'a> {
 
 impl<'a> Decode<'a> for Format {
     type Value = Self;
-    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let (first, rest) = buf.split_first().ok_or(Error::EofFormat)?;
 
         Ok((Self::from_byte(*first), rest))
     }
 
-    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let _ = (format, buf);
         unreachable!()
     }
