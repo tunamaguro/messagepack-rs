@@ -1,7 +1,19 @@
+use core::ops::Deref;
+
 use super::{Encode, Error, Result};
 use crate::formats::Format;
 
-impl Encode for &str {
+struct StrEncoder<'s>(pub &'s str);
+
+impl<'s> Deref for StrEncoder<'s> {
+    type Target = &'s str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'s> Encode for StrEncoder<'s> {
     fn encode<T>(&self, buf: &mut T) -> Result<usize>
     where
         T: Extend<u8>,
@@ -113,25 +125,40 @@ impl Encode for &str {
     }
 }
 
+impl Encode for &str {
+    fn encode<T>(&self, buf: &mut T) -> Result<usize>
+    where
+        T: Extend<u8>,
+    {
+        StrEncoder(self).encode(buf)
+    }
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
+        StrEncoder(self).encode_to_iter_mut(buf)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
-    #[test]
-    fn encode_str_extend() {
-        let mut buf = vec![];
-        "Today".encode(&mut buf).unwrap();
+    #[rstest]
+    #[case("Today",[0xa5, 0x54, 0x6f, 0x64, 0x61, 0x79])]
+    fn encode_fixed_str<E: AsRef<[u8]> + Sized>(#[case] value: &str, #[case] expected: E) {
+        let expected = expected.as_ref();
+        let encoder = StrEncoder(value);
+        {
+            let mut buf = vec![];
+            let n = encoder.encode(&mut buf).unwrap();
+            assert_eq!(buf, expected);
+            assert_eq!(n, expected.len());
+        }
 
-        let expected: &[u8] = &[0xa5, 0x54, 0x6f, 0x64, 0x61, 0x79];
-        assert_eq!(buf, expected)
-    }
-
-    #[test]
-    fn encode_str_slice() {
-        let buf = &mut [0x00; 6];
-        "Today".encode_to_slice(buf).unwrap();
-
-        let expected: &[u8] = &[0xa5, 0x54, 0x6f, 0x64, 0x61, 0x79];
-        assert_eq!(buf, expected)
+        {
+            let mut buf = vec![0xff; core::mem::size_of::<E>()];
+            let n = encoder.encode_to_slice(buf.as_mut_slice()).unwrap();
+            assert_eq!(&buf, expected);
+            assert_eq!(n, expected.len());
+        }
     }
 }
