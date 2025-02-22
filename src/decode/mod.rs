@@ -6,6 +6,7 @@ mod array;
 mod bool;
 mod float;
 mod int;
+mod map;
 mod nil;
 
 /// Messagepack Encode Error
