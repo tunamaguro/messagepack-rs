@@ -5,14 +5,14 @@ use crate::formats::Format;
 
 pub struct ArrayDecoder<Array, V>(PhantomData<(Array, V)>);
 
-impl<Array, V> Decode for ArrayDecoder<Array, V>
+impl<'a, Array, V> Decode<'a> for ArrayDecoder<Array, V>
 where
-    V: Decode,
+    V: Decode<'a>,
     Array: FromIterator<V::Value>,
 {
     type Value = Array;
 
-    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let (format, buf) = Format::decode(buf)?;
         match format {
             Format::FixArray(_) | Format::Array16 | Format::Array32 => {
@@ -22,7 +22,7 @@ where
         }
     }
 
-    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let (len, buf) = match format {
             Format::FixArray(len) => (len.into(), buf),
             Format::Array16 => NbyteReader::<2>::read(buf)?,

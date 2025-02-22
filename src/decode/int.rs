@@ -1,7 +1,7 @@
 use super::{Decode, Error, Result};
 use crate::formats::Format;
 
-impl Decode for u8 {
+impl<'a> Decode<'a> for u8 {
     type Value = Self;
     fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
         let (format, buf) = Format::decode(buf)?;
@@ -20,7 +20,7 @@ impl Decode for u8 {
     }
 }
 
-impl Decode for i8 {
+impl<'a> Decode<'a> for i8 {
     type Value = Self;
     fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
         let (format, buf) = Format::decode(buf)?;
@@ -40,7 +40,7 @@ impl Decode for i8 {
 
 macro_rules! impl_decode_int {
     ($ty:ty,$format:path) => {
-        impl Decode for $ty {
+        impl<'a> Decode<'a> for $ty {
             type Value = Self;
 
             fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {

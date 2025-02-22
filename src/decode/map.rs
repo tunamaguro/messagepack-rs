@@ -5,25 +5,25 @@ use crate::formats::Format;
 
 pub struct MapDecoder<Map, K, V>(PhantomData<(Map, K, V)>);
 
-fn decode_kv<K, V>(buf: &[u8]) -> Result<(K::Value, V::Value, &[u8])>
+fn decode_kv<'a, K, V>(buf: &'a [u8]) -> Result<(K::Value, V::Value, &'a [u8])>
 where
-    K: Decode,
-    V: Decode,
+    K: Decode<'a>,
+    V: Decode<'a>,
 {
     let (k, buf) = K::decode(buf)?;
     let (v, buf) = V::decode(buf)?;
     Ok((k, v, buf))
 }
 
-impl<Map, K, V> Decode for MapDecoder<Map, K, V>
+impl<'a, Map, K, V> Decode<'a> for MapDecoder<Map, K, V>
 where
-    K: Decode,
-    V: Decode,
+    K: Decode<'a>,
+    V: Decode<'a>,
     Map: FromIterator<(K::Value, V::Value)>,
 {
     type Value = Map;
 
-    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let (format, buf) = Format::decode(buf)?;
         match format {
             Format::FixMap(_) | Format::Map16 | Format::Map32 => {
@@ -33,7 +33,7 @@ where
         }
     }
 
-    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let (len, buf) = match format {
             Format::FixMap(len) => (len.into(), buf),
             Format::Map16 => NbyteReader::<2>::read(buf)?,

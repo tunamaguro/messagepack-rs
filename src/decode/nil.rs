@@ -3,7 +3,7 @@ use crate::formats::Format;
 
 pub struct NilDecoder;
 
-impl Decode for NilDecoder {
+impl<'a> Decode<'a> for NilDecoder {
     type Value = ();
     fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
         let (format, buf) = Format::decode(buf)?;
@@ -20,7 +20,7 @@ impl Decode for NilDecoder {
     }
 }
 
-impl Decode for () {
+impl<'a> Decode<'a> for () {
     type Value = ();
     fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
         NilDecoder::decode(buf)
@@ -30,16 +30,16 @@ impl Decode for () {
     }
 }
 
-impl<V> Decode for Option<V>
+impl<'a, V> Decode<'a> for Option<V>
 where
-    V: Decode,
+    V: Decode<'a>,
 {
     type Value = Option<V::Value>;
-    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let (format, buf) = Format::decode(buf)?;
         Self::decode_with_format(format, buf)
     }
-    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])> {
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         match format {
             Format::Nil => Ok((None, buf)),
             other => {

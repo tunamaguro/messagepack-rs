@@ -3,7 +3,7 @@ use crate::formats::Format;
 
 macro_rules! impl_decode_float {
     ($ty:ty,$format:path) => {
-        impl Decode for $ty {
+        impl<'a> Decode<'a> for $ty {
             type Value = Self;
 
             fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {

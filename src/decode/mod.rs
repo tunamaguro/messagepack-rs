@@ -25,16 +25,16 @@ pub enum Error {
 
 type Result<T> = ::core::result::Result<T, Error>;
 
-pub trait Decode {
+pub trait Decode<'a> {
     type Value: Sized;
     // decode from buf and return (value,rest)
-    fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])>;
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])>;
 
     // decode with format
-    fn decode_with_format(format: Format, buf: &[u8]) -> Result<(Self::Value, &[u8])>;
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])>;
 }
 
-impl Decode for Format {
+impl<'a> Decode<'a> for Format {
     type Value = Self;
     fn decode(buf: &[u8]) -> Result<(Self::Value, &[u8])> {
         let (first, rest) = buf.split_first().ok_or(Error::EofFormat)?;
