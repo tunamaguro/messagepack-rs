@@ -118,7 +118,7 @@ impl Encode for i8 {
         match u8::try_from(*self) {
             Ok(u8_int) => u8_int.encode(buf),
             Err(_) => match self {
-                -0b11111..=0b00000 => {
+                -32..=-1 => {
                     let it = Format::NegativeFixInt(*self);
                     buf.extend(it);
                     Ok(1)
@@ -136,7 +136,7 @@ impl Encode for i8 {
         match u8::try_from(*self) {
             Ok(u8_int) => u8_int.encode_to_iter_mut(buf),
             Err(_) => match self {
-                -0b11111..=0b00000 => {
+                -32..=-1 => {
                     const SIZE: usize = 1;
                     let it = &mut Format::NegativeFixInt(*self).into_iter();
                     for (byte, to) in it.zip(buf) {
@@ -260,6 +260,19 @@ mod tests {
         let mut buf = vec![];
         255_i16.encode(&mut buf).unwrap();
         let expect: &[u8] = &[Format::Uint8.as_byte(), 0xff];
+        assert_eq!(buf, expect);
+    }
+
+    #[test]
+    fn encode_neg_5bit() {
+        let mut buf = vec![];
+        (-32_i8).encode(&mut buf).unwrap();
+        let expect: &[u8] = &[0xe0];
+        assert_eq!(buf, expect);
+
+        let mut buf = vec![];
+        (-1_i8).encode(&mut buf).unwrap();
+        let expect: &[u8] = &[0xff];
         assert_eq!(buf, expect);
     }
 }

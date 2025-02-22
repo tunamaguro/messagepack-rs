@@ -118,7 +118,7 @@ impl Format {
             Format::Array32 => ARRAY32,
             Format::Map16 => MAP16,
             Format::Map32 => MAP32,
-            Format::NegativeFixInt(v) => NEGATIVE_FIXINT | (*v as u8),
+            Format::NegativeFixInt(v) => *v as u8,
         }
     }
 
@@ -160,7 +160,7 @@ impl Format {
             ARRAY32 => Self::Array32,
             MAP16 => Self::Map16,
             MAP32 => Self::Map32,
-            0xe0..=0xff => Self::NegativeFixInt((byte & !NEGATIVE_FIXINT) as i8),
+            0xe0..=0xff => Self::NegativeFixInt(byte as i8),
         }
     }
 }
