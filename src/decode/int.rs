@@ -32,42 +32,6 @@ impl Decode for u8 {
     }
 }
 
-macro_rules! impl_decode_unsigned {
-    ($ty:ty,$format:path) => {
-        impl Decode for $ty {
-            type Value = Self;
-            fn decode<I, B>(buf: &mut I) -> Result<Self::Value>
-            where
-                I: Iterator<Item = B>,
-                B: core::borrow::Borrow<u8>,
-            {
-                let format = Format::decode(buf)?;
-                Self::decode_with_format(format, buf)
-            }
-            fn decode_with_format<I, B>(format: Format, buf: &mut I) -> Result<Self::Value>
-            where
-                I: Iterator<Item = B>,
-                B: core::borrow::Borrow<u8>,
-            {
-                match format {
-                    $format => {
-                        let mut bytes = [0_u8; core::mem::size_of::<$ty>()];
-                        let mut bytes_mut = bytes.iter_mut();
-                        for (to, byte) in bytes_mut.by_ref().zip(buf) {
-                            *to = *byte.borrow();
-                        }
-                        Ok(<$ty>::from_be_bytes(bytes))
-                    }
-                    _ => Err(Error::UnexpectedFormat),
-                }
-            }
-        }
-    };
-}
-impl_decode_unsigned!(u16, Format::Uint16);
-impl_decode_unsigned!(u32, Format::Uint32);
-impl_decode_unsigned!(u64, Format::Uint64);
-
 impl Decode for i8 {
     type Value = Self;
     fn decode<I, B>(buf: &mut I) -> Result<Self::Value>
@@ -98,7 +62,7 @@ impl Decode for i8 {
     }
 }
 
-macro_rules! impl_decode_signed {
+macro_rules! impl_decode_int {
     ($ty:ty,$format:path) => {
         impl Decode for $ty {
             type Value = Self;
@@ -117,12 +81,16 @@ macro_rules! impl_decode_signed {
             {
                 match format {
                     $format => {
-                        let mut bytes = [0_u8; core::mem::size_of::<$ty>()];
+                        let mut bytes = [0_u8; core::mem::size_of::<Self>()];
                         let mut bytes_mut = bytes.iter_mut();
                         for (to, byte) in bytes_mut.by_ref().zip(buf) {
                             *to = *byte.borrow();
                         }
-                        Ok(<$ty>::from_be_bytes(bytes))
+                        if bytes_mut.next().is_none() {
+                            Ok(<Self>::from_be_bytes(bytes))
+                        } else {
+                            Err(Error::EofData)
+                        }
                     }
                     _ => Err(Error::UnexpectedFormat),
                 }
@@ -130,9 +98,13 @@ macro_rules! impl_decode_signed {
         }
     };
 }
-impl_decode_signed!(i16, Format::Int16);
-impl_decode_signed!(i32, Format::Int32);
-impl_decode_signed!(i64, Format::Int64);
+
+impl_decode_int!(u16, Format::Uint16);
+impl_decode_int!(u32, Format::Uint32);
+impl_decode_int!(u64, Format::Uint64);
+impl_decode_int!(i16, Format::Int16);
+impl_decode_int!(i32, Format::Int32);
+impl_decode_int!(i64, Format::Int64);
 
 #[cfg(test)]
 mod tests {
