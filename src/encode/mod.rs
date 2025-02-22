@@ -1,17 +1,17 @@
-mod array;
-mod bin;
-mod bool;
-mod extension;
-mod float;
-mod int;
-mod map;
-mod nil;
-mod str;
+pub(crate) mod array;
+pub(crate) mod bin;
+pub(crate) mod bool;
+pub(crate) mod extension;
+pub(crate) mod float;
+pub(crate) mod int;
+pub(crate) mod map;
+pub(crate) mod nil;
+pub(crate) mod str;
 
 pub use array::ArrayEncoder;
 pub use bin::BinaryEncoder;
 pub use extension::ExtensionEncoder;
-pub use map::MapEncoder;
+pub use map::{MapEncoder, MapSliceEncoder};
 
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]

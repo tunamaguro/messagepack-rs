@@ -55,7 +55,7 @@ jobs:
         run: |
           cargo clippy --all-targets --all-features
   test:
-    name: Test
+    name: Test coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR branch
@@ -64,6 +64,13 @@ jobs:
         uses: moonrepo/setup-rust@v1
         with:
           cache-base: main
+          components: llvm-tools-preview
+          bins: cargo-llvm-cov
       - name: Run test
         run: |
-          cargo test --workspace
+          cargo llvm-cov --lcov --output-path lcov.info
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./lcov.info
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
