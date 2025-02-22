@@ -7,6 +7,7 @@ mod int;
 mod map;
 mod nil;
 mod str;
+mod bin;
 
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
