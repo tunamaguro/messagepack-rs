@@ -1,13 +1,20 @@
 use crate::Format;
 
 mod array;
+pub use array::ArrayDecoder;
+mod bin;
+pub use bin::BinDecoder;
 mod bool;
+mod extension;
+pub use extension::{Extension, ExtensionDecoder};
 mod float;
 mod int;
 mod map;
+pub use map::MapDecoder;
 mod nil;
+pub use nil::NilDecoder;
 mod str;
-mod bin;
+pub use str::StrDecoder;
 
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
