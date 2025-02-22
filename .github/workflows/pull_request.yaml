@@ -53,7 +53,7 @@ jobs:
           cache-base: main
       - name: Run lint
         run: |
-          cargo clippy --all-targets --all-features
+          cargo clippy --workspace --all-targets --all-features
   test:
     name: Test coverage
     runs-on: ubuntu-latest
@@ -68,7 +68,7 @@ jobs:
           bins: cargo-llvm-cov
       - name: Run test
         run: |
-          cargo llvm-cov --lcov --output-path lcov.info
+          cargo llvm-cov --workspace --lcov --output-path lcov.info
       - uses: codecov/codecov-action@v5
         with:
           files: ./lcov.info
