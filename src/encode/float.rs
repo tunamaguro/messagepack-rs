@@ -51,21 +51,43 @@ impl Encode for f64 {
 mod tests {
     use super::*;
 
-    #[test]
-    fn encode_float32() {
-        let mut buf = vec![];
-        (123.456_f32).encode(&mut buf).unwrap();
+    use rstest::rstest;
 
-        let expected: &[u8] = &[0xca, 0x42, 0xf6, 0xe9, 0x79];
-        assert_eq!(&buf, expected);
+    #[rstest]
+    #[case(123.456_f32,[0xca, 0x42, 0xf6, 0xe9, 0x79])]
+    fn encode_float32<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
+        let expected = expected.as_ref();
+        {
+            let mut buf = vec![];
+            let n = value.encode(&mut buf).unwrap();
+            assert_eq!(buf, expected);
+            assert_eq!(n, expected.len());
+        }
+
+        {
+            let mut buf = vec![0xff; core::mem::size_of::<E>()];
+            let n = value.encode_to_slice(buf.as_mut_slice()).unwrap();
+            assert_eq!(&buf, expected);
+            assert_eq!(n, expected.len());
+        }
     }
 
-    #[test]
-    fn encode_float64() {
-        let mut buf = vec![];
-        (123456.789_f64).encode(&mut buf).unwrap();
+    #[rstest]
+    #[case(123456.789_f64,[0xcb, 0x40, 0xfe, 0x24, 0x0c, 0x9f, 0xbe, 0x76, 0xc9])]
+    fn encode_float64<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
+        let expected = expected.as_ref();
+        {
+            let mut buf = vec![];
+            let n = value.encode(&mut buf).unwrap();
+            assert_eq!(buf, expected);
+            assert_eq!(n, expected.len());
+        }
 
-        let expected: &[u8] = &[0xcb, 0x40, 0xfe, 0x24, 0x0c, 0x9f, 0xbe, 0x76, 0xc9];
-        assert_eq!(&buf, expected);
+        {
+            let mut buf = vec![0xff; core::mem::size_of::<E>()];
+            let n = value.encode_to_slice(buf.as_mut_slice()).unwrap();
+            assert_eq!(&buf, expected);
+            assert_eq!(n, expected.len());
+        }
     }
 }
