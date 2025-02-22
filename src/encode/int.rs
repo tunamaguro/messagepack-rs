@@ -1,3 +1,5 @@
+use num_traits::ToPrimitive;
+
 use super::{Encode, Error, Result};
 use crate::formats::Format;
 
@@ -200,6 +202,62 @@ impl Encode for i128 {
     }
 }
 
+/// encode minimum byte size
+pub struct EncodeMinimizeInt<N>(pub N);
+
+impl<N> Encode for EncodeMinimizeInt<N>
+where
+    N: ToPrimitive,
+{
+    fn encode<T>(&self, buf: &mut T) -> Result<usize>
+    where
+        T: Extend<u8>,
+    {
+        let n = &self.0;
+        if let Some(v) = n.to_u8() {
+            v.encode(buf)
+        } else if let Some(v) = n.to_i8() {
+            v.encode(buf)
+        } else if let Some(v) = n.to_u16() {
+            v.encode(buf)
+        } else if let Some(v) = n.to_i16() {
+            v.encode(buf)
+        } else if let Some(v) = n.to_u32() {
+            v.encode(buf)
+        } else if let Some(v) = n.to_i32() {
+            v.encode(buf)
+        } else if let Some(v) = n.to_u64() {
+            v.encode(buf)
+        } else if let Some(v) = n.to_i64() {
+            v.encode(buf)
+        } else {
+            Err(Error::InvalidFormat)
+        }
+    }
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
+        let n = &self.0;
+        if let Some(v) = n.to_u8() {
+            v.encode_to_iter_mut(buf)
+        } else if let Some(v) = n.to_i8() {
+            v.encode_to_iter_mut(buf)
+        } else if let Some(v) = n.to_u16() {
+            v.encode_to_iter_mut(buf)
+        } else if let Some(v) = n.to_i16() {
+            v.encode_to_iter_mut(buf)
+        } else if let Some(v) = n.to_u32() {
+            v.encode_to_iter_mut(buf)
+        } else if let Some(v) = n.to_i32() {
+            v.encode_to_iter_mut(buf)
+        } else if let Some(v) = n.to_u64() {
+            v.encode_to_iter_mut(buf)
+        } else if let Some(v) = n.to_i64() {
+            v.encode_to_iter_mut(buf)
+        } else {
+            Err(Error::InvalidFormat)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -375,6 +433,41 @@ mod tests {
         {
             let mut buf = vec![0xff; core::mem::size_of::<E>()];
             let n = value.encode_to_slice(buf.as_mut_slice()).unwrap();
+            assert_eq!(&buf, expected);
+            assert_eq!(n, expected.len());
+        }
+    }
+
+    #[rstest]
+    #[case(0_i8,[0x00])]
+    #[case(0x7f_i8,[0x7f])]
+    #[case(0_u16,[0x00])]
+    #[case(0x7f_u16,[0x7f])]
+    #[case(0x80_u16,[Format::Uint8.as_byte(),0x80])]
+    #[case(0_i16,[0x00])]
+    #[case(0x7f_i16,[0x7f])]
+    #[case(0_u32,[0x00])]
+    #[case(0_u64,[0x00])]
+    #[case(0_u128,[0x00])]
+    #[case(0_i32,[0x00])]
+    #[case(0_i64,[0x00])]
+    #[case(0_i128,[0x00])]
+    fn encode_int_minimize<V: ToPrimitive, E: AsRef<[u8]> + Sized>(
+        #[case] value: V,
+        #[case] expected: E,
+    ) {
+        let expected = expected.as_ref();
+        let encoder = EncodeMinimizeInt(value);
+        {
+            let mut buf = vec![];
+            let n = encoder.encode(&mut buf).unwrap();
+            assert_eq!(buf, expected);
+            assert_eq!(n, expected.len());
+        }
+
+        {
+            let mut buf = vec![0xff; core::mem::size_of::<E>()];
+            let n = encoder.encode_to_slice(buf.as_mut_slice()).unwrap();
             assert_eq!(&buf, expected);
             assert_eq!(n, expected.len());
         }
