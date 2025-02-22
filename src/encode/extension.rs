@@ -256,18 +256,14 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case(0xd4_u8.to_be_bytes(),123,[0x12])]
-    #[case(0xd5_u8.to_be_bytes(),123,[0x12,0x34])]
-    #[case(0xd6_u8.to_be_bytes(),123,[0x12,0x34,0x56,0x78])]
-    #[case(0xd7_u8.to_be_bytes(),123,[0x12;8])]
-    #[case(0xd8_u8.to_be_bytes(),123,[0x12;16])]
-    fn encode_ext_fixed<M: AsRef<[u8]>, D: AsRef<[u8]>>(
-        #[case] marker: M,
-        #[case] ty: u8,
-        #[case] data: D,
-    ) {
+    #[case(0xd4,123,[0x12])]
+    #[case(0xd5,123,[0x12,0x34])]
+    #[case(0xd6,123,[0x12,0x34,0x56,0x78])]
+    #[case(0xd7,123,[0x12;8])]
+    #[case(0xd8,123,[0x12;16])]
+    fn encode_ext_fixed<D: AsRef<[u8]>>(#[case] marker: u8, #[case] ty: u8, #[case] data: D) {
         let expected = marker
-            .as_ref()
+            .to_be_bytes()
             .iter()
             .chain(ty.to_be_bytes().iter())
             .chain(data.as_ref())

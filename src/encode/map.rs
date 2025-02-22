@@ -142,6 +142,7 @@ where
 mod tests {
     use super::*;
     use crate::encode::int::EncodeMinimizeInt;
+    use rstest::rstest;
 
     #[test]
     fn encode_map_extend() {

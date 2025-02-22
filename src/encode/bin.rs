@@ -111,16 +111,16 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case(0xc4_u8.to_be_bytes(), 255_u8.to_be_bytes(),[0x12;255])]
-    #[case(0xc5_u8.to_be_bytes(), 65535_u16.to_be_bytes(),[0x34;65535])]
-    #[case(0xc6_u8.to_be_bytes(), 65536_u32.to_be_bytes(),[0x56;65536])]
-    fn encode_str_sized<M: AsRef<[u8]>, S: AsRef<[u8]>, D: AsRef<[u8]>>(
-        #[case] marker: M,
+    #[case(0xc4, 255_u8.to_be_bytes(),[0x12;255])]
+    #[case(0xc5, 65535_u16.to_be_bytes(),[0x34;65535])]
+    #[case(0xc6, 65536_u32.to_be_bytes(),[0x56;65536])]
+    fn encode_str_sized<S: AsRef<[u8]>, D: AsRef<[u8]>>(
+        #[case] marker: u8,
         #[case] size: S,
         #[case] data: D,
     ) {
         let expected = marker
-            .as_ref()
+            .to_be_bytes()
             .iter()
             .chain(size.as_ref())
             .chain(data.as_ref())

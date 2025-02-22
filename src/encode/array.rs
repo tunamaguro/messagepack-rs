@@ -132,15 +132,15 @@ mod tests {
     }
 
     #[rstest]
-    #[case(0xdc_u8.to_be_bytes(), 65535_u16.to_be_bytes(),[0x34;65535])]
-    #[case(0xdd_u8.to_be_bytes(), 65536_u32.to_be_bytes(),[0x56;65536])]
-    fn encode_array_sized<M: AsRef<[u8]>, S: AsRef<[u8]>, D: AsRef<[u8]>>(
-        #[case] marker: M,
+    #[case(0xdc, 65535_u16.to_be_bytes(),[0x34;65535])]
+    #[case(0xdd, 65536_u32.to_be_bytes(),[0x56;65536])]
+    fn encode_array_sized<S: AsRef<[u8]>, D: AsRef<[u8]>>(
+        #[case] marker: u8,
         #[case] size: S,
         #[case] data: D,
     ) {
         let expected = marker
-            .as_ref()
+            .to_be_bytes()
             .iter()
             .chain(size.as_ref())
             .chain(data.as_ref())

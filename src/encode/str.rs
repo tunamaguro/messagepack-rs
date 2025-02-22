@@ -163,17 +163,13 @@ mod tests {
     }
 
     #[rstest]
-    #[case(0xd9_u8.to_be_bytes(), 255_u8.to_be_bytes(),255)]
-    #[case(0xda_u8.to_be_bytes(), 65535_u16.to_be_bytes(),65535)]
-    #[case(0xdb_u8.to_be_bytes(), 65536_u32.to_be_bytes(),65536)]
-    fn encode_str_sized<M: AsRef<[u8]>, L: AsRef<[u8]>>(
-        #[case] marker: M,
-        #[case] size: L,
-        #[case] len: usize,
-    ) {
+    #[case(0xd9, 255_u8.to_be_bytes(),255)]
+    #[case(0xda, 65535_u16.to_be_bytes(),65535)]
+    #[case(0xdb, 65536_u32.to_be_bytes(),65536)]
+    fn encode_str_sized<L: AsRef<[u8]>>(#[case] marker: u8, #[case] size: L, #[case] len: usize) {
         let value = core::iter::repeat_n("a", len).collect::<String>();
         let expected = marker
-            .as_ref()
+            .to_be_bytes()
             .iter()
             .chain(size.as_ref())
             .cloned()
