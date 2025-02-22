@@ -40,6 +40,7 @@ const ARRAY32: u8 = 0xdd;
 const MAP16: u8 = 0xde;
 const MAP32: u8 = 0xdf;
 
+#[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Format {
     PositiveFixInt(u8),
     FixMap(u8),
