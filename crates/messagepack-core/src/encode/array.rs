@@ -1,5 +1,132 @@
+use core::{cell::RefCell, marker::PhantomData};
+
 use super::{Encode, Error, Result};
 use crate::formats::Format;
+
+pub struct ArrayFormatEncoder(pub usize);
+impl ArrayFormatEncoder {
+    pub fn new(size: usize) -> Self {
+        Self(size)
+    }
+}
+impl Encode for ArrayFormatEncoder {
+    fn encode<T>(&self, buf: &mut T) -> Result<usize>
+    where
+        T: Extend<u8>,
+    {
+        match self.0 {
+            0x00..=0b1111 => {
+                let cast = self.0 as u8;
+                let it = Format::FixArray(cast);
+                buf.extend(it);
+                Ok(1)
+            }
+            0x10..=0xffff => {
+                let cast = self.0 as u16;
+                let it = Format::Array16.into_iter().chain(cast.to_be_bytes());
+                buf.extend(it);
+                Ok(3)
+            }
+            0x10000..=0xffffffff => {
+                let cast = self.0 as u32;
+                let it = Format::Array32.into_iter().chain(cast.to_be_bytes());
+                buf.extend(it);
+                Ok(5)
+            }
+            _ => Err(Error::InvalidFormat),
+        }
+    }
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
+        match self.0 {
+            0x00..=0b1111 => {
+                const SIZE: usize = 1;
+                let cast = self.0 as u8;
+                let it = &mut Format::FixArray(cast).into_iter();
+                for (byte, to) in it.zip(buf.by_ref()) {
+                    *to = byte;
+                }
+
+                if it.next().is_none() {
+                    Ok(SIZE)
+                } else {
+                    Err(Error::BufferFull)
+                }
+            }
+            0x10..=0xffff => {
+                const SIZE: usize = 3;
+                let cast = self.0 as u16;
+                let it = &mut Format::Array16.into_iter().chain(cast.to_be_bytes());
+                for (byte, to) in it.zip(buf.by_ref()) {
+                    *to = byte;
+                }
+
+                if it.next().is_none() {
+                    Ok(SIZE)
+                } else {
+                    Err(Error::BufferFull)
+                }
+            }
+            0x10000..=0xffffffff => {
+                const SIZE: usize = 5;
+                let cast = self.0 as u32;
+                let it = &mut Format::Array32.into_iter().chain(cast.to_be_bytes());
+                for (byte, to) in it.zip(buf.by_ref()) {
+                    *to = byte;
+                }
+
+                if it.next().is_none() {
+                    Ok(SIZE)
+                } else {
+                    Err(Error::BufferFull)
+                }
+            }
+            _ => Err(Error::InvalidFormat),
+        }
+    }
+}
+
+pub struct ArrayDataEncoder<I, V> {
+    data: RefCell<I>,
+    _phantom: PhantomData<(I, V)>,
+}
+
+impl<I, V> ArrayDataEncoder<I, V> {
+    pub fn new(data: I) -> Self {
+        ArrayDataEncoder {
+            data: RefCell::new(data),
+            _phantom: Default::default(),
+        }
+    }
+}
+
+impl<I, V> Encode for ArrayDataEncoder<I, V>
+where
+    I: Iterator<Item = V>,
+    V: Encode,
+{
+    fn encode<T>(&self, buf: &mut T) -> Result<usize>
+    where
+        T: Extend<u8>,
+    {
+        let array_len = self
+            .data
+            .borrow_mut()
+            .by_ref()
+            .map(|v| v.encode(buf))
+            .try_fold(0, |acc, v| v.map(|n| acc + n))?;
+        Ok(array_len)
+    }
+
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
+        let array_len = self
+            .data
+            .borrow_mut()
+            .by_ref()
+            .map(|v| v.encode_to_iter_mut(buf))
+            .try_fold(0, |acc, v| v.map(|n| acc + n))?;
+        Ok(array_len)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ArrayEncoder<'array, V>(&'array [V]);
@@ -20,85 +147,15 @@ where
         T: Extend<u8>,
     {
         let self_len = self.len();
-        let format_len = match self_len {
-            0x00..=0b1111 => {
-                let cast = self_len as u8;
-                let it = Format::FixArray(cast);
-                buf.extend(it);
-                Ok(1)
-            }
-            0x10..=0xffff => {
-                let cast = self_len as u16;
-                let it = Format::Array16.into_iter().chain(cast.to_be_bytes());
-                buf.extend(it);
-                Ok(3)
-            }
-            0x10000..=0xffffffff => {
-                let cast = self_len as u32;
-                let it = Format::Array32.into_iter().chain(cast.to_be_bytes());
-                buf.extend(it);
-                Ok(5)
-            }
-            _ => Err(Error::InvalidFormat),
-        }?;
+        let format_len = ArrayFormatEncoder(self_len).encode(buf)?;
 
-        let array_len = self
-            .iter()
-            .map(|v| v.encode(buf))
-            .try_fold(0, |acc, v| v.map(|n| acc + n))?;
+        let array_len = ArrayDataEncoder::new(self.iter()).encode(buf)?;
         Ok(format_len + array_len)
     }
     fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         let self_len = self.len();
-        let format_len = match self_len {
-            0x00..=0b1111 => {
-                const SIZE: usize = 1;
-                let cast = self_len as u8;
-                let it = &mut Format::FixArray(cast).into_iter();
-                for (byte, to) in it.zip(buf.by_ref()) {
-                    *to = byte;
-                }
-
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
-            }
-            0x10..=0xffff => {
-                const SIZE: usize = 3;
-                let cast = self_len as u16;
-                let it = &mut Format::Array16.into_iter().chain(cast.to_be_bytes());
-                for (byte, to) in it.zip(buf.by_ref()) {
-                    *to = byte;
-                }
-
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
-            }
-            0x10000..=0xffffffff => {
-                const SIZE: usize = 5;
-                let cast = self_len as u32;
-                let it = &mut Format::Array32.into_iter().chain(cast.to_be_bytes());
-                for (byte, to) in it.zip(buf.by_ref()) {
-                    *to = byte;
-                }
-
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
-            }
-            _ => Err(Error::InvalidFormat),
-        }?;
-        let array_len = self
-            .iter()
-            .map(|v| v.encode_to_iter_mut(buf))
-            .try_fold(0, |acc, v| v.map(|n| acc + n))?;
+        let format_len = ArrayFormatEncoder(self_len).encode_to_iter_mut(buf)?;
+        let array_len = ArrayDataEncoder::new(self.iter()).encode_to_iter_mut(buf)?;
         Ok(format_len + array_len)
     }
 }
