@@ -65,10 +65,41 @@ impl Default for ArrayTypes {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ByteType {
+    #[serde(with = "serde_bytes")]
+    short: &'static [u8],
+    #[serde(with = "serde_bytes")]
+    medium: &'static [u8],
+    #[serde(with = "serde_bytes")]
+    long: &'static [u8],
+}
+
+impl Default for ByteType {
+    fn default() -> Self {
+        Self {
+            short: include_bytes!("../data/lorem-ipsum.txt"),
+            medium: include_bytes!("../data/jp-constitution.txt"),
+            long: include_bytes!("../data/raven.txt"),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CompositeType {
     pub primitives: PrimitiveTypes,
     pub strings: StringTypes,
     pub arrays: ArrayTypes,
+}
+
+impl Default for CompositeType {
+    fn default() -> Self {
+        let p = rand::random::<PrimitiveTypes>();
+        Self {
+            primitives: p,
+            arrays: Default::default(),
+            strings: Default::default(),
+        }
+    }
 }
 
 #[cfg(test)]
