@@ -387,11 +387,65 @@ mod tests {
     }
 
     #[test]
-    fn encode_new_type_variant() {
-        let v = 127_u8;
+    fn encode_struct_variant() {
+        #[derive(Serialize)]
+        enum Type {
+            Bool { flag: bool, msg: &'static str },
+        }
+
+        // expect
+        // {
+        //   "Bool":{
+        //       "flag": bool,
+        //       "msg": "Some message"
+        //    }
+        // }
+
         let buf = &mut [0u8; 128];
-        let len = to_slice(&v, buf).unwrap();
-        assert_eq!(buf[..len], [0x7f]);
+        {
+            let len = to_slice(
+                &Type::Bool {
+                    flag: false,
+                    msg: "hi",
+                },
+                buf,
+            )
+            .unwrap();
+            assert_eq!(
+                buf[..len],
+                [
+                    0x81, // fixmap len = 1
+                    0xa4, // fixstr len = 4
+                    b'B', b'o', b'o', b'l', // top
+                    0x82, // fixmap len = 2
+                    0xa4, // fixstr len = 4
+                    b'f', b'l', b'a', b'g', // key
+                    0xc2, // false
+                    0xa3, // fixstr len = 3
+                    b'm', b's', b'g', //key
+                    0xa2, // fixstr len = 2
+                    b'h', b'i',
+                ]
+            )
+        }
+    }
+
+    #[test]
+    fn encode_tuple_struct() {
+        #[derive(Serialize)]
+        struct V(i16, u32, i32);
+
+        let buf = &mut [0u8; 128];
+        let len = to_slice(&V(1, 2, 3), buf).unwrap();
+        assert_eq!(
+            buf[..len],
+            [
+                0x93, // fixarr len = 3
+                0xd1, 0x00, 0x01, // int16
+                0xce, 0x00, 0x00, 0x00, 0x02, // uint32
+                0xd2, 0x00, 0x00, 0x00, 0x03, // uint32
+            ]
+        );
     }
 
     #[test]
