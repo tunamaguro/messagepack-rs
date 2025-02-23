@@ -14,6 +14,7 @@ mod seq;
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
 pub struct Serializer<'a, Buf> {
     buf: Buf,
+    current_length: usize,
     _phantom: PhantomData<&'a ()>,
 }
 
@@ -24,6 +25,7 @@ where
     pub fn new(buf: Buf) -> Self {
         Self {
             buf,
+            current_length: 0,
             _phantom: Default::default(),
         }
     }
@@ -51,57 +53,57 @@ where
     type SerializeStructVariant = map::SerializeMap<'a, 'b, Buf>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
@@ -113,17 +115,17 @@ where
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        BinaryEncoder(v).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += BinaryEncoder(v).encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        NilEncoder.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += NilEncoder.encode_to_iter_mut(self.buf.by_ref())?;
         Ok(())
     }
 
@@ -138,8 +140,8 @@ where
         self.serialize_none()
     }
 
-    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
-        self.serialize_str(name)
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
+        self.serialize_unit()
     }
 
     fn serialize_unit_variant(
@@ -172,19 +174,21 @@ where
     where
         T: ?Sized + ser::Serialize,
     {
-        MapFormatEncoder::new(1).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += MapFormatEncoder::new(1).encode_to_iter_mut(self.buf.by_ref())?;
         self.serialize_str(variant)?;
         value.serialize(self.as_mut())
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         let len = len.ok_or(Error::SeqLenNone)?;
-        ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length +=
+            ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
         Ok(seq::SerializeSeq::new(self))
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length +=
+            ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
         Ok(seq::SerializeSeq::new(self))
     }
 
@@ -193,7 +197,8 @@ where
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length +=
+            ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
         Ok(seq::SerializeSeq::new(self))
     }
 
@@ -204,15 +209,16 @@ where
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        MapFormatEncoder::new(1).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += MapFormatEncoder::new(1).encode_to_iter_mut(self.buf.by_ref())?;
         self.serialize_str(variant)?;
-        ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length +=
+            ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
         Ok(seq::SerializeSeq::new(self))
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         let len = len.ok_or(Error::SeqLenNone)?;
-        MapFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += MapFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
         Ok(map::SerializeMap::new(self))
     }
 
@@ -221,7 +227,7 @@ where
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        MapFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += MapFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
         Ok(map::SerializeMap::new(self))
     }
 
@@ -232,7 +238,7 @@ where
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        MapFormatEncoder::new(1).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += MapFormatEncoder::new(1).encode_to_iter_mut(self.buf.by_ref())?;
         self.serialize_str(variant)?;
         self.serialize_struct(name, len)
     }
@@ -251,5 +257,156 @@ where
             let s = value.to_string();
             self.serialize_str(&s)
         }
+    }
+}
+
+pub fn to_slice<T>(value: &T, buf: &mut [u8]) -> Result<usize, Error>
+where
+    T: ser::Serialize + ?Sized,
+{
+    let mut ser = Serializer::new(buf.iter_mut());
+    value.serialize(&mut ser)?;
+    Ok(ser.current_length)
+}
+
+#[cfg(test)]
+mod tests {
+    use core::f32::consts::PI;
+
+    use serde::Serialize;
+
+    use super::*;
+
+    #[test]
+    fn encode_nil() {
+        let v: Option<()> = None;
+        let buf = &mut [0u8; 128];
+        let len = to_slice(&v, buf).unwrap();
+        assert_eq!(buf[..len], [0xc0]);
+    }
+
+    #[test]
+    fn encode_unit() {
+        let buf = &mut [0u8; 128];
+        let len = to_slice(&(), buf).unwrap();
+        assert_eq!(buf[..len], [0xc0]);
+    }
+
+    #[test]
+    fn encode_unit_struct() {
+        #[derive(Serialize)]
+        struct Unit;
+        let buf = &mut [0u8; 128];
+        let len = to_slice(&Unit, buf).unwrap();
+        assert_eq!(buf[..len], [0xc0]);
+    }
+
+    #[test]
+    fn encode_false() {
+        let v = false;
+        let buf = &mut [0u8; 128];
+        let len = to_slice(&v, buf).unwrap();
+        assert_eq!(buf[..len], [0xc2]);
+    }
+
+    #[test]
+    fn encode_true() {
+        let v = true;
+        let buf = &mut [0u8; 128];
+        let len = to_slice(&v, buf).unwrap();
+        assert_eq!(buf[..len], [0xc3]);
+    }
+
+    #[test]
+    fn encode_enum() {
+        #[derive(Serialize)]
+        enum Type {
+            Bool,
+            Int,
+            Float,
+        }
+        let buf = &mut [0u8; 128];
+        {
+            let len = to_slice(&Type::Bool, buf).unwrap();
+            assert_eq!(buf[..len], [0xa4, b'B', b'o', b'o', b'l'])
+        }
+        {
+            let len = to_slice(&Type::Int, buf).unwrap();
+            assert_eq!(buf[..len], [0xa3, b'I', b'n', b't'])
+        }
+        {
+            let len = to_slice(&Type::Float, buf).unwrap();
+            assert_eq!(buf[..len], [0xa5, b'F', b'l', b'o', b'a', b't'])
+        }
+    }
+
+    #[test]
+    fn encode_newtype_variant() {
+        #[derive(Serialize)]
+        enum Type {
+            Bool(bool),
+            Int(u8),
+            Float(f32),
+        }
+
+        let buf = &mut [0u8; 128];
+        {
+            let len = to_slice(&Type::Bool(true), buf).unwrap();
+            assert_eq!(
+                buf[..len],
+                [
+                    0x81, // fixmap len = 1
+                    0xa4, // fixstr len = 4
+                    b'B', b'o', b'o', b'l', 0xc3 // true
+                ]
+            )
+        }
+        {
+            let len = to_slice(&Type::Int(128), buf).unwrap();
+            assert_eq!(
+                buf[..len],
+                [
+                    0x81, // fixmap len = 1
+                    0xa3, b'I', b'n', b't', // fixstr "Int"
+                    0xcc, 0x80 // uint8 128
+                ]
+            )
+        }
+
+        {
+            let len = to_slice(&Type::Float(12.34), buf).unwrap();
+            assert_eq!(
+                buf[..len],
+                [
+                    0x81, // fixmap len = 1
+                    0xa5, b'F', b'l', b'o', b'a', b't', // fixstr "Float"
+                    0xca, 0x41, 0x45, 0x70, 0xa4 // float32 12.34
+                ]
+            )
+        }
+    }
+
+    #[test]
+    fn encode_new_type_variant() {
+        let v = 127_u8;
+        let buf = &mut [0u8; 128];
+        let len = to_slice(&v, buf).unwrap();
+        assert_eq!(buf[..len], [0x7f]);
+    }
+
+    #[test]
+    fn encode_pos_fix_int() {
+        let v = 127_u8;
+        let buf = &mut [0u8; 128];
+        let len = to_slice(&v, buf).unwrap();
+        assert_eq!(buf[..len], [0x7f]);
+    }
+
+    #[test]
+    fn encode_neg_fix_int() {
+        let v = -32_i8;
+        let buf = &mut [0u8; 128];
+        let len = to_slice(&v, buf).unwrap();
+        assert_eq!(buf[..len], [0xe0]);
     }
 }
