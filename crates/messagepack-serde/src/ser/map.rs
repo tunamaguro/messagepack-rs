@@ -1,4 +1,4 @@
-use super::{CoreError, Error};
+use super::Error;
 use serde::ser;
 
 pub struct SerializeMap;

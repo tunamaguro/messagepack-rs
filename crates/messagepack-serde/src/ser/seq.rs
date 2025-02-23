@@ -1,7 +1,7 @@
 use super::Serializer;
 use serde::ser;
 
-use super::error::{CoreError, Error};
+use super::error::Error;
 
 pub struct SerializeSeq<'a, 'b, Buf> {
     len: Option<usize>,
@@ -14,7 +14,7 @@ impl<'a, 'b, Buf> SerializeSeq<'a, 'b, Buf> {
     }
 }
 
-impl<'a, 'b, Buf> ser::SerializeSeq for SerializeSeq<'a, 'b, Buf>
+impl<'b, Buf> ser::SerializeSeq for SerializeSeq<'_, 'b, Buf>
 where
     Buf: Iterator<Item = &'b mut u8>,
 {
@@ -33,7 +33,7 @@ where
     }
 }
 
-impl<'a, 'b, Buf> ser::SerializeTuple for SerializeSeq<'a, 'b, Buf>
+impl<'b, Buf> ser::SerializeTuple for SerializeSeq<'_, 'b, Buf>
 where
     Buf: Iterator<Item = &'b mut u8>,
 {
@@ -52,7 +52,7 @@ where
     }
 }
 
-impl<'a, 'b, Buf> ser::SerializeTupleStruct for SerializeSeq<'a, 'b, Buf>
+impl<'b, Buf> ser::SerializeTupleStruct for SerializeSeq<'_, 'b, Buf>
 where
     Buf: Iterator<Item = &'b mut u8>,
 {
@@ -69,19 +69,20 @@ where
     }
 }
 
-impl<'a, 'b, Buf> ser::SerializeTupleVariant for SerializeSeq<'a, 'b, Buf>
+impl<'b, Buf> ser::SerializeTupleVariant for SerializeSeq<'_, 'b, Buf>
 where
     Buf: Iterator<Item = &'b mut u8>,
 {
     type Ok = ();
     type Error = Error;
-    
+
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + ser::Serialize {
+        T: ?Sized + ser::Serialize,
+    {
         todo!()
     }
-    
+
     fn end(self) -> Result<Self::Ok, Self::Error> {
         todo!()
     }

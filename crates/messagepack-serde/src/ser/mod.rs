@@ -29,7 +29,7 @@ where
     }
 }
 
-impl<'a, Buf> AsMut<Self> for Serializer<'a, Buf> {
+impl<Buf> AsMut<Self> for Serializer<'_, Buf> {
     fn as_mut(&mut self) -> &mut Self {
         self
     }
@@ -185,12 +185,12 @@ where
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         let len = len.ok_or(Error::SeqLenNone)?;
         ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
-        Ok(seq::SerializeSeq::new(len.into(), self.as_mut()))
+        Ok(seq::SerializeSeq::new(len.into(), self))
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
         ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
-        Ok(seq::SerializeSeq::new(len.into(), self.as_mut()))
+        Ok(seq::SerializeSeq::new(len.into(), self))
     }
 
     fn serialize_tuple_struct(
@@ -199,7 +199,7 @@ where
         len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
         ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
-        Ok(seq::SerializeSeq::new(len.into(), self.as_mut()))
+        Ok(seq::SerializeSeq::new(len.into(), self))
     }
 
     fn serialize_tuple_variant(
