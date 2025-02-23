@@ -44,11 +44,11 @@ where
     where
         T: ?Sized + ser::Serialize,
     {
-        value.serialize(self.ser.as_mut())
+        ser::SerializeSeq::serialize_element(self, value)
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
+        ser::SerializeSeq::end(self)
     }
 }
 
@@ -62,10 +62,10 @@ where
     where
         T: ?Sized + ser::Serialize,
     {
-        value.serialize(self.ser.as_mut())
+        ser::SerializeSeq::serialize_element(self, value)
     }
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
+        ser::SerializeSeq::end(self)
     }
 }
 
@@ -80,10 +80,10 @@ where
     where
         T: ?Sized + ser::Serialize,
     {
-        todo!()
+        ser::SerializeSeq::serialize_element(self, value)
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        ser::SerializeSeq::end(self)
     }
 }

@@ -1,9 +1,22 @@
 use super::Error;
+use super::Serializer;
 use serde::ser;
 
-pub struct SerializeMap;
+pub struct SerializeMap<'a, 'b, Buf> {
+    len: Option<usize>,
+    ser: &'a mut Serializer<'b, Buf>,
+}
 
-impl ser::SerializeMap for SerializeMap {
+impl<'a, 'b, Buf> SerializeMap<'a, 'b, Buf> {
+    pub(crate) fn new(len: Option<usize>, ser: &'a mut Serializer<'b, Buf>) -> Self {
+        Self { len, ser }
+    }
+}
+
+impl<'a, 'b, Buf> ser::SerializeMap for SerializeMap<'a, 'b, Buf>
+where
+    Buf: Iterator<Item = &'b mut u8>,
+{
     type Ok = ();
     type Error = Error;
 
@@ -11,22 +24,25 @@ impl ser::SerializeMap for SerializeMap {
     where
         T: ?Sized + ser::Serialize,
     {
-        todo!()
+        key.serialize(self.ser.as_mut())
     }
 
     fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + ser::Serialize,
     {
-        todo!()
+        value.serialize(self.ser.as_mut())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Ok(())
     }
 }
 
-impl ser::SerializeStruct for SerializeMap {
+impl<'a, 'b, Buf> ser::SerializeStruct for SerializeMap<'a, 'b, Buf>
+where
+    Buf: Iterator<Item = &'b mut u8>,
+{
     type Ok = ();
     type Error = Error;
 
@@ -42,7 +58,10 @@ impl ser::SerializeStruct for SerializeMap {
     }
 }
 
-impl ser::SerializeStructVariant for SerializeMap {
+impl<'a, 'b, Buf> ser::SerializeStructVariant for SerializeMap<'a, 'b, Buf>
+where
+    Buf: Iterator<Item = &'b mut u8>,
+{
     type Ok = ();
     type Error = Error;
 
@@ -50,10 +69,10 @@ impl ser::SerializeStructVariant for SerializeMap {
     where
         T: ?Sized + ser::Serialize,
     {
-        todo!()
+        ser::SerializeMap::serialize_entry(self, key, value)
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        ser::SerializeMap::end(self)
     }
 }

@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use error::{CoreError, Error};
 use messagepack_core::{
     Encode,
-    encode::{ArrayFormatEncoder, BinaryEncoder, NilEncoder},
+    encode::{ArrayFormatEncoder, BinaryEncoder, MapEncoder, MapFormatEncoder, NilEncoder},
 };
 use serde::ser;
 
@@ -56,9 +56,9 @@ where
     type SerializeTuple = seq::SerializeSeq<'a, 'b, Buf>;
     type SerializeTupleStruct = seq::SerializeSeq<'a, 'b, Buf>;
     type SerializeTupleVariant = seq::SerializeSeq<'a, 'b, Buf>;
-    type SerializeMap = map::SerializeMap;
-    type SerializeStruct = map::SerializeMap;
-    type SerializeStructVariant = map::SerializeMap;
+    type SerializeMap = map::SerializeMap<'a, 'b, Buf>;
+    type SerializeStruct = map::SerializeMap<'a, 'b, Buf>;
+    type SerializeStructVariant = map::SerializeMap<'a, 'b, Buf>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         v.encode_to_iter_mut(self.buf.by_ref())?;
@@ -160,26 +160,28 @@ where
 
     fn serialize_newtype_struct<T>(
         self,
-        name: &'static str,
+        _name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: ?Sized + ser::Serialize,
     {
-        todo!()
+        value.serialize(self.as_mut())
     }
 
     fn serialize_newtype_variant<T>(
         self,
-        name: &'static str,
-        variant_index: u32,
+        _name: &'static str,
+        _variant_index: u32,
         variant: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: ?Sized + ser::Serialize,
     {
-        todo!()
+        MapFormatEncoder::new(1).encode_to_iter_mut(self.buf.by_ref())?;
+        self.serialize_str(variant)?;
+        value.serialize(self.as_mut())
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
@@ -204,24 +206,30 @@ where
 
     fn serialize_tuple_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
+        _name: &'static str,
+        _variant_index: u32,
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        todo!()
+        MapFormatEncoder::new(1).encode_to_iter_mut(self.buf.by_ref())?;
+        self.serialize_str(variant)?;
+        ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        Ok(seq::SerializeSeq::new(len.into(), self))
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        todo!()
+        let len = len.ok_or(Error::SeqLenNone)?;
+        MapFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        Ok(map::SerializeMap::new(len.into(), self))
     }
 
     fn serialize_struct(
         self,
-        name: &'static str,
+        _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        todo!()
+        MapFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        Ok(map::SerializeMap::new(len.into(), self))
     }
 
     fn serialize_struct_variant(
@@ -231,7 +239,9 @@ where
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        todo!()
+        MapFormatEncoder::new(1).encode_to_iter_mut(self.buf.by_ref())?;
+        self.serialize_str(variant)?;
+        self.serialize_struct(name, len)
     }
 
     fn collect_str<T>(self, value: &T) -> Result<Self::Ok, Self::Error>

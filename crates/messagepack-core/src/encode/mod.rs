@@ -11,7 +11,7 @@ pub(crate) mod str;
 pub use array::{ArrayDataEncoder, ArrayEncoder, ArrayFormatEncoder};
 pub use bin::BinaryEncoder;
 pub use extension::ExtensionEncoder;
-pub use map::{MapEncoder, MapSliceEncoder};
+pub use map::{MapDataEncoder, MapEncoder, MapFormatEncoder, MapSliceEncoder};
 pub use nil::NilEncoder;
 
 use crate::Format;
