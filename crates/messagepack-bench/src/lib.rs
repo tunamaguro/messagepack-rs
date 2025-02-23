@@ -70,3 +70,32 @@ pub struct CompositeType {
     pub strings: StringTypes,
     pub arrays: ArrayTypes,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use messagepack_serde::ser::to_slice;
+    use rmp_serde::to_vec_named;
+
+    #[test]
+    fn str_size() {
+        let s = StringTypes::default();
+
+        let rmp = to_vec_named(&s).unwrap();
+
+        let buf = &mut [0_u8; 4096 * 10];
+        let len = to_slice(&s, buf).unwrap();
+        assert_eq!(rmp.len(), len);
+    }
+
+    #[test]
+    fn byte_size() {
+        let s = ArrayTypes::default();
+
+        let rmp = to_vec_named(&s).unwrap();
+
+        let buf = &mut [0_u8; 4096 * 10];
+        let len = to_slice(&s, buf).unwrap();
+        assert_eq!(rmp.len(), len);
+    }
+}
