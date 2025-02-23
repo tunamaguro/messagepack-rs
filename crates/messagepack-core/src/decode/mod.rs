@@ -67,11 +67,11 @@ impl<'a> Decode<'a> for Format {
     }
 }
 
-struct NbyteReader<const NBYTE: usize>;
+pub struct NbyteReader<const NBYTE: usize>;
 
 macro_rules! impl_read {
     ($ty:ty) => {
-        fn read(buf: &[u8]) -> Result<(usize, &[u8])> {
+        pub fn read(buf: &[u8]) -> Result<(usize, &[u8])> {
             const SIZE: usize = core::mem::size_of::<$ty>();
             let (data, rest) = buf.split_at_checked(SIZE).ok_or(Error::EofData)?;
             let data: [u8; SIZE] = data.try_into().map_err(|_| Error::EofData)?;
