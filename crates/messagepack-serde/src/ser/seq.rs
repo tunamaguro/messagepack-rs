@@ -4,13 +4,12 @@ use serde::ser;
 use super::error::Error;
 
 pub struct SerializeSeq<'a, 'b, Buf> {
-    len: Option<usize>,
     ser: &'a mut Serializer<'b, Buf>,
 }
 
 impl<'a, 'b, Buf> SerializeSeq<'a, 'b, Buf> {
-    pub(crate) fn new(len: Option<usize>, ser: &'a mut Serializer<'b, Buf>) -> Self {
-        Self { len, ser }
+    pub(crate) fn new(ser: &'a mut Serializer<'b, Buf>) -> Self {
+        Self { ser }
     }
 }
 

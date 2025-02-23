@@ -3,17 +3,16 @@ use super::Serializer;
 use serde::ser;
 
 pub struct SerializeMap<'a, 'b, Buf> {
-    len: Option<usize>,
     ser: &'a mut Serializer<'b, Buf>,
 }
 
 impl<'a, 'b, Buf> SerializeMap<'a, 'b, Buf> {
-    pub(crate) fn new(len: Option<usize>, ser: &'a mut Serializer<'b, Buf>) -> Self {
-        Self { len, ser }
+    pub(crate) fn new(ser: &'a mut Serializer<'b, Buf>) -> Self {
+        Self { ser }
     }
 }
 
-impl<'a, 'b, Buf> ser::SerializeMap for SerializeMap<'a, 'b, Buf>
+impl<'b, Buf> ser::SerializeMap for SerializeMap<'_, 'b, Buf>
 where
     Buf: Iterator<Item = &'b mut u8>,
 {
@@ -39,7 +38,7 @@ where
     }
 }
 
-impl<'a, 'b, Buf> ser::SerializeStruct for SerializeMap<'a, 'b, Buf>
+impl<'b, Buf> ser::SerializeStruct for SerializeMap<'_, 'b, Buf>
 where
     Buf: Iterator<Item = &'b mut u8>,
 {
@@ -58,7 +57,7 @@ where
     }
 }
 
-impl<'a, 'b, Buf> ser::SerializeStructVariant for SerializeMap<'a, 'b, Buf>
+impl<'b, Buf> ser::SerializeStructVariant for SerializeMap<'_, 'b, Buf>
 where
     Buf: Iterator<Item = &'b mut u8>,
 {

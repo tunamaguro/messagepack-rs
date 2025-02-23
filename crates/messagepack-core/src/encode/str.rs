@@ -41,7 +41,6 @@ impl Encode for StrFormatEncoder {
         match self.0 {
             0x00..=31 => {
                 let cast = self.0 as u8;
-                let it = Format::FixStr(cast).into_iter();
                 let it = &mut Format::FixStr(cast).into_iter();
                 for (byte, to) in it.zip(buf) {
                     *to = byte;

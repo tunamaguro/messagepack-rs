@@ -1,11 +1,11 @@
 use core::marker::PhantomData;
 
-use error::{CoreError, Error};
+use error::Error;
 use messagepack_core::{
     Encode,
-    encode::{ArrayFormatEncoder, BinaryEncoder, MapEncoder, MapFormatEncoder, NilEncoder},
+    encode::{ArrayFormatEncoder, BinaryEncoder, MapFormatEncoder, NilEncoder},
 };
-use serde::{de::value, ser};
+use serde::ser;
 
 pub mod error;
 mod map;
@@ -32,16 +32,6 @@ where
 impl<Buf> AsMut<Self> for Serializer<'_, Buf> {
     fn as_mut(&mut self) -> &mut Self {
         self
-    }
-}
-
-impl<'a, Buf> Serializer<'a, Buf>
-where
-    Buf: Iterator<Item = &'a mut u8>,
-{
-    pub(crate) fn take_byte(&mut self) -> Result<&'a mut u8, Error> {
-        let b = self.buf.next().ok_or(CoreError::BufferFull)?;
-        Ok(b)
     }
 }
 
@@ -190,12 +180,12 @@ where
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         let len = len.ok_or(Error::SeqLenNone)?;
         ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
-        Ok(seq::SerializeSeq::new(len.into(), self))
+        Ok(seq::SerializeSeq::new(self))
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
         ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
-        Ok(seq::SerializeSeq::new(len.into(), self))
+        Ok(seq::SerializeSeq::new(self))
     }
 
     fn serialize_tuple_struct(
@@ -204,7 +194,7 @@ where
         len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
         ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
-        Ok(seq::SerializeSeq::new(len.into(), self))
+        Ok(seq::SerializeSeq::new(self))
     }
 
     fn serialize_tuple_variant(
@@ -217,13 +207,13 @@ where
         MapFormatEncoder::new(1).encode_to_iter_mut(self.buf.by_ref())?;
         self.serialize_str(variant)?;
         ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
-        Ok(seq::SerializeSeq::new(len.into(), self))
+        Ok(seq::SerializeSeq::new(self))
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         let len = len.ok_or(Error::SeqLenNone)?;
         MapFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
-        Ok(map::SerializeMap::new(len.into(), self))
+        Ok(map::SerializeMap::new(self))
     }
 
     fn serialize_struct(
@@ -232,13 +222,13 @@ where
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
         MapFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
-        Ok(map::SerializeMap::new(len.into(), self))
+        Ok(map::SerializeMap::new(self))
     }
 
     fn serialize_struct_variant(
         self,
         name: &'static str,
-        variant_index: u32,
+        _variant_index: u32,
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
@@ -247,6 +237,7 @@ where
         self.serialize_struct(name, len)
     }
 
+    #[cfg_attr(not(feature = "std"), allow(unused_variables))]
     fn collect_str<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
     where
         T: ?Sized + core::fmt::Display,
