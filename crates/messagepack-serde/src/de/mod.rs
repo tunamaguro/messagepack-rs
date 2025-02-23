@@ -1,9 +1,13 @@
 use messagepack_core::{
     Decode, Format,
-    decode::{NbyteReader, NilDecoder},
+    decode::{NbyteReader, NilDecoder, StrDecoder},
 };
-use serde::{Deserialize, de, forward_to_deserialize_any};
+use serde::{
+    Deserialize,
+    de::{self, IntoDeserializer},
+};
 
+mod enum_;
 pub mod error;
 mod seq;
 
@@ -291,14 +295,18 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
     fn deserialize_enum<V>(
         self,
-        name: &'static str,
-        variants: &'static [&'static str],
+        _name: &'static str,
+        _variants: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        todo!()
+        let ident = self.decode::<&str>();
+        match ident {
+            Ok(ident) => visitor.visit_enum(ident.into_deserializer()),
+            _ => visitor.visit_enum(enum_::Enum::new(self)),
+        }
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
