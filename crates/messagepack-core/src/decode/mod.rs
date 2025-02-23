@@ -19,8 +19,6 @@ pub use str::StrDecoder;
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Error {
-    /// Invalid format
-    InvalidFormat,
     /// Invalid data
     InvalidData,
     /// Unexpected format
@@ -30,6 +28,19 @@ pub enum Error {
     /// Eof while decode data
     EofData,
 }
+
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Error::InvalidData => write!(f, "Cannot decode invalid data"),
+            Error::UnexpectedFormat => write!(f, "Unexpected format found"),
+            Error::EofFormat => write!(f, "EOF while parse format"),
+            Error::EofData => write!(f, "EOF while parse data"),
+        }
+    }
+}
+
+impl core::error::Error for Error {}
 
 type Result<T> = ::core::result::Result<T, Error>;
 

@@ -8,10 +8,13 @@ pub(crate) mod map;
 pub(crate) mod nil;
 pub(crate) mod str;
 
-pub use array::ArrayEncoder;
+pub use array::{ArrayDataEncoder, ArrayEncoder, ArrayFormatEncoder};
 pub use bin::BinaryEncoder;
 pub use extension::ExtensionEncoder;
-pub use map::{MapEncoder, MapSliceEncoder};
+pub use map::{MapDataEncoder, MapEncoder, MapFormatEncoder, MapSliceEncoder};
+pub use nil::NilEncoder;
+
+use crate::Format;
 
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -21,6 +24,17 @@ pub enum Error {
     /// Cannot mapped messagepack format
     InvalidFormat,
 }
+
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Error::BufferFull => write!(f, "Buffer is full"),
+            Error::InvalidFormat => write!(f, "Cannot encode value"),
+        }
+    }
+}
+
+impl core::error::Error for Error {}
 
 type Result<T> = ::core::result::Result<T, Error>;
 
@@ -69,5 +83,27 @@ where
 
     fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
         V::encode_to_iter_mut(self, buf)
+    }
+}
+
+impl Encode for Format {
+    fn encode<T>(&self, buf: &mut T) -> Result<usize>
+    where
+        T: Extend<u8>,
+    {
+        buf.extend(self.as_byte().to_be_bytes());
+        Ok(1)
+    }
+    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
+        let it = &mut self.as_byte().to_be_bytes().into_iter();
+        for (byte, to) in it.zip(buf) {
+            *to = byte;
+        }
+
+        if it.next().is_none() {
+            Ok(1)
+        } else {
+            Err(Error::BufferFull)
+        }
     }
 }

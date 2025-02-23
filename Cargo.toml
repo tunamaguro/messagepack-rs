@@ -1,15 +1,9 @@
-[package]
-name = "messagepack-rs"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = ["crates/*"]
+resolver = "3"
 
-[dependencies]
+[workspace.dependencies]
+messagepack-core = { path = "crates/messagepack-core" }
+messagepack-serde = { path = "crates/messagepack-serde" }
 num-traits = { version = "0.2", default-features = false }
-
-[dev-dependencies]
 rstest = "0.24.0"
-
-
-[features]
-default = []
-std = []
