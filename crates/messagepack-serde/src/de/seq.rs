@@ -1,20 +1,20 @@
-use messagepack_core::{Decode, Format};
+use messagepack_core::Decode;
 use serde::de;
 
 use super::{Deserializer, Error};
 
-pub struct ArrayDeserializer<'de, 'a> {
+pub struct FixLenAccess<'de, 'a> {
     de: &'a mut Deserializer<'de>,
     left: usize,
 }
 
-impl<'de, 'a> ArrayDeserializer<'de, 'a> {
+impl<'de, 'a> FixLenAccess<'de, 'a> {
     pub fn new(de: &'a mut Deserializer<'de>, len: usize) -> Self {
         Self { de, left: len }
     }
 }
 
-impl<'de, 'a> de::SeqAccess<'de> for ArrayDeserializer<'de, 'a>
+impl<'de, 'a> de::SeqAccess<'de> for FixLenAccess<'de, 'a>
 where
     'de: 'a,
 {
@@ -27,11 +27,27 @@ where
         if self.left > 0 {
             self.left -= 1;
 
-            #[cfg(test)]
-            {
-                let format = Format::decode(self.de.input)?;
-                dbg!(format);
-            }
+            let value = seed.deserialize(self.de.as_mut());
+
+            value.map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+impl<'de, 'a> de::MapAccess<'de> for FixLenAccess<'de, 'a>
+where
+    'de: 'a,
+{
+    type Error = Error;
+
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
+    where
+        K: de::DeserializeSeed<'de>,
+    {
+        if self.left > 0 {
+            self.left -= 1;
 
             let value = seed.deserialize(self.de.as_mut());
 
@@ -39,5 +55,12 @@ where
         } else {
             Ok(None)
         }
+    }
+
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::DeserializeSeed<'de>,
+    {
+        seed.deserialize(self.de.as_mut())
     }
 }

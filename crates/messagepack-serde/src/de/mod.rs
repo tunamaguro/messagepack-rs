@@ -233,7 +233,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             }
             _ => return Err(CoreError::UnexpectedFormat.into()),
         };
-        visitor.visit_seq(seq::ArrayDeserializer::new(self, n))
+        visitor.visit_seq(seq::FixLenAccess::new(self, n))
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
@@ -255,8 +255,68 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self.deserialize_seq(visitor)
     }
 
-    forward_to_deserialize_any! {
-        map struct enum identifier ignored_any
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        let format = self.decode::<Format>()?;
+        let n = match format {
+            Format::FixMap(n) => n.into(),
+            Format::Map16 => {
+                let (n, buf) = NbyteReader::<2>::read(self.input)?;
+                self.input = buf;
+                n
+            }
+            Format::Map32 => {
+                let (n, buf) = NbyteReader::<4>::read(self.input)?;
+                self.input = buf;
+                n
+            }
+            _ => return Err(CoreError::UnexpectedFormat.into()),
+        };
+        visitor.visit_map(seq::FixLenAccess::new(self, n))
+    }
+
+    fn deserialize_struct<V>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.deserialize_map(visitor)
+    }
+
+    fn deserialize_enum<V>(
+        self,
+        name: &'static str,
+        variants: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!()
+    }
+
+    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.deserialize_str(visitor)
+    }
+
+    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.deserialize_any(visitor)
+    }
+
+    fn is_human_readable(&self) -> bool {
+        false
     }
 }
 
@@ -307,5 +367,24 @@ mod tests {
         let expected = [1.1, 1.2, 1.3, 1.4, 1.5];
 
         assert_eq!(decoded, expected)
+    }
+
+    #[test]
+    fn decode_struct() {
+        #[derive(Deserialize)]
+        struct S {
+            compact: bool,
+            schema: u8,
+        }
+
+        // {"super":1,"schema":0}
+        let buf: &[u8] = &[
+            0x82, 0xa7, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x63, 0x74, 0xc3, 0xa6, 0x73, 0x63, 0x68,
+            0x65, 0x6d, 0x61, 0x00,
+        ];
+
+        let decoded = from_bytes::<S>(buf).unwrap();
+        assert!(decoded.compact);
+        assert_eq!(decoded.schema, 0);
     }
 }
