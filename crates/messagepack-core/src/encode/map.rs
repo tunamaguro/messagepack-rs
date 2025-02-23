@@ -1,4 +1,4 @@
-use core::{borrow::Borrow, cell::RefCell, marker::PhantomData, ops::Deref};
+use core::{cell::RefCell, marker::PhantomData, ops::Deref};
 
 use super::{Encode, Error, Result};
 use crate::formats::Format;
@@ -15,11 +15,11 @@ impl<KV: KVEncode> KVEncode for &KV {
     where
         T: Extend<u8>,
     {
-        KV::encode(&self, buf)
+        KV::encode(self, buf)
     }
 
     fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        KV::encode_to_iter_mut(&self, buf)
+        KV::encode_to_iter_mut(self, buf)
     }
 }
 
@@ -216,71 +216,45 @@ where
     }
 }
 
-pub struct MapEncoder<MapLike, B, K, V> {
-    map: MapLike,
-    _phantom: PhantomData<(B, K, V)>,
+pub struct MapEncoder<I, J, KV> {
+    map: RefCell<J>,
+    _phantom: PhantomData<(I, J, KV)>,
 }
 
-impl<MapLike, B, K, V> core::ops::Deref for MapEncoder<MapLike, B, K, V> {
-    type Target = MapLike;
-    fn deref(&self) -> &Self::Target {
-        &self.map
-    }
-}
-
-impl<MapLike, B, K, V> MapEncoder<MapLike, B, K, V>
+impl<I, KV> MapEncoder<I, I::IntoIter, KV>
 where
-    MapLike: Iterator<Item = B> + ExactSizeIterator + Clone,
-    B: Borrow<(K, V)>,
-    K: Encode,
-    V: Encode,
+    I: IntoIterator<Item = KV>,
+    KV: KVEncode,
 {
-    pub fn new(map: MapLike) -> Self {
+    pub fn new(map: I) -> Self {
         Self {
-            map,
+            map: RefCell::new(map.into_iter()),
             _phantom: Default::default(),
         }
     }
 }
 
-impl<MapLike, B, K, V> Encode for MapEncoder<MapLike, B, K, V>
+impl<I, J, KV> Encode for MapEncoder<I, J, KV>
 where
-    MapLike: Iterator<Item = B> + ExactSizeIterator + Clone,
-    B: Borrow<(K, V)>,
-    K: Encode,
-    V: Encode,
+    J: Iterator<Item = KV> + ExactSizeIterator,
+    KV: KVEncode,
 {
     fn encode<T>(&self, buf: &mut T) -> Result<usize>
     where
         T: Extend<u8>,
     {
-        let clone_map = self.map.clone();
-        let self_len = clone_map.len();
+        let self_len = self.map.borrow().len();
         let format_len = MapFormatEncoder::new(self_len).encode(buf)?;
+        let map_len = MapDataEncoder::new(self.map.borrow_mut().by_ref()).encode(buf)?;
 
-        let map_len = clone_map
-            .flat_map(|v| {
-                let (k, v) = v.borrow();
-                let k_len = k.encode(buf);
-                let v_len = v.encode(buf);
-                [k_len, v_len]
-            })
-            .try_fold(0, |acc, v| v.map(|n| acc + n))?;
         Ok(format_len + map_len)
     }
     fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        let clone_map = self.map.clone();
-        let self_len = clone_map.len();
+        let self_len = self.map.borrow().len();
         let format_len = MapFormatEncoder::new(self_len).encode_to_iter_mut(buf)?;
+        let map_len =
+            MapDataEncoder::new(self.map.borrow_mut().by_ref()).encode_to_iter_mut(buf)?;
 
-        let map_len = clone_map
-            .flat_map(|v| {
-                let (k, v) = v.borrow();
-                let k_len = k.encode_to_iter_mut(buf);
-                let v_len = v.encode_to_iter_mut(buf);
-                [k_len, v_len]
-            })
-            .try_fold(0, |acc, v| v.map(|n| acc + n))?;
         Ok(format_len + map_len)
     }
 }
@@ -319,13 +293,11 @@ mod tests {
 
     #[rstest]
     #[case([("123", EncodeMinimizeInt(123)), ("456", EncodeMinimizeInt(456))], [0x82, 0xa3, 0x31, 0x32, 0x33, 0x7b, 0xa3, 0x34, 0x35, 0x36, 0xcd, 0x01, 0xc8])]
-    fn encode_iter_fix_array<Map, K, V, B, E>(#[case] value: Map, #[case] expected: E)
+    fn encode_iter_fix_array<I, KV, E>(#[case] value: I, #[case] expected: E)
     where
-        Map: IntoIterator<Item = B>,
-        Map::IntoIter: ExactSizeIterator + Clone,
-        K: Encode,
-        V: Encode,
-        B: Borrow<(K, V)>,
+        I: IntoIterator<Item = KV>,
+        I::IntoIter: ExactSizeIterator,
+        KV: KVEncode,
         E: AsRef<[u8]> + Sized,
     {
         let expected = expected.as_ref();
