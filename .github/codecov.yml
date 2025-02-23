@@ -1,6 +1,16 @@
 comment:                  
   layout: " diff, flags, files"
   behavior: default
-  comment: true
   require_changes: false  
+  require_base: false
+  require_head: true
   hide_project_coverage: false # [true :: only show coverage on the git diff aka patch coverage]
+
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
