@@ -5,6 +5,7 @@ pub type CoreError = messagepack_core::decode::Error;
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Error {
     Encode(CoreError),
+    AnyIsUnsupported,
     #[cfg(not(feature = "std"))]
     Custom,
     #[cfg(feature = "std")]
@@ -15,6 +16,7 @@ impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Error::Encode(e) => e.fmt(f),
+            Error::AnyIsUnsupported => write!(f, "Any is unsupported"),
             #[cfg(not(feature = "std"))]
             Error::Custom => write!(f, "Not match serializer format"),
             #[cfg(feature = "std")]
