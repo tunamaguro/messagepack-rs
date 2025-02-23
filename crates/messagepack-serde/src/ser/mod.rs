@@ -271,8 +271,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use core::f32::consts::PI;
-
     use serde::Serialize;
 
     use super::*;
@@ -318,6 +316,16 @@ mod tests {
     }
 
     #[test]
+    fn encode_bytes() {
+        // default &[u8] not call serialize_bytes
+        let v = serde_bytes::Bytes::new(&[5, 4, 3, 2, 1, 0]);
+
+        let buf = &mut [0u8; 128];
+        let len = to_slice(&v, buf).unwrap();
+        assert_eq!(buf[..len], [0xc4, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00]);
+    }
+
+    #[test]
     fn encode_enum() {
         #[derive(Serialize)]
         enum Type {
@@ -338,6 +346,17 @@ mod tests {
             let len = to_slice(&Type::Float, buf).unwrap();
             assert_eq!(buf[..len], [0xa5, b'F', b'l', b'o', b'a', b't'])
         }
+    }
+
+    #[test]
+    fn encode_newtype_struct() {
+        #[derive(Serialize)]
+        struct B(#[serde(with = "serde_bytes")] [u8; 5]);
+
+        let buf = &mut [0u8; 128];
+
+        let len = to_slice(&B([5, 4, 3, 2, 1]), buf).unwrap();
+        assert_eq!(buf[..len], [0xc4, 0x05, 0x05, 0x04, 0x03, 0x02, 0x01])
     }
 
     #[test]
