@@ -23,8 +23,7 @@ concurrency:
 env:
   RUST_LOG: info
   RUST_BACKTRACE: 1
-  RUSTFLAGS: --deny warnings
-
+ 
 jobs:
   format:
     name: Format
@@ -53,7 +52,7 @@ jobs:
           cache-base: main
       - name: Run lint
         run: |
-          cargo clippy --workspace --all-targets --all-features
+           RUSTFLAGS="--deny warnings" cargo clippy --workspace --all-targets --all-features
   test:
     name: Test coverage
     runs-on: ubuntu-latest
