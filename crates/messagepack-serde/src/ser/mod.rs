@@ -5,7 +5,7 @@ use messagepack_core::{
     Encode,
     encode::{ArrayFormatEncoder, BinaryEncoder, MapEncoder, MapFormatEncoder, NilEncoder},
 };
-use serde::ser;
+use serde::{de::value, ser};
 
 pub mod error;
 mod map;
@@ -116,7 +116,10 @@ where
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        // char takes max 4 bytes
+        let mut buf = [0u8; 4];
+        let s = v.encode_utf8(&mut buf);
+        self.serialize_str(s)
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
