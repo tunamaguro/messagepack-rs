@@ -1,8 +1,11 @@
 use serde::ser;
 
+pub type CoreError = messagepack_core::encode::Error;
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Error {
-    Encode(messagepack_core::encode::Error),
+    Encode(CoreError),
+    SeqLenNone,
     #[cfg(not(feature = "std"))]
     Custom,
     #[cfg(feature = "std")]
@@ -17,7 +20,14 @@ impl core::fmt::Display for Error {
             Error::Custom => write!(f, "Not match serializer format"),
             #[cfg(feature = "std")]
             Error::Message(msg) => f.write_str(msg),
+            Error::SeqLenNone => write!(f, "We should know seq length"),
         }
+    }
+}
+
+impl From<CoreError> for Error {
+    fn from(err: CoreError) -> Self {
+        Error::Encode(err)
     }
 }
 
