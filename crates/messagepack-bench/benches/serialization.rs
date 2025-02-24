@@ -28,7 +28,6 @@ fn serializer_messagepack_serde<T: Serialize + Default + Sync>(
 
     bencher
         .with_inputs(|| vec![0u8; BUFFER_SIZE * len])
-        .input_counter(BytesCount::of_slice)
         .bench_local_refs(|buf| {
             let buf = core::hint::black_box(buf);
             messagepack_serde::ser::to_slice(core::hint::black_box(&s), buf).unwrap()
@@ -44,7 +43,6 @@ fn serializer_rmp_serde<T: Serialize + Default + Sync>(bencher: divan::Bencher, 
 
     bencher
         .with_inputs(|| vec![0u8; BUFFER_SIZE * len])
-        .input_counter(BytesCount::of_slice)
         .bench_local_refs(|buf| {
             let buf = core::hint::black_box(buf);
             let mut ser = rmp_serde::Serializer::new(buf);
