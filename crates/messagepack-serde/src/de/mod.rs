@@ -8,10 +8,11 @@ use serde::{
 };
 
 mod enum_;
-pub mod error;
+mod error;
 mod seq;
 
-use error::{CoreError, Error};
+use error::CoreError;
+pub use error::Error;
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub struct Deserializer<'de> {
@@ -151,7 +152,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         let decoded = self.decode::<&str>()?;
-        visitor.visit_str(decoded)
+        visitor.visit_borrowed_str(decoded)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -166,7 +167,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         let decoded = self.decode::<&[u8]>()?;
-        visitor.visit_bytes(decoded)
+        visitor.visit_borrowed_bytes(decoded)
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
