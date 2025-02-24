@@ -305,7 +305,18 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         let ident = self.decode::<&str>();
         match ident {
             Ok(ident) => visitor.visit_enum(ident.into_deserializer()),
-            _ => visitor.visit_enum(enum_::Enum::new(self)),
+            _ => {
+                let format = self.decode::<Format>()?;
+                match format {
+                    Format::FixMap(_)
+                    | Format::Map16
+                    | Format::Map32
+                    | Format::FixArray(_)
+                    | Format::Array16
+                    | Format::Array32 => visitor.visit_enum(enum_::Enum::new(self)),
+                    _ => Err(CoreError::UnexpectedFormat.into()),
+                }
+            }
         }
     }
 
@@ -394,5 +405,46 @@ mod tests {
         let decoded = from_bytes::<S>(buf).unwrap();
         assert!(decoded.compact);
         assert_eq!(decoded.schema, 0);
+    }
+
+    #[test]
+    fn decode_enum() {
+        #[derive(Deserialize, PartialEq, Debug)]
+        enum E {
+            Unit,
+            Newtype(u8),
+            Tuple(u8, bool),
+            Struct { a: bool },
+        }
+
+        {
+            // "Unit"
+            let buf: &[u8] = &[0xa4, 0x55, 0x6e, 0x69, 0x74];
+            let decoded = from_bytes::<E>(buf).unwrap();
+            assert_eq!(decoded, E::Unit);
+        }
+
+        {
+            // {"Newtype":27}
+            let buf: &[u8] = &[0x81, 0xa7, 0x4e, 0x65, 0x77, 0x74, 0x79, 0x70, 0x65, 0x1b];
+            let decoded = from_bytes::<E>(buf).unwrap();
+            assert_eq!(decoded, E::Newtype(27));
+        }
+
+        {
+            // {"Tuple":[3,true]}
+            let buf: &[u8] = &[0x81, 0xa5, 0x54, 0x75, 0x70, 0x6c, 0x65, 0x92, 0x03, 0xc3];
+            let decoded = from_bytes::<E>(buf).unwrap();
+            assert_eq!(decoded, E::Tuple(3, true));
+        }
+
+        {
+            // {"Struct":{"a":false}}
+            let buf: &[u8] = &[
+                0x81, 0xa6, 0x53, 0x74, 0x72, 0x75, 0x63, 0x74, 0x81, 0xa1, 0x61, 0xc2,
+            ];
+            let decoded = from_bytes::<E>(buf).unwrap();
+            assert_eq!(decoded, E::Struct { a: false });
+        }
     }
 }
