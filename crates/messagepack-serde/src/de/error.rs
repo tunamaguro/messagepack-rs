@@ -18,7 +18,7 @@ impl core::fmt::Display for Error {
             Error::Encode(e) => e.fmt(f),
             Error::AnyIsUnsupported => write!(f, "Any is unsupported"),
             #[cfg(not(feature = "std"))]
-            Error::Custom => write!(f, "Not match serializer format"),
+            Error::Custom => write!(f, "Cannot deserialize format"),
             #[cfg(feature = "std")]
             Error::Message(msg) => f.write_str(msg),
         }

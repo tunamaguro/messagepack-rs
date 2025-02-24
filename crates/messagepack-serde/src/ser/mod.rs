@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use error::Error;
+pub use error::Error;
 use messagepack_core::{
     Encode,
     encode::{ArrayFormatEncoder, BinaryEncoder, MapFormatEncoder, NilEncoder},
