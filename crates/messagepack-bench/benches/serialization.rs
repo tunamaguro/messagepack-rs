@@ -39,7 +39,7 @@ fn serializer_messagepack_serde<T: Serialize + Default + Sync>(
 
     bencher.bench_local_refs(|buf| {
         let buf = core::hint::black_box(buf);
-        messagepack_serde::ser::to_slice(core::hint::black_box(&s), buf).unwrap()
+        messagepack_serde::to_slice(core::hint::black_box(&s), buf).unwrap()
     });
 }
 

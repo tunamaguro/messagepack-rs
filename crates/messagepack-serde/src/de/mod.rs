@@ -19,7 +19,7 @@ pub struct Deserializer<'de> {
 }
 
 impl<'de> Deserializer<'de> {
-    pub fn from_bytes(input: &'de [u8]) -> Self {
+    pub fn from_slice(input: &'de [u8]) -> Self {
         Deserializer { input }
     }
 
@@ -36,8 +36,8 @@ impl AsMut<Self> for Deserializer<'_> {
     }
 }
 
-pub fn from_bytes<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
-    let mut deserializer = Deserializer::from_bytes(input);
+pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
+    let mut deserializer = Deserializer::from_slice(input);
     T::deserialize(&mut deserializer)
 }
 
@@ -348,26 +348,26 @@ mod tests {
     #[test]
     fn decode_bool() {
         let buf = [0xc3];
-        let decoded = from_bytes::<bool>(&buf).unwrap();
+        let decoded = from_slice::<bool>(&buf).unwrap();
         assert!(decoded);
 
         let buf = [0xc2];
-        let decoded = from_bytes::<bool>(&buf).unwrap();
+        let decoded = from_slice::<bool>(&buf).unwrap();
         assert!(!decoded);
     }
 
     #[test]
     fn decode_uint8() {
         let buf = [0x05];
-        let decoded = from_bytes::<u8>(&buf).unwrap();
+        let decoded = from_slice::<u8>(&buf).unwrap();
         assert_eq!(decoded, 5);
 
         let buf = [0xcc, 0x80];
-        let decoded = from_bytes::<u8>(&buf).unwrap();
+        let decoded = from_slice::<u8>(&buf).unwrap();
         assert_eq!(decoded, 128);
 
         let buf = [0xcc, 0x80];
-        let err = from_bytes::<u16>(&buf).unwrap_err();
+        let err = from_slice::<u16>(&buf).unwrap_err();
         // not convert type
         assert_eq!(err, CoreError::UnexpectedFormat.into());
     }
@@ -382,7 +382,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x00,
         ];
 
-        let decoded = from_bytes::<Vec<f64>>(&buf).unwrap();
+        let decoded = from_slice::<Vec<f64>>(&buf).unwrap();
         let expected = [1.1, 1.2, 1.3, 1.4, 1.5];
 
         assert_eq!(decoded, expected)
@@ -402,7 +402,7 @@ mod tests {
             0x65, 0x6d, 0x61, 0x00,
         ];
 
-        let decoded = from_bytes::<S>(buf).unwrap();
+        let decoded = from_slice::<S>(buf).unwrap();
         assert!(decoded.compact);
         assert_eq!(decoded.schema, 0);
     }
@@ -420,21 +420,21 @@ mod tests {
         {
             // "Unit"
             let buf: &[u8] = &[0xa4, 0x55, 0x6e, 0x69, 0x74];
-            let decoded = from_bytes::<E>(buf).unwrap();
+            let decoded = from_slice::<E>(buf).unwrap();
             assert_eq!(decoded, E::Unit);
         }
 
         {
             // {"Newtype":27}
             let buf: &[u8] = &[0x81, 0xa7, 0x4e, 0x65, 0x77, 0x74, 0x79, 0x70, 0x65, 0x1b];
-            let decoded = from_bytes::<E>(buf).unwrap();
+            let decoded = from_slice::<E>(buf).unwrap();
             assert_eq!(decoded, E::Newtype(27));
         }
 
         {
             // {"Tuple":[3,true]}
             let buf: &[u8] = &[0x81, 0xa5, 0x54, 0x75, 0x70, 0x6c, 0x65, 0x92, 0x03, 0xc3];
-            let decoded = from_bytes::<E>(buf).unwrap();
+            let decoded = from_slice::<E>(buf).unwrap();
             assert_eq!(decoded, E::Tuple(3, true));
         }
 
@@ -443,7 +443,7 @@ mod tests {
             let buf: &[u8] = &[
                 0x81, 0xa6, 0x53, 0x74, 0x72, 0x75, 0x63, 0x74, 0x81, 0xa1, 0x61, 0xc2,
             ];
-            let decoded = from_bytes::<E>(buf).unwrap();
+            let decoded = from_slice::<E>(buf).unwrap();
             assert_eq!(decoded, E::Struct { a: false });
         }
     }

@@ -16,3 +16,7 @@ divan = { version = "2.8.0", package = "codspeed-divan-compat" }
 [[bench]]
 name = "serialization"
 harness = false
+
+[[bench]]
+name = "deserialization"
+harness = false

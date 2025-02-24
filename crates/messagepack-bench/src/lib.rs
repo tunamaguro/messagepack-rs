@@ -4,9 +4,9 @@ use rand::{
     Rng,
     distr::{Alphanumeric, Distribution, StandardUniform},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PrimitiveTypes {
     usize: usize,
     i8: i8,
@@ -41,61 +41,61 @@ impl Default for PrimitiveTypes {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StringTypes {
-    short: &'static str,
-    medium: &'static str,
-    long: &'static str,
+    short: String,
+    medium: String,
+    long: String,
 }
 
 impl Default for StringTypes {
     fn default() -> Self {
         Self {
-            short: include_str!("../data/lorem-ipsum.txt"),
-            medium: include_str!("../data/jp-constitution.txt"),
-            long: include_str!("../data/raven.txt"),
+            short: include_str!("../data/lorem-ipsum.txt").into(),
+            medium: include_str!("../data/jp-constitution.txt").into(),
+            long: include_str!("../data/raven.txt").into(),
         }
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ArrayTypes {
-    short: &'static [u8],
-    medium: &'static [u8],
-    long: &'static [u8],
+    short: Vec<u8>,
+    medium: Vec<u8>,
+    long: Vec<u8>,
 }
 
 impl Default for ArrayTypes {
     fn default() -> Self {
         Self {
-            short: include_bytes!("../data/lorem-ipsum.txt"),
-            medium: include_bytes!("../data/jp-constitution.txt"),
-            long: include_bytes!("../data/raven.txt"),
+            short: include_bytes!("../data/lorem-ipsum.txt").into(),
+            medium: include_bytes!("../data/jp-constitution.txt").into(),
+            long: include_bytes!("../data/raven.txt").into(),
         }
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ByteType {
     #[serde(with = "serde_bytes")]
-    short: &'static [u8],
+    short: Vec<u8>,
     #[serde(with = "serde_bytes")]
-    medium: &'static [u8],
+    medium: Vec<u8>,
     #[serde(with = "serde_bytes")]
-    long: &'static [u8],
+    long: Vec<u8>,
 }
 
 impl Default for ByteType {
     fn default() -> Self {
         Self {
-            short: include_bytes!("../data/lorem-ipsum.txt"),
-            medium: include_bytes!("../data/jp-constitution.txt"),
-            long: include_bytes!("../data/raven.txt"),
+            short: include_bytes!("../data/lorem-ipsum.txt").into(),
+            medium: include_bytes!("../data/jp-constitution.txt").into(),
+            long: include_bytes!("../data/raven.txt").into(),
         }
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct MapType {
     small: HashMap<i32, String>,
     medium: HashMap<i16, u64>,
@@ -143,7 +143,7 @@ impl Default for MapType {
     }
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct CompositeType {
     pub primitives: PrimitiveTypes,
     pub strings: StringTypes,
