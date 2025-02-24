@@ -24,8 +24,7 @@ const BUFFER_SIZE: usize = (2u32.pow(16)) as usize;
     args = LENS
 )]
 fn deserializer_messagepack_serde<T: Serialize + DeserializeOwned + Default + Sync>(
-    #[allow(unused_mut)]
-    mut bencher: divan::Bencher,
+    #[allow(unused_mut)] mut bencher: divan::Bencher,
     len: usize,
 ) {
     let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
@@ -48,8 +47,7 @@ fn deserializer_messagepack_serde<T: Serialize + DeserializeOwned + Default + Sy
     args = LENS
 )]
 fn deserializer_rmp_serde<T: Serialize + DeserializeOwned + Default + Sync>(
-    #[allow(unused_mut)]
-    mut bencher: divan::Bencher,
+    #[allow(unused_mut)] mut bencher: divan::Bencher,
     len: usize,
 ) {
     let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
