@@ -3,3 +3,6 @@
 
 pub mod de;
 pub mod ser;
+
+pub use de::{Deserializer, from_slice};
+pub use ser::{Serializer, to_slice};

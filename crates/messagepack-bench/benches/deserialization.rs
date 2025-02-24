@@ -5,7 +5,7 @@ use divan::counter::BytesCount;
 use messagepack_bench::{
     ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StringTypes,
 };
-use serde::Serialize;
+use serde::{Serialize, de::DeserializeOwned};
 use std::iter::repeat_with;
 
 #[global_allocator]
@@ -23,23 +23,22 @@ const BUFFER_SIZE: usize = (2u32.pow(16)) as usize;
     types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StringTypes],
     args = LENS
 )]
-fn serializer_messagepack_serde<T: Serialize + Default + Sync>(
-    bencher: divan::Bencher,
+fn deserializer_messagepack_serde<T: Serialize + DeserializeOwned + Default + Sync>(
+    #[allow(unused_mut)] mut bencher: divan::Bencher,
     len: usize,
 ) {
     let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
-
-    #[allow(unused_mut)]
-    let mut bencher = bencher.with_inputs(|| vec![0u8; BUFFER_SIZE * len]);
+    let mut buf = vec![0u8; BUFFER_SIZE * len];
+    let buf_len = messagepack_serde::to_slice(&s, &mut buf).unwrap();
 
     #[cfg(not(codspeed))]
     {
-        bencher = bencher.input_counter(BytesCount::of_slice);
+        bencher = bencher.counter(BytesCount::of_slice(&buf))
     }
 
-    bencher.bench_local_refs(|buf| {
-        let buf = core::hint::black_box(buf);
-        messagepack_serde::to_slice(core::hint::black_box(&s), buf).unwrap()
+    bencher.bench_local(|| {
+        let buf = core::hint::black_box(&buf[..buf_len]);
+        messagepack_serde::from_slice::<Vec<T>>(buf).unwrap()
     });
 }
 
@@ -47,20 +46,21 @@ fn serializer_messagepack_serde<T: Serialize + Default + Sync>(
     types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StringTypes],
     args = LENS
 )]
-fn serializer_rmp_serde<T: Serialize + Default + Sync>(bencher: divan::Bencher, len: usize) {
+fn deserializer_rmp_serde<T: Serialize + DeserializeOwned + Default + Sync>(
+    #[allow(unused_mut)] mut bencher: divan::Bencher,
+    len: usize,
+) {
     let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
-
-    #[allow(unused_mut)]
-    let mut bencher = bencher.with_inputs(|| vec![0u8; BUFFER_SIZE * len]);
+    let mut buf = vec![0u8; BUFFER_SIZE * len];
+    let buf_len = messagepack_serde::to_slice(&s, &mut buf).unwrap();
 
     #[cfg(not(codspeed))]
     {
-        bencher = bencher.input_counter(BytesCount::of_slice);
+        bencher = bencher.counter(BytesCount::of_slice(&buf))
     }
 
-    bencher.bench_local_refs(|buf| {
-        let buf = core::hint::black_box(buf);
-        let mut ser = rmp_serde::Serializer::new(buf);
-        core::hint::black_box(&s).serialize(&mut ser)
+    bencher.bench_local(|| {
+        let buf = core::hint::black_box(&buf[..buf_len]);
+        rmp_serde::from_slice::<Vec<T>>(buf).unwrap()
     });
 }
