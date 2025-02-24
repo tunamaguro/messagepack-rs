@@ -8,7 +8,7 @@ use serde::{
 };
 
 mod enum_;
-pub mod error;
+mod error;
 mod seq;
 
 use error::CoreError;

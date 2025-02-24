@@ -7,7 +7,7 @@ use messagepack_core::{
 };
 use serde::ser;
 
-pub mod error;
+mod error;
 mod map;
 mod seq;
 
