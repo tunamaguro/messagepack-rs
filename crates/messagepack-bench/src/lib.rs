@@ -1,7 +1,12 @@
-use rand::distr::{Distribution, StandardUniform};
+use std::collections::HashMap;
+
+use rand::{
+    Rng,
+    distr::{Alphanumeric, Distribution, StandardUniform},
+};
 use serde::Serialize;
 
-#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Serialize)]
 pub struct PrimitiveTypes {
     usize: usize,
     i8: i8,
@@ -30,7 +35,13 @@ impl Distribution<PrimitiveTypes> for StandardUniform {
     }
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+impl Default for PrimitiveTypes {
+    fn default() -> Self {
+        rand::random()
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct StringTypes {
     short: &'static str,
     medium: &'static str,
@@ -47,7 +58,7 @@ impl Default for StringTypes {
     }
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Serialize)]
 pub struct ArrayTypes {
     short: &'static [u8],
     medium: &'static [u8],
@@ -64,7 +75,7 @@ impl Default for ArrayTypes {
     }
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Serialize)]
 pub struct ByteType {
     #[serde(with = "serde_bytes")]
     short: &'static [u8],
@@ -84,22 +95,61 @@ impl Default for ByteType {
     }
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Serialize)]
+pub struct MapType {
+    small: HashMap<i32, String>,
+    medium: HashMap<i16, u64>,
+    large: HashMap<i64, u16>,
+}
+
+impl Distribution<MapType> for StandardUniform {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> MapType {
+        const SMALL_LEN: usize = 32;
+        const MEDIUM_LEN: usize = 128;
+        const LARGE_LEN: usize = 512;
+
+        let mut small = HashMap::with_capacity(SMALL_LEN);
+        for _ in 0..SMALL_LEN {
+            let len = rng.random_range(0..256);
+            let s: String = rng
+                .sample_iter(&Alphanumeric)
+                .take(len)
+                .map(char::from)
+                .collect();
+            small.insert(rng.random(), s);
+        }
+
+        let mut medium = HashMap::with_capacity(MEDIUM_LEN);
+        for _ in 0..MEDIUM_LEN {
+            medium.insert(rng.random(), rng.random());
+        }
+
+        let mut large = HashMap::with_capacity(LARGE_LEN);
+        for _ in 0..LARGE_LEN {
+            large.insert(rng.random(), rng.random());
+        }
+
+        MapType {
+            small,
+            medium,
+            large,
+        }
+    }
+}
+
+impl Default for MapType {
+    fn default() -> Self {
+        rand::random()
+    }
+}
+
+#[derive(Debug, Default, Serialize)]
 pub struct CompositeType {
     pub primitives: PrimitiveTypes,
     pub strings: StringTypes,
+    pub bytes: ByteType,
     pub arrays: ArrayTypes,
-}
-
-impl Default for CompositeType {
-    fn default() -> Self {
-        let p = rand::random::<PrimitiveTypes>();
-        Self {
-            primitives: p,
-            arrays: Default::default(),
-            strings: Default::default(),
-        }
-    }
+    pub map: MapType,
 }
 
 #[cfg(test)]
