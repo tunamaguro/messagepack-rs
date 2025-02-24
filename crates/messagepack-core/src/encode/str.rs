@@ -167,6 +167,7 @@ mod tests {
 
     #[rstest]
     #[case("Today",[0xa5, 0x54, 0x6f, 0x64, 0x61, 0x79])]
+    #[case("MessagePack",[0xab,0x4d,0x65,0x73,0x73,0x61,0x67,0x65,0x50,0x61,0x63,0x6b])]
     fn encode_fixed_str<E: AsRef<[u8]> + Sized>(#[case] value: &str, #[case] expected: E) {
         let expected = expected.as_ref();
         let encoder = StrEncoder(value);
