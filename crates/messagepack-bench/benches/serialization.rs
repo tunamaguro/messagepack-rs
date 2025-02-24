@@ -1,144 +1,66 @@
-use divan::AllocProfiler;
+#![allow(unexpected_cfgs)]
+
+#[cfg(not(codspeed))]
+use divan::counter::BytesCount;
+use messagepack_bench::{
+    ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StringTypes,
+};
+use serde::Serialize;
+use std::iter::repeat_with;
 
 #[global_allocator]
-static ALLOC: AllocProfiler = AllocProfiler::system();
+static ALLOC: divan::AllocProfiler = divan::AllocProfiler::system();
 
 fn main() {
     // Run registered benchmarks.
     divan::main();
 }
 
-mod primtive_type {
-    use messagepack_bench::PrimitiveTypes;
-    use serde::Serialize;
+const LENS: &[usize] = &[1, 2, 4, 8, 16, 32];
+const BUFFER_SIZE: usize = (2u32.pow(16)) as usize;
 
-    #[divan::bench]
-    fn messagepack_serde(bencher: divan::Bencher) {
-        let s = divan::black_box(rand::random::<PrimitiveTypes>());
+#[divan::bench(
+    types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StringTypes],
+    args = LENS
+)]
+fn serializer_messagepack_serde<T: Serialize + Default + Sync>(
+    bencher: divan::Bencher,
+    len: usize,
+) {
+    let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
 
-        bencher.bench(move || {
-            let buf = &mut [0_u8; 4096 * 10];
-            messagepack_serde::ser::to_slice(&s, buf).unwrap();
-        });
+    #[allow(unused_mut)]
+    let mut bencher = bencher.with_inputs(|| vec![0u8; BUFFER_SIZE * len]);
+
+    #[cfg(not(codspeed))]
+    {
+        bencher = bencher.input_counter(BytesCount::of_slice);
     }
 
-    #[divan::bench]
-    fn rmp_serde(bencher: divan::Bencher) {
-        let s = divan::black_box(rand::random::<PrimitiveTypes>());
-
-        bencher.bench(move || {
-            let mut buf = Vec::with_capacity(4096 * 10);
-            let mut ser = rmp_serde::Serializer::new(&mut buf);
-
-            s.serialize(&mut ser).unwrap();
-        });
-    }
+    bencher.bench_local_refs(|buf| {
+        let buf = core::hint::black_box(buf);
+        messagepack_serde::ser::to_slice(core::hint::black_box(&s), buf).unwrap()
+    });
 }
 
-mod str_type {
-    use messagepack_bench::StringTypes;
-    use serde::Serialize;
+#[divan::bench(
+    types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StringTypes],
+    args = LENS
+)]
+fn serializer_rmp_serde<T: Serialize + Default + Sync>(bencher: divan::Bencher, len: usize) {
+    let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
 
-    #[divan::bench]
-    fn messagepack_serde(bencher: divan::Bencher) {
-        let s = divan::black_box(StringTypes::default());
+    #[allow(unused_mut)]
+    let mut bencher = bencher.with_inputs(|| vec![0u8; BUFFER_SIZE * len]);
 
-        bencher.bench(move || {
-            let buf = &mut [0_u8; 4096 * 10];
-            messagepack_serde::ser::to_slice(&s, buf).unwrap();
-        });
+    #[cfg(not(codspeed))]
+    {
+        bencher = bencher.input_counter(BytesCount::of_slice);
     }
 
-    #[divan::bench]
-    fn rmp_serde(bencher: divan::Bencher) {
-        let s = divan::black_box(StringTypes::default());
-
-        bencher.bench(move || {
-            let mut buf = Vec::with_capacity(4096 * 10);
-            let mut ser = rmp_serde::Serializer::new(&mut buf);
-
-            s.serialize(&mut ser).unwrap();
-        });
-    }
-}
-
-mod array_type {
-    use messagepack_bench::ArrayTypes;
-    use serde::Serialize;
-
-    #[divan::bench]
-    fn messagepack_serde(bencher: divan::Bencher) {
-        let s = divan::black_box(ArrayTypes::default());
-
-        bencher.bench(move || {
-            let buf = &mut [0_u8; 4096 * 10];
-            messagepack_serde::ser::to_slice(&s, buf).unwrap();
-        });
-    }
-
-    #[divan::bench]
-    fn rmp_serde(bencher: divan::Bencher) {
-        let s = divan::black_box(ArrayTypes::default());
-
-        bencher.bench(move || {
-            let mut buf = Vec::with_capacity(4096 * 10);
-            let mut ser = rmp_serde::Serializer::new(&mut buf);
-
-            s.serialize(&mut ser).unwrap();
-        });
-    }
-}
-
-mod byte_type {
-    use messagepack_bench::ByteType;
-    use serde::Serialize;
-
-    #[divan::bench]
-    fn messagepack_serde(bencher: divan::Bencher) {
-        let s = divan::black_box(ByteType::default());
-
-        bencher.bench(move || {
-            let buf = &mut [0_u8; 4096 * 10];
-            messagepack_serde::ser::to_slice(&s, buf).unwrap();
-        });
-    }
-
-    #[divan::bench]
-    fn rmp_serde(bencher: divan::Bencher) {
-        let s = divan::black_box(ByteType::default());
-
-        bencher.bench(move || {
-            let mut buf = Vec::with_capacity(4096 * 10);
-            let mut ser = rmp_serde::Serializer::new(&mut buf);
-
-            s.serialize(&mut ser).unwrap();
-        });
-    }
-}
-
-mod composite_type {
-    use messagepack_bench::CompositeType;
-    use serde::Serialize;
-
-    #[divan::bench]
-    fn messagepack_serde(bencher: divan::Bencher) {
-        let s = divan::black_box(CompositeType::default());
-
-        bencher.bench(move || {
-            let buf = &mut [0_u8; 4096 * 10];
-            messagepack_serde::ser::to_slice(&s, buf).unwrap();
-        });
-    }
-
-    #[divan::bench]
-    fn rmp_serde(bencher: divan::Bencher) {
-        let s = divan::black_box(CompositeType::default());
-
-        bencher.bench(move || {
-            let mut buf = Vec::with_capacity(4096 * 10);
-            let mut ser = rmp_serde::Serializer::new(&mut buf);
-
-            s.serialize(&mut ser).unwrap();
-        });
-    }
+    bencher.bench_local_refs(|buf| {
+        let buf = core::hint::black_box(buf);
+        let mut ser = rmp_serde::Serializer::new(buf);
+        core::hint::black_box(&s).serialize(&mut ser)
+    });
 }
