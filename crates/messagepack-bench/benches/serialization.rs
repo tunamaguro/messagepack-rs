@@ -16,7 +16,7 @@ fn main() {
     divan::main();
 }
 
-const LENS: &[usize] = &[1, 2, 4, 8, 16, 32];
+const LENS: &[usize] = &[32];
 const BUFFER_SIZE: usize = (2u32.pow(16)) as usize;
 
 #[divan::bench(
