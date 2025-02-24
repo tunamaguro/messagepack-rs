@@ -1,4 +1,3 @@
-use messagepack_core::Decode;
 use serde::de;
 
 use super::{Deserializer, Error, error::CoreError};
@@ -16,7 +15,7 @@ impl<'de, 'a> Enum<'de, 'a> {
     }
 }
 
-impl<'de, 'a> de::EnumAccess<'de> for Enum<'de, 'a> {
+impl<'de> de::EnumAccess<'de> for Enum<'de, '_> {
     type Error = Error;
 
     type Variant = Self;
@@ -31,7 +30,7 @@ impl<'de, 'a> de::EnumAccess<'de> for Enum<'de, 'a> {
     }
 }
 
-impl<'de, 'a> de::VariantAccess<'de> for Enum<'de, 'a> {
+impl<'de> de::VariantAccess<'de> for Enum<'de, '_> {
     type Error = Error;
 
     fn unit_variant(self) -> Result<(), Self::Error> {

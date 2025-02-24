@@ -1,4 +1,3 @@
-use messagepack_core::Decode;
 use serde::de;
 
 use super::{Deserializer, Error};
