@@ -1,4 +1,4 @@
-use divan::{AllocProfiler, counter::BytesCount};
+use divan::AllocProfiler;
 use messagepack_bench::{
     ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StringTypes,
 };
