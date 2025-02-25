@@ -1,9 +1,8 @@
-use core::marker::PhantomData;
-
 pub use error::Error;
 use messagepack_core::{
-    Encode,
+    Encode, SliceWriter,
     encode::{ArrayFormatEncoder, BinaryEncoder, MapFormatEncoder, NilEncoder},
+    io::{IoWrite, WError},
 };
 use serde::ser;
 
@@ -12,21 +11,19 @@ mod map;
 mod seq;
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
-pub struct Serializer<'a, Buf> {
-    buf: Buf,
+pub struct Serializer<'a, W> {
+    writer: &'a mut W,
     current_length: usize,
-    _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, Buf> Serializer<'a, Buf>
+impl<'a, W> Serializer<'a, W>
 where
-    Buf: Iterator<Item = &'a mut u8>,
+    W: IoWrite,
 {
-    pub fn new(buf: Buf) -> Self {
+    pub fn new(writer: &'a mut W) -> Self {
         Self {
-            buf,
+            writer,
             current_length: 0,
-            _phantom: Default::default(),
         }
     }
 }
@@ -37,73 +34,94 @@ impl<Buf> AsMut<Self> for Serializer<'_, Buf> {
     }
 }
 
-impl<'a, 'b: 'a, Buf> ser::Serializer for &'a mut Serializer<'b, Buf>
+pub fn to_slice<T>(value: &T, buf: &mut [u8]) -> Result<usize, Error<WError>>
 where
-    Buf: Iterator<Item = &'b mut u8>,
+    T: ser::Serialize + ?Sized,
+{
+    let mut writer = SliceWriter::from_slice(buf);
+    let mut ser = Serializer::new(&mut writer);
+    value.serialize(&mut ser)?;
+    Ok(ser.current_length)
+}
+
+#[cfg(feature = "std")]
+pub fn to_writer<T, W>(value: &T, writer: &mut W) -> Result<usize, Error<std::io::Error>>
+where
+    T: ser::Serialize + ?Sized,
+    W: std::io::Write,
+{
+    let mut ser = Serializer::new(writer);
+    value.serialize(&mut ser)?;
+    Ok(ser.current_length)
+}
+
+impl<'a, 'b: 'a, W> ser::Serializer for &'a mut Serializer<'b, W>
+where
+    W: IoWrite,
 {
     type Ok = ();
-    type Error = Error;
+    type Error = Error<W::Error>;
 
-    type SerializeSeq = seq::SerializeSeq<'a, 'b, Buf>;
-    type SerializeTuple = seq::SerializeSeq<'a, 'b, Buf>;
-    type SerializeTupleStruct = seq::SerializeSeq<'a, 'b, Buf>;
-    type SerializeTupleVariant = seq::SerializeSeq<'a, 'b, Buf>;
-    type SerializeMap = map::SerializeMap<'a, 'b, Buf>;
-    type SerializeStruct = map::SerializeMap<'a, 'b, Buf>;
-    type SerializeStructVariant = map::SerializeMap<'a, 'b, Buf>;
+    type SerializeSeq = seq::SerializeSeq<'a, 'b, W>;
+    type SerializeTuple = seq::SerializeSeq<'a, 'b, W>;
+    type SerializeTupleStruct = seq::SerializeSeq<'a, 'b, W>;
+    type SerializeTupleVariant = seq::SerializeSeq<'a, 'b, W>;
+    type SerializeMap = map::SerializeMap<'a, 'b, W>;
+    type SerializeStruct = map::SerializeMap<'a, 'b, W>;
+    type SerializeStructVariant = map::SerializeMap<'a, 'b, W>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode(self.writer)?;
         Ok(())
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode(self.writer)?;
         Ok(())
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode(self.writer)?;
         Ok(())
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode(self.writer)?;
         Ok(())
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode(self.writer)?;
         Ok(())
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode(self.writer)?;
         Ok(())
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode(self.writer)?;
         Ok(())
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode(self.writer)?;
         Ok(())
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode(self.writer)?;
         Ok(())
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode(self.writer)?;
         Ok(())
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode(self.writer)?;
         Ok(())
     }
 
@@ -115,17 +133,17 @@ where
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += v.encode(self.writer)?;
         Ok(())
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        self.current_length += BinaryEncoder(v).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += BinaryEncoder(v).encode(self.writer)?;
         Ok(())
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        self.current_length += NilEncoder.encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += NilEncoder.encode(self.writer)?;
         Ok(())
     }
 
@@ -174,21 +192,19 @@ where
     where
         T: ?Sized + ser::Serialize,
     {
-        self.current_length += MapFormatEncoder::new(1).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += MapFormatEncoder::new(1).encode(self.writer)?;
         self.serialize_str(variant)?;
         value.serialize(self.as_mut())
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         let len = len.ok_or(Error::SeqLenNone)?;
-        self.current_length +=
-            ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += ArrayFormatEncoder::new(len).encode(self.writer)?;
         Ok(seq::SerializeSeq::new(self))
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        self.current_length +=
-            ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += ArrayFormatEncoder::new(len).encode(self.writer)?;
         Ok(seq::SerializeSeq::new(self))
     }
 
@@ -197,8 +213,7 @@ where
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        self.current_length +=
-            ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += ArrayFormatEncoder::new(len).encode(self.writer)?;
         Ok(seq::SerializeSeq::new(self))
     }
 
@@ -209,16 +224,15 @@ where
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        self.current_length += MapFormatEncoder::new(1).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += MapFormatEncoder::new(1).encode(self.writer)?;
         self.serialize_str(variant)?;
-        self.current_length +=
-            ArrayFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += ArrayFormatEncoder::new(len).encode(self.writer)?;
         Ok(seq::SerializeSeq::new(self))
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         let len = len.ok_or(Error::SeqLenNone)?;
-        self.current_length += MapFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += MapFormatEncoder::new(len).encode(self.writer)?;
         Ok(map::SerializeMap::new(self))
     }
 
@@ -227,7 +241,7 @@ where
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        self.current_length += MapFormatEncoder::new(len).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += MapFormatEncoder::new(len).encode(self.writer)?;
         Ok(map::SerializeMap::new(self))
     }
 
@@ -238,7 +252,7 @@ where
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        self.current_length += MapFormatEncoder::new(1).encode_to_iter_mut(self.buf.by_ref())?;
+        self.current_length += MapFormatEncoder::new(1).encode(self.writer)?;
         self.serialize_str(variant)?;
         self.serialize_struct(name, len)
     }
@@ -258,15 +272,6 @@ where
             self.serialize_str(&s)
         }
     }
-}
-
-pub fn to_slice<T>(value: &T, buf: &mut [u8]) -> Result<usize, Error>
-where
-    T: ser::Serialize + ?Sized,
-{
-    let mut ser = Serializer::new(buf.iter_mut());
-    value.serialize(&mut ser)?;
-    Ok(ser.current_length)
 }
 
 #[cfg(test)]
@@ -481,5 +486,24 @@ mod tests {
         let buf = &mut [0u8; 128];
         let len = to_slice(&v, buf).unwrap();
         assert_eq!(buf[..len], [0xe0]);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn encode_with_writer() {
+        #[derive(Serialize)]
+        struct V(i16, u32, i32);
+
+        let mut buf = vec![];
+        let len = to_writer(&V(1, 2, 3), &mut buf).unwrap();
+        assert_eq!(
+            buf[..len],
+            [
+                0x93, // fixarr len = 3
+                0xd1, 0x00, 0x01, // int16
+                0xce, 0x00, 0x00, 0x00, 0x02, // uint32
+                0xd2, 0x00, 0x00, 0x00, 0x03, // uint32
+            ]
+        );
     }
 }

@@ -1,202 +1,86 @@
 use num_traits::ToPrimitive;
 
 use super::{Encode, Error, Result};
-use crate::formats::Format;
+use crate::{formats::Format, io::IoWrite};
 
-impl Encode for u8 {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
+impl<W> Encode<W> for u8
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
         match self {
             0x00..=0x7f => {
-                buf.extend(Format::PositiveFixInt(*self));
+                writer.write_iter(Format::PositiveFixInt(*self))?;
+
                 Ok(1)
             }
             _ => {
-                buf.extend(Format::Uint8.into_iter().chain(self.to_be_bytes()));
+                writer.write_iter(Format::Uint8.into_iter().chain(self.to_be_bytes()))?;
                 Ok(2)
             }
         }
     }
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        match self {
-            0x00..=0x7f => {
-                const SIZE: usize = 1;
-                let it = &mut Format::PositiveFixInt(*self).into_iter();
-
-                for (byte, to) in it.zip(buf) {
-                    *to = byte;
-                }
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
-            }
-            _ => {
-                const SIZE: usize = 2;
-                let it = &mut Format::Uint8.into_iter().chain(self.to_be_bytes());
-
-                for (byte, to) in it.zip(buf) {
-                    *to = byte;
-                }
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
-            }
-        }
-    }
 }
 
-macro_rules! impl_encode_unsigned {
-    ($ty:ty,  $format:expr, $size:expr) => {
-        impl Encode for $ty {
-            fn encode<T>(&self, buf: &mut T) -> Result<usize>
-            where
-                T: Extend<u8>,
-            {
-                buf.extend($format.into_iter().chain(self.to_be_bytes()));
-                Ok($size)
-            }
-
-            fn encode_to_iter_mut<'a>(
-                &self,
-                buf: &mut impl Iterator<Item = &'a mut u8>,
-            ) -> Result<usize> {
-                const SIZE: usize = $size;
-                let it = &mut $format.into_iter().chain(self.to_be_bytes());
-                for (byte, to) in it.zip(buf) {
-                    *to = byte;
-                }
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
-            }
-        }
-    };
-}
-impl_encode_unsigned!(u16, Format::Uint16, 3);
-impl_encode_unsigned!(u32, Format::Uint32, 5);
-impl_encode_unsigned!(u64, Format::Uint64, 9);
-
-impl Encode for u128 {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
+impl<W> Encode<W> for u128
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match u64::try_from(*self) {
-            Ok(u64_uint) => u64_uint.encode(buf),
-            Err(_) => Err(Error::InvalidFormat),
-        }
-    }
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        match u64::try_from(*self) {
-            Ok(u64_uint) => u64_uint.encode_to_iter_mut(buf),
+            Ok(u64_uint) => u64_uint.encode(writer),
             Err(_) => Err(Error::InvalidFormat),
         }
     }
 }
 
-impl Encode for i8 {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
+impl<W> Encode<W> for i8
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
         match self {
             -32..=-1 => {
                 let it = Format::NegativeFixInt(*self);
-                buf.extend(it);
+                writer.write_iter(it)?;
                 Ok(1)
             }
             _ => {
                 let it = Format::Int8.into_iter().chain(self.to_be_bytes());
-                buf.extend(it);
+                writer.write_iter(it)?;
                 Ok(2)
             }
         }
     }
-
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        match self {
-            -32..=-1 => {
-                const SIZE: usize = 1;
-                let it = &mut Format::NegativeFixInt(*self).into_iter();
-                for (byte, to) in it.zip(buf) {
-                    *to = byte
-                }
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
-            }
-            _ => {
-                const SIZE: usize = 2;
-                let it = &mut Format::Int8.into_iter().chain(self.to_be_bytes());
-                for (byte, to) in it.zip(buf) {
-                    *to = byte
-                }
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
-            }
-        }
-    }
 }
 
-macro_rules! impl_encode_signed {
-    ($ty:ty, $format:expr, $size:expr) => {
-        impl Encode for $ty {
-            fn encode<T>(&self, buf: &mut T) -> Result<usize>
-            where
-                T: Extend<u8>,
-            {
-                buf.extend($format.into_iter().chain(self.to_be_bytes()));
+macro_rules! impl_encode_int {
+    ($ty:ty,  $format:expr, $size:expr) => {
+        impl<W> Encode<W> for $ty
+        where
+            W: IoWrite,
+        {
+            fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+                writer.write_iter($format.into_iter().chain(self.to_be_bytes()))?;
                 Ok($size)
-            }
-
-            fn encode_to_iter_mut<'a>(
-                &self,
-                buf: &mut impl Iterator<Item = &'a mut u8>,
-            ) -> Result<usize> {
-                const SIZE: usize = $size;
-                let it = &mut $format.into_iter().chain(self.to_be_bytes());
-                for (byte, to) in it.zip(buf) {
-                    *to = byte;
-                }
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
             }
         }
     };
 }
-impl_encode_signed!(i16, Format::Int16, 3);
-impl_encode_signed!(i32, Format::Int32, 5);
-impl_encode_signed!(i64, Format::Int64, 9);
+impl_encode_int!(u16, Format::Uint16, 3);
+impl_encode_int!(u32, Format::Uint32, 5);
+impl_encode_int!(u64, Format::Uint64, 9);
+impl_encode_int!(i16, Format::Int16, 3);
+impl_encode_int!(i32, Format::Int32, 5);
+impl_encode_int!(i64, Format::Int64, 9);
 
-impl Encode for i128 {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
+impl<W> Encode<W> for i128
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
         match i64::try_from(*self) {
-            Ok(i64_int) => i64_int.encode(buf),
-            Err(_) => Err(Error::InvalidFormat),
-        }
-    }
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        match i64::try_from(*self) {
-            Ok(i64_int) => i64_int.encode_to_iter_mut(buf),
+            Ok(i64_int) => i64_int.encode(writer),
             Err(_) => Err(Error::InvalidFormat),
         }
     }
@@ -206,53 +90,29 @@ impl Encode for i128 {
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub struct EncodeMinimizeInt<N>(pub N);
 
-impl<N> Encode for EncodeMinimizeInt<N>
+impl<W, N> Encode<W> for EncodeMinimizeInt<N>
 where
+    W: IoWrite,
     N: ToPrimitive,
 {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
+    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
         let n = &self.0;
         if let Some(v) = n.to_u8() {
-            v.encode(buf)
+            v.encode(writer)
         } else if let Some(v) = n.to_i8() {
-            v.encode(buf)
+            v.encode(writer)
         } else if let Some(v) = n.to_u16() {
-            v.encode(buf)
+            v.encode(writer)
         } else if let Some(v) = n.to_i16() {
-            v.encode(buf)
+            v.encode(writer)
         } else if let Some(v) = n.to_u32() {
-            v.encode(buf)
+            v.encode(writer)
         } else if let Some(v) = n.to_i32() {
-            v.encode(buf)
+            v.encode(writer)
         } else if let Some(v) = n.to_u64() {
-            v.encode(buf)
+            v.encode(writer)
         } else if let Some(v) = n.to_i64() {
-            v.encode(buf)
-        } else {
-            Err(Error::InvalidFormat)
-        }
-    }
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        let n = &self.0;
-        if let Some(v) = n.to_u8() {
-            v.encode_to_iter_mut(buf)
-        } else if let Some(v) = n.to_i8() {
-            v.encode_to_iter_mut(buf)
-        } else if let Some(v) = n.to_u16() {
-            v.encode_to_iter_mut(buf)
-        } else if let Some(v) = n.to_i16() {
-            v.encode_to_iter_mut(buf)
-        } else if let Some(v) = n.to_u32() {
-            v.encode_to_iter_mut(buf)
-        } else if let Some(v) = n.to_i32() {
-            v.encode_to_iter_mut(buf)
-        } else if let Some(v) = n.to_u64() {
-            v.encode_to_iter_mut(buf)
-        } else if let Some(v) = n.to_i64() {
-            v.encode_to_iter_mut(buf)
+            v.encode(writer)
         } else {
             Err(Error::InvalidFormat)
         }
@@ -269,21 +129,16 @@ mod tests {
     #[case(0x7f_u8,[0x7f])]
     #[case(0x80_u8,[Format::Uint8.as_byte(), 0x80])]
     #[case(u8::MAX,[Format::Uint8.as_byte(), 0xff])]
-    fn encode_uint8<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
+    fn encode_uint8<V: Encode<Vec<u8>>, E: AsRef<[u8]> + Sized>(
+        #[case] value: V,
+        #[case] expected: E,
+    ) {
         let expected = expected.as_ref();
-        {
-            let mut buf = vec![];
-            let n = value.encode(&mut buf).unwrap();
-            assert_eq!(buf, expected);
-            assert_eq!(n, expected.len());
-        }
 
-        {
-            let mut buf = vec![0xff; core::mem::size_of::<E>()];
-            let n = value.encode_to_slice(buf.as_mut_slice()).unwrap();
-            assert_eq!(&buf, expected);
-            assert_eq!(n, expected.len());
-        }
+        let mut buf: Vec<u8> = vec![];
+        let n = value.encode(&mut buf).unwrap();
+        assert_eq!(buf, expected);
+        assert_eq!(n, expected.len());
     }
 
     #[rstest]
@@ -291,21 +146,13 @@ mod tests {
     #[case(0x00ff_u16,[Format::Uint16.as_byte(),0x00,0xff])]
     #[case(0x01ff_u16, [Format::Uint16.as_byte(), 0x01, 0xff])]
     #[case(u16::MAX, [Format::Uint16.as_byte(), 0xff, 0xff])]
-    fn encode_uint16<V: Encode, E: AsRef<[u8]>>(#[case] value: V, #[case] expected: E) {
+    fn encode_uint16<V: Encode<Vec<u8>>, E: AsRef<[u8]>>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
-        {
-            let mut buf = vec![];
-            let n = value.encode(&mut buf).unwrap();
-            assert_eq!(buf, expected);
-            assert_eq!(n, expected.len());
-        }
 
-        {
-            let mut buf = vec![0xff; core::mem::size_of::<E>()];
-            let n = value.encode_to_slice(buf.as_mut_slice()).unwrap();
-            assert_eq!(&buf, expected);
-            assert_eq!(n, expected.len());
-        }
+        let mut buf = vec![];
+        let n = value.encode(&mut buf).unwrap();
+        assert_eq!(buf, expected);
+        assert_eq!(n, expected.len());
     }
 
     #[rstest]
@@ -313,41 +160,25 @@ mod tests {
     #[case(0x0000ffff_u32, [Format::Uint32.as_byte(), 0x00, 0x00,0xff, 0xff])]
     #[case(0x0001ffff_u32, [Format::Uint32.as_byte(), 0x00, 0x01,0xff, 0xff])]
     #[case(u32::MAX, [Format::Uint32.as_byte(),0xff, 0xff, 0xff,0xff])]
-    fn encode_uint32<V: Encode, E: AsRef<[u8]>>(#[case] value: V, #[case] expected: E) {
+    fn encode_uint32<V: Encode<Vec<u8>>, E: AsRef<[u8]>>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
-        {
-            let mut buf = vec![];
-            let n = value.encode(&mut buf).unwrap();
-            assert_eq!(buf, expected);
-            assert_eq!(n, expected.len());
-        }
 
-        {
-            let mut buf = vec![0xff; core::mem::size_of::<E>()];
-            let n = value.encode_to_slice(buf.as_mut_slice()).unwrap();
-            assert_eq!(&buf, expected);
-            assert_eq!(n, expected.len());
-        }
+        let mut buf = vec![];
+        let n = value.encode(&mut buf).unwrap();
+        assert_eq!(buf, expected);
+        assert_eq!(n, expected.len());
     }
 
     #[rstest]
     #[case(u64::MIN, [Format::Uint64.as_byte(), 0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00])]
     #[case(u64::MAX, [Format::Uint64.as_byte(), 0xff, 0xff, 0xff,0xff,0xff, 0xff, 0xff,0xff])]
-    fn encode_uint64<V: Encode, E: AsRef<[u8]>>(#[case] value: V, #[case] expected: E) {
+    fn encode_uint64<V: Encode<Vec<u8>>, E: AsRef<[u8]>>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
-        {
-            let mut buf = vec![];
-            let n = value.encode(&mut buf).unwrap();
-            assert_eq!(buf, expected);
-            assert_eq!(n, expected.len());
-        }
 
-        {
-            let mut buf = vec![0xff; core::mem::size_of::<E>()];
-            let n = value.encode_to_slice(buf.as_mut_slice()).unwrap();
-            assert_eq!(&buf, expected);
-            assert_eq!(n, expected.len());
-        }
+        let mut buf = vec![];
+        let n = value.encode(&mut buf).unwrap();
+        assert_eq!(buf, expected);
+        assert_eq!(n, expected.len());
     }
 
     #[rstest]
@@ -356,21 +187,16 @@ mod tests {
     #[case(-1_i8,[0xff])]
     #[case(0_i8,[Format::Int8.as_byte(),0x00])]
     #[case(i8::MAX,[Format::Int8.as_byte(),0x7f])]
-    fn encode_int8<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
+    fn encode_int8<V: Encode<Vec<u8>>, E: AsRef<[u8]> + Sized>(
+        #[case] value: V,
+        #[case] expected: E,
+    ) {
         let expected = expected.as_ref();
-        {
-            let mut buf = vec![];
-            let n = value.encode(&mut buf).unwrap();
-            assert_eq!(buf, expected);
-            assert_eq!(n, expected.len());
-        }
 
-        {
-            let mut buf = vec![0xff; core::mem::size_of::<E>()];
-            let n = value.encode_to_slice(buf.as_mut_slice()).unwrap();
-            assert_eq!(&buf, expected);
-            assert_eq!(n, expected.len());
-        }
+        let mut buf = vec![];
+        let n = value.encode(&mut buf).unwrap();
+        assert_eq!(buf, expected);
+        assert_eq!(n, expected.len());
     }
 
     #[rstest]
@@ -378,21 +204,16 @@ mod tests {
     #[case(-1_i16,[Format::Int16.as_byte(),0xff,0xff])]
     #[case(0_i16,[Format::Int16.as_byte(),0x00,0x00])]
     #[case(i16::MAX,[Format::Int16.as_byte(),0x7f,0xff])]
-    fn encode_int16<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
+    fn encode_int16<V: Encode<Vec<u8>>, E: AsRef<[u8]> + Sized>(
+        #[case] value: V,
+        #[case] expected: E,
+    ) {
         let expected = expected.as_ref();
-        {
-            let mut buf = vec![];
-            let n = value.encode(&mut buf).unwrap();
-            assert_eq!(buf, expected);
-            assert_eq!(n, expected.len());
-        }
 
-        {
-            let mut buf = vec![0xff; core::mem::size_of::<E>()];
-            let n = value.encode_to_slice(buf.as_mut_slice()).unwrap();
-            assert_eq!(&buf, expected);
-            assert_eq!(n, expected.len());
-        }
+        let mut buf = vec![];
+        let n = value.encode(&mut buf).unwrap();
+        assert_eq!(buf, expected);
+        assert_eq!(n, expected.len());
     }
 
     #[rstest]
@@ -400,21 +221,16 @@ mod tests {
     #[case(-1_i32,[Format::Int32.as_byte(),0xff,0xff,0xff,0xff])]
     #[case(0_i32,[Format::Int32.as_byte(),0x00,0x00,0x00,0x00])]
     #[case(i32::MAX,[Format::Int32.as_byte(),0x7f,0xff,0xff,0xff])]
-    fn encode_int32<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
+    fn encode_int32<V: Encode<Vec<u8>>, E: AsRef<[u8]> + Sized>(
+        #[case] value: V,
+        #[case] expected: E,
+    ) {
         let expected = expected.as_ref();
-        {
-            let mut buf = vec![];
-            let n = value.encode(&mut buf).unwrap();
-            assert_eq!(buf, expected);
-            assert_eq!(n, expected.len());
-        }
 
-        {
-            let mut buf = vec![0xff; core::mem::size_of::<E>()];
-            let n = value.encode_to_slice(buf.as_mut_slice()).unwrap();
-            assert_eq!(&buf, expected);
-            assert_eq!(n, expected.len());
-        }
+        let mut buf = vec![];
+        let n = value.encode(&mut buf).unwrap();
+        assert_eq!(buf, expected);
+        assert_eq!(n, expected.len());
     }
 
     #[rstest]
@@ -422,21 +238,16 @@ mod tests {
     #[case(-1_i64,[Format::Int64.as_byte(),0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff])]
     #[case(0_i64,[Format::Int64.as_byte(),0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00])]
     #[case(i64::MAX,[Format::Int64.as_byte(),0x7f,0xff,0xff,0xff,0xff,0xff,0xff,0xff])]
-    fn encode_int64<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
+    fn encode_int64<V: Encode<Vec<u8>>, E: AsRef<[u8]> + Sized>(
+        #[case] value: V,
+        #[case] expected: E,
+    ) {
         let expected = expected.as_ref();
-        {
-            let mut buf = vec![];
-            let n = value.encode(&mut buf).unwrap();
-            assert_eq!(buf, expected);
-            assert_eq!(n, expected.len());
-        }
 
-        {
-            let mut buf = vec![0xff; core::mem::size_of::<E>()];
-            let n = value.encode_to_slice(buf.as_mut_slice()).unwrap();
-            assert_eq!(&buf, expected);
-            assert_eq!(n, expected.len());
-        }
+        let mut buf = vec![];
+        let n = value.encode(&mut buf).unwrap();
+        assert_eq!(buf, expected);
+        assert_eq!(n, expected.len());
     }
 
     #[rstest]
@@ -459,18 +270,10 @@ mod tests {
     ) {
         let expected = expected.as_ref();
         let encoder = EncodeMinimizeInt(value);
-        {
-            let mut buf = vec![];
-            let n = encoder.encode(&mut buf).unwrap();
-            assert_eq!(buf, expected);
-            assert_eq!(n, expected.len());
-        }
 
-        {
-            let mut buf = vec![0xff; core::mem::size_of::<E>()];
-            let n = encoder.encode_to_slice(buf.as_mut_slice()).unwrap();
-            assert_eq!(&buf, expected);
-            assert_eq!(n, expected.len());
-        }
+        let mut buf = vec![];
+        let n = encoder.encode(&mut buf).unwrap();
+        assert_eq!(buf, expected);
+        assert_eq!(n, expected.len());
     }
 }

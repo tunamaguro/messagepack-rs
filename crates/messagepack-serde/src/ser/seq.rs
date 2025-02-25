@@ -1,24 +1,26 @@
 use super::Serializer;
+use messagepack_core::io::IoWrite;
 use serde::ser;
 
 use super::error::Error;
 
-pub struct SerializeSeq<'a, 'b, Buf> {
-    ser: &'a mut Serializer<'b, Buf>,
+pub struct SerializeSeq<'a, 'b, W> {
+    ser: &'a mut Serializer<'b, W>,
 }
 
-impl<'a, 'b, Buf> SerializeSeq<'a, 'b, Buf> {
-    pub(crate) fn new(ser: &'a mut Serializer<'b, Buf>) -> Self {
+impl<'a, 'b, W> SerializeSeq<'a, 'b, W> {
+    pub(crate) fn new(ser: &'a mut Serializer<'b, W>) -> Self {
         Self { ser }
     }
 }
 
-impl<'b, Buf> ser::SerializeSeq for SerializeSeq<'_, 'b, Buf>
+impl<'a, 'b, W> ser::SerializeSeq for SerializeSeq<'a, 'b, W>
 where
-    Buf: Iterator<Item = &'b mut u8>,
+    'b: 'a,
+    W: IoWrite,
 {
     type Ok = ();
-    type Error = Error;
+    type Error = Error<W::Error>;
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
@@ -32,12 +34,13 @@ where
     }
 }
 
-impl<'b, Buf> ser::SerializeTuple for SerializeSeq<'_, 'b, Buf>
+impl<'a, 'b, W> ser::SerializeTuple for SerializeSeq<'a, 'b, W>
 where
-    Buf: Iterator<Item = &'b mut u8>,
+    'b: 'a,
+    W: IoWrite,
 {
     type Ok = ();
-    type Error = Error;
+    type Error = Error<W::Error>;
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
@@ -51,12 +54,13 @@ where
     }
 }
 
-impl<'b, Buf> ser::SerializeTupleStruct for SerializeSeq<'_, 'b, Buf>
+impl<'a, 'b, W> ser::SerializeTupleStruct for SerializeSeq<'a, 'b, W>
 where
-    Buf: Iterator<Item = &'b mut u8>,
+    'b: 'a,
+    W: IoWrite,
 {
     type Ok = ();
-    type Error = Error;
+    type Error = Error<W::Error>;
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + ser::Serialize,
@@ -68,12 +72,13 @@ where
     }
 }
 
-impl<'b, Buf> ser::SerializeTupleVariant for SerializeSeq<'_, 'b, Buf>
+impl<'a, 'b, W> ser::SerializeTupleVariant for SerializeSeq<'a, 'b, W>
 where
-    Buf: Iterator<Item = &'b mut u8>,
+    'b: 'a,
+    W: IoWrite,
 {
     type Ok = ();
-    type Error = Error;
+    type Error = Error<W::Error>;
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where

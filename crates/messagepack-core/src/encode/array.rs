@@ -1,7 +1,7 @@
 use core::{cell::RefCell, marker::PhantomData};
 
 use super::{Encode, Error, Result};
-use crate::formats::Format;
+use crate::{formats::Format, io::IoWrite};
 
 pub struct ArrayFormatEncoder(pub usize);
 impl ArrayFormatEncoder {
@@ -9,76 +9,26 @@ impl ArrayFormatEncoder {
         Self(size)
     }
 }
-impl Encode for ArrayFormatEncoder {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
+impl<W: IoWrite> Encode<W> for ArrayFormatEncoder {
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match self.0 {
             0x00..=0b1111 => {
                 let cast = self.0 as u8;
                 let it = Format::FixArray(cast);
-                buf.extend(it);
+                writer.write_iter(it)?;
                 Ok(1)
             }
             0x10..=0xffff => {
                 let cast = self.0 as u16;
                 let it = Format::Array16.into_iter().chain(cast.to_be_bytes());
-                buf.extend(it);
+                writer.write_iter(it)?;
                 Ok(3)
             }
             0x10000..=0xffffffff => {
                 let cast = self.0 as u32;
                 let it = Format::Array32.into_iter().chain(cast.to_be_bytes());
-                buf.extend(it);
+                writer.write_iter(it)?;
                 Ok(5)
-            }
-            _ => Err(Error::InvalidFormat),
-        }
-    }
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        match self.0 {
-            0x00..=0b1111 => {
-                const SIZE: usize = 1;
-                let cast = self.0 as u8;
-                let it = &mut Format::FixArray(cast).into_iter();
-                for (byte, to) in it.zip(buf.by_ref()) {
-                    *to = byte;
-                }
-
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
-            }
-            0x10..=0xffff => {
-                const SIZE: usize = 3;
-                let cast = self.0 as u16;
-                let it = &mut Format::Array16.into_iter().chain(cast.to_be_bytes());
-                for (byte, to) in it.zip(buf.by_ref()) {
-                    *to = byte;
-                }
-
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
-            }
-            0x10000..=0xffffffff => {
-                const SIZE: usize = 5;
-                let cast = self.0 as u32;
-                let it = &mut Format::Array32.into_iter().chain(cast.to_be_bytes());
-                for (byte, to) in it.zip(buf.by_ref()) {
-                    *to = byte;
-                }
-
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
             }
             _ => Err(Error::InvalidFormat),
         }
@@ -99,30 +49,18 @@ impl<I, V> ArrayDataEncoder<I, V> {
     }
 }
 
-impl<I, V> Encode for ArrayDataEncoder<I, V>
+impl<W, I, V> Encode<W> for ArrayDataEncoder<I, V>
 where
+    W: IoWrite,
     I: Iterator<Item = V>,
-    V: Encode,
+    V: Encode<W>,
 {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let array_len = self
             .data
             .borrow_mut()
             .by_ref()
-            .map(|v| v.encode(buf))
-            .try_fold(0, |acc, v| v.map(|n| acc + n))?;
-        Ok(array_len)
-    }
-
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        let array_len = self
-            .data
-            .borrow_mut()
-            .by_ref()
-            .map(|v| v.encode_to_iter_mut(buf))
+            .map(|v| v.encode(writer))
             .try_fold(0, |acc, v| v.map(|n| acc + n))?;
         Ok(array_len)
     }
@@ -138,24 +76,16 @@ impl<'array, V> core::ops::Deref for ArrayEncoder<'array, V> {
     }
 }
 
-impl<V: Encode> Encode for ArrayEncoder<'_, V>
+impl<W, V> Encode<W> for ArrayEncoder<'_, V>
 where
-    V: Encode,
+    W: IoWrite,
+    V: Encode<W>,
 {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let self_len = self.len();
-        let format_len = ArrayFormatEncoder(self_len).encode(buf)?;
+        let format_len = ArrayFormatEncoder(self_len).encode(writer)?;
 
-        let array_len = ArrayDataEncoder::new(self.iter()).encode(buf)?;
-        Ok(format_len + array_len)
-    }
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        let self_len = self.len();
-        let format_len = ArrayFormatEncoder(self_len).encode_to_iter_mut(buf)?;
-        let array_len = ArrayDataEncoder::new(self.iter()).encode_to_iter_mut(buf)?;
+        let array_len = ArrayDataEncoder::new(self.iter()).encode(writer)?;
         Ok(format_len + array_len)
     }
 }
@@ -167,25 +97,17 @@ mod tests {
 
     #[rstest]
     #[case([1u8, 2u8, 3u8],[0x93, 0x01, 0x02, 0x03])]
-    fn encode_fix_array<V: Encode, Array: AsRef<[V]>, E: AsRef<[u8]> + Sized>(
+    fn encode_fix_array<V: Encode<Vec<u8>>, Array: AsRef<[V]>, E: AsRef<[u8]> + Sized>(
         #[case] value: Array,
         #[case] expected: E,
     ) {
         let expected = expected.as_ref();
         let encoder = ArrayEncoder(value.as_ref());
-        {
-            let mut buf = vec![];
-            let n = encoder.encode(&mut buf).unwrap();
-            assert_eq!(buf, expected);
-            assert_eq!(n, expected.len());
-        }
 
-        {
-            let mut buf = vec![0xff; core::mem::size_of::<E>()];
-            let n = encoder.encode_to_slice(buf.as_mut_slice()).unwrap();
-            assert_eq!(&buf, expected);
-            assert_eq!(n, expected.len());
-        }
+        let mut buf = vec![];
+        let n = encoder.encode(&mut buf).unwrap();
+        assert_eq!(buf, expected);
+        assert_eq!(n, expected.len());
     }
 
     #[rstest]
@@ -205,19 +127,11 @@ mod tests {
             .collect::<Vec<u8>>();
 
         let encoder = ArrayEncoder(data.as_ref());
-        {
-            let mut buf = vec![];
-            let n = encoder.encode(&mut buf).unwrap();
 
-            assert_eq!(&buf, &expected);
-            assert_eq!(n, expected.len());
-        }
+        let mut buf = vec![];
+        let n = encoder.encode(&mut buf).unwrap();
 
-        {
-            let mut buf = vec![0xff; expected.len()];
-            let n = encoder.encode_to_slice(buf.as_mut_slice()).unwrap();
-            assert_eq!(&buf, &expected);
-            assert_eq!(n, expected.len());
-        }
+        assert_eq!(&buf, &expected);
+        assert_eq!(n, expected.len());
     }
 }

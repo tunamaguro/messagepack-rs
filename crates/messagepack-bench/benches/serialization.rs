@@ -3,7 +3,8 @@
 #[cfg(not(codspeed))]
 use divan::counter::BytesCount;
 use messagepack_bench::{
-    ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StringTypes,
+    ArrayTypes, ByteType, ByteTypeBorrowed, CompositeType, MapType, PrimitiveTypes, StrTypes,
+    StrTypesBorrowed,
 };
 use serde::Serialize;
 use std::iter::repeat_with;
@@ -16,17 +17,14 @@ fn main() {
     divan::main();
 }
 
-const LENS: &[usize] = &[1, 2, 4, 8, 16, 32];
+const LENS: &[usize] = &[1024];
 const BUFFER_SIZE: usize = (2u32.pow(16)) as usize;
 
 #[divan::bench(
-    types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StringTypes],
+    types = [ArrayTypes, ByteType, ByteTypeBorrowed, CompositeType, MapType, PrimitiveTypes, StrTypes, StrTypesBorrowed],
     args = LENS
 )]
-fn serializer_messagepack_serde<T: Serialize + Default + Sync>(
-    bencher: divan::Bencher,
-    len: usize,
-) {
+fn serialize_messagepack_serde<T: Serialize + Default + Sync>(bencher: divan::Bencher, len: usize) {
     let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
 
     #[allow(unused_mut)]
@@ -44,10 +42,10 @@ fn serializer_messagepack_serde<T: Serialize + Default + Sync>(
 }
 
 #[divan::bench(
-    types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StringTypes],
+    types = [ArrayTypes, ByteType, ByteTypeBorrowed, CompositeType, MapType, PrimitiveTypes, StrTypes, StrTypesBorrowed],
     args = LENS
 )]
-fn serializer_rmp_serde<T: Serialize + Default + Sync>(bencher: divan::Bencher, len: usize) {
+fn serialize_rmp_serde<T: Serialize + Default + Sync>(bencher: divan::Bencher, len: usize) {
     let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
 
     #[allow(unused_mut)]
