@@ -13,8 +13,9 @@ impl<'a, 'b, W> SerializeMap<'a, 'b, W> {
     }
 }
 
-impl<'b, W> ser::SerializeMap for SerializeMap<'_, 'b, W>
+impl<'a, 'b, W> ser::SerializeMap for SerializeMap<'a, 'b, W>
 where
+    'b: 'a,
     W: IoWrite,
 {
     type Ok = ();
@@ -39,8 +40,9 @@ where
     }
 }
 
-impl<'b, W> ser::SerializeStruct for SerializeMap<'_, 'b, W>
+impl<'a, 'b, W> ser::SerializeStruct for SerializeMap<'a, 'b, W>
 where
+    'b: 'a,
     W: IoWrite,
 {
     type Ok = ();
@@ -58,8 +60,9 @@ where
     }
 }
 
-impl<'b, W> ser::SerializeStructVariant for SerializeMap<'_, 'b, W>
+impl<'a, 'b, W> ser::SerializeStructVariant for SerializeMap<'a, 'b, W>
 where
+    'b: 'a,
     W: IoWrite,
 {
     type Ok = ();

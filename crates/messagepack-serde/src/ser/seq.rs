@@ -14,8 +14,9 @@ impl<'a, 'b, W> SerializeSeq<'a, 'b, W> {
     }
 }
 
-impl<'b, W> ser::SerializeSeq for SerializeSeq<'_, 'b, W>
+impl<'a, 'b, W> ser::SerializeSeq for SerializeSeq<'a, 'b, W>
 where
+    'b: 'a,
     W: IoWrite,
 {
     type Ok = ();
@@ -33,8 +34,9 @@ where
     }
 }
 
-impl<'b, W> ser::SerializeTuple for SerializeSeq<'_, 'b, W>
+impl<'a, 'b, W> ser::SerializeTuple for SerializeSeq<'a, 'b, W>
 where
+    'b: 'a,
     W: IoWrite,
 {
     type Ok = ();
@@ -52,8 +54,9 @@ where
     }
 }
 
-impl<'b, W> ser::SerializeTupleStruct for SerializeSeq<'_, 'b, W>
+impl<'a, 'b, W> ser::SerializeTupleStruct for SerializeSeq<'a, 'b, W>
 where
+    'b: 'a,
     W: IoWrite,
 {
     type Ok = ();
@@ -69,8 +72,9 @@ where
     }
 }
 
-impl<'b, W> ser::SerializeTupleVariant for SerializeSeq<'_, 'b, W>
+impl<'a, 'b, W> ser::SerializeTupleVariant for SerializeSeq<'a, 'b, W>
 where
+    'b: 'a,
     W: IoWrite,
 {
     type Ok = ();
