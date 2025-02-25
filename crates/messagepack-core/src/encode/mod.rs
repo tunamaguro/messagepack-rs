@@ -1,12 +1,12 @@
-pub(crate) mod array;
-pub(crate) mod bin;
-pub(crate) mod bool;
-pub(crate) mod extension;
-pub(crate) mod float;
-pub(crate) mod int;
-pub(crate) mod map;
-pub(crate) mod nil;
-pub(crate) mod str;
+pub mod array;
+pub mod bin;
+pub mod bool;
+pub mod extension;
+pub mod float;
+pub mod int;
+pub mod map;
+pub mod nil;
+pub mod str;
 
 pub use array::{ArrayDataEncoder, ArrayEncoder, ArrayFormatEncoder};
 pub use bin::BinaryEncoder;
@@ -14,96 +14,71 @@ pub use extension::ExtensionEncoder;
 pub use map::{MapDataEncoder, MapEncoder, MapFormatEncoder, MapSliceEncoder};
 pub use nil::NilEncoder;
 
-use crate::Format;
+use crate::{Format, io::IoWrite};
 
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub enum Error {
-    /// buffer is full
-    BufferFull,
+pub enum Error<T> {
+    // io error
+    Io(T),
     /// Cannot mapped messagepack format
     InvalidFormat,
 }
 
-impl core::fmt::Display for Error {
+impl<T> From<T> for Error<T> {
+    fn from(value: T) -> Self {
+        Error::Io(value)
+    }
+}
+
+impl<T: core::fmt::Display> core::fmt::Display for Error<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Error::BufferFull => write!(f, "Buffer is full"),
+            Error::Io(e) => write!(f, "{}", e),
             Error::InvalidFormat => write!(f, "Cannot encode value"),
         }
     }
 }
 
-impl core::error::Error for Error {}
+impl<T: core::error::Error> core::error::Error for Error<T> {}
 
-type Result<T> = ::core::result::Result<T, Error>;
+type Result<T, E> = ::core::result::Result<T, Error<E>>;
 
 /// A type which can be encoded to MessagePack
-pub trait Encode {
+pub trait Encode<W>
+where
+    W: IoWrite,
+{
     /// encode to MessagePack
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>;
-
-    /// encode to IterMut
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize>;
-
-    /// encode to slice
-    fn encode_to_slice(&self, buf: &mut [u8]) -> Result<usize> {
-        self.encode_to_iter_mut(&mut buf.iter_mut())
-    }
+    fn encode(&self, writer: &mut W) -> Result<usize, W::Error>;
 }
 
-impl<V> Encode for &V
+impl<V, W> Encode<W> for &V
 where
-    V: Encode,
+    V: Encode<W>,
+    W: IoWrite,
 {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
-        V::encode(self, buf)
-    }
-
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        V::encode_to_iter_mut(self, buf)
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        Encode::encode(*self, writer)
     }
 }
 
-impl<V> Encode for &mut V
+impl<V, W> Encode<W> for &mut V
 where
-    V: Encode,
+    V: Encode<W>,
+    W: IoWrite,
 {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
-        V::encode(self, buf)
-    }
-
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        V::encode_to_iter_mut(self, buf)
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        Encode::encode(*self, writer)
     }
 }
 
-impl Encode for Format {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
-        buf.extend(self.as_byte().to_be_bytes());
+impl<W> Encode<W> for Format
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        writer.write_iter(self.as_byte().to_be_bytes())?;
         Ok(1)
-    }
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        let it = &mut self.as_byte().to_be_bytes().into_iter();
-        for (byte, to) in it.zip(buf) {
-            *to = byte;
-        }
-
-        if it.next().is_none() {
-            Ok(1)
-        } else {
-            Err(Error::BufferFull)
-        }
     }
 }

@@ -1,60 +1,30 @@
-use super::{Encode, Error, Result};
-use crate::formats::Format;
+use super::{Encode, Result};
+use crate::{formats::Format, io::IoWrite};
 
 pub struct NilEncoder;
 
-impl Encode for NilEncoder {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
-        buf.extend(Format::Nil);
+impl<W: IoWrite> Encode<W> for NilEncoder {
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        writer.write_iter(Format::Nil)?;
         Ok(1)
     }
+}
 
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        let it = &mut Format::Nil.into_iter();
-        for (byte, to) in it.zip(buf) {
-            *to = byte;
-        }
-        if it.next().is_none() {
-            Ok(1)
-        } else {
-            Err(Error::BufferFull)
-        }
+impl<W: IoWrite> Encode<W> for () {
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        NilEncoder.encode(writer)
     }
 }
 
-impl Encode for () {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
-        NilEncoder.encode(buf)
-    }
-
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        NilEncoder.encode_to_iter_mut(buf)
-    }
-}
-
-impl<V> Encode for Option<V>
+impl<W, V> Encode<W> for Option<V>
 where
-    V: Encode,
+    W: IoWrite,
+    V: Encode<W>,
 {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match self {
-            Some(other) => other.encode(buf),
-            _ => ().encode(buf),
-        }
-    }
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        match self {
-            Some(other) => other.encode_to_iter_mut(buf),
-            _ => ().encode_to_iter_mut(buf),
+            Some(other) => other.encode(writer),
+            _ => NilEncoder.encode(writer),
         }
     }
 }

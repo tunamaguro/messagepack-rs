@@ -1,5 +1,5 @@
 use super::{Encode, Error, Result};
-use crate::formats::Format;
+use crate::{formats::Format, io::IoWrite};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BinaryEncoder<'blob>(pub &'blob [u8]);
@@ -11,97 +11,33 @@ impl<'blob> core::ops::Deref for BinaryEncoder<'blob> {
     }
 }
 
-impl Encode for BinaryEncoder<'_> {
-    fn encode<T>(&self, buf: &mut T) -> Result<usize>
-    where
-        T: Extend<u8>,
-    {
+impl<W: IoWrite> Encode<W> for BinaryEncoder<'_> {
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let self_len = self.len();
         let format_len = match self_len {
             0x00..=0xff => {
                 let cast = self_len as u8;
                 let it = Format::Bin8.into_iter().chain(cast.to_be_bytes());
-                buf.extend(it);
+                writer.write_iter(it)?;
                 Ok(2)
             }
             0x100..=0xffff => {
                 let cast = self_len as u16;
                 let it = Format::Bin16.into_iter().chain(cast.to_be_bytes());
-                buf.extend(it);
+                writer.write_iter(it)?;
                 Ok(3)
             }
             0x10000..=0xffffffff => {
                 let cast = self_len as u32;
                 let it = Format::Bin32.into_iter().chain(cast.to_be_bytes());
-                buf.extend(it);
+                writer.write_iter(it)?;
                 Ok(5)
             }
             _ => Err(Error::InvalidFormat),
         }?;
 
-        buf.extend(self.iter().cloned());
+        writer.write_iter(self.iter().cloned())?;
         Ok(format_len + self_len)
-    }
-    fn encode_to_iter_mut<'a>(&self, buf: &mut impl Iterator<Item = &'a mut u8>) -> Result<usize> {
-        let self_len = self.len();
-        let format_len = match self_len {
-            0x00..=0xff => {
-                const SIZE: usize = 2;
-                let cast = self_len as u8;
-                let it = &mut Format::Bin8.into_iter().chain(cast.to_be_bytes());
-                for (byte, to) in it.zip(buf.by_ref()) {
-                    *to = byte;
-                }
-
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
-            }
-            0x100..=0xffff => {
-                const SIZE: usize = 3;
-                let cast = self_len as u16;
-                let it = &mut Format::Bin16.into_iter().chain(cast.to_be_bytes());
-                for (byte, to) in it.zip(buf.by_ref()) {
-                    *to = byte;
-                }
-
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
-            }
-            0x10000..=0xffffffff => {
-                const SIZE: usize = 5;
-                let cast = self_len as u32;
-                let it = &mut Format::Bin32.into_iter().chain(cast.to_be_bytes());
-
-                for (byte, to) in it.zip(buf.by_ref()) {
-                    *to = byte;
-                }
-
-                if it.next().is_none() {
-                    Ok(SIZE)
-                } else {
-                    Err(Error::BufferFull)
-                }
-            }
-            _ => Err(Error::InvalidFormat),
-        }?;
-
-        let it = &mut self.iter();
-
-        for (byte, to) in it.zip(buf) {
-            *to = *byte
-        }
-
-        if it.next().is_none() {
-            Ok(format_len + self_len)
-        } else {
-            Err(Error::BufferFull)
-        }
     }
 }
 
@@ -128,19 +64,11 @@ mod tests {
             .collect::<Vec<u8>>();
 
         let encoder = BinaryEncoder(data.as_ref());
-        {
-            let mut buf = vec![];
-            let n = encoder.encode(&mut buf).unwrap();
 
-            assert_eq!(&buf, &expected);
-            assert_eq!(n, expected.len());
-        }
+        let mut buf = vec![];
+        let n = encoder.encode(&mut buf).unwrap();
 
-        {
-            let mut buf = vec![0xff; expected.len()];
-            let n = encoder.encode_to_slice(buf.as_mut_slice()).unwrap();
-            assert_eq!(&buf, &expected);
-            assert_eq!(n, expected.len());
-        }
+        assert_eq!(&buf, &expected);
+        assert_eq!(n, expected.len());
     }
 }

@@ -1,23 +1,24 @@
 use super::Error;
 use super::Serializer;
+use messagepack_core::io::IoWrite;
 use serde::ser;
 
-pub struct SerializeMap<'a, 'b, Buf> {
-    ser: &'a mut Serializer<'b, Buf>,
+pub struct SerializeMap<'a, 'b, W> {
+    ser: &'a mut Serializer<'b, W>,
 }
 
-impl<'a, 'b, Buf> SerializeMap<'a, 'b, Buf> {
-    pub(crate) fn new(ser: &'a mut Serializer<'b, Buf>) -> Self {
+impl<'a, 'b, W> SerializeMap<'a, 'b, W> {
+    pub(crate) fn new(ser: &'a mut Serializer<'b, W>) -> Self {
         Self { ser }
     }
 }
 
-impl<'b, Buf> ser::SerializeMap for SerializeMap<'_, 'b, Buf>
+impl<'b, W> ser::SerializeMap for SerializeMap<'_, 'b, W>
 where
-    Buf: Iterator<Item = &'b mut u8>,
+    W: IoWrite,
 {
     type Ok = ();
-    type Error = Error;
+    type Error = Error<W::Error>;
 
     fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
     where
@@ -38,12 +39,12 @@ where
     }
 }
 
-impl<'b, Buf> ser::SerializeStruct for SerializeMap<'_, 'b, Buf>
+impl<'b, W> ser::SerializeStruct for SerializeMap<'_, 'b, W>
 where
-    Buf: Iterator<Item = &'b mut u8>,
+    W: IoWrite,
 {
     type Ok = ();
-    type Error = Error;
+    type Error = Error<W::Error>;
 
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where
@@ -57,12 +58,12 @@ where
     }
 }
 
-impl<'b, Buf> ser::SerializeStructVariant for SerializeMap<'_, 'b, Buf>
+impl<'b, W> ser::SerializeStructVariant for SerializeMap<'_, 'b, W>
 where
-    Buf: Iterator<Item = &'b mut u8>,
+    W: IoWrite,
 {
     type Ok = ();
-    type Error = Error;
+    type Error = Error<W::Error>;
 
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where

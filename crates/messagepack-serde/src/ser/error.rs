@@ -1,10 +1,10 @@
 use serde::ser;
 
-pub type CoreError = messagepack_core::encode::Error;
+pub type CoreError<T> = messagepack_core::encode::Error<T>;
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub enum Error {
-    Encode(CoreError),
+pub enum Error<T> {
+    Encode(CoreError<T>),
     SeqLenNone,
     #[cfg(not(feature = "std"))]
     Custom,
@@ -12,7 +12,7 @@ pub enum Error {
     Message(String),
 }
 
-impl core::fmt::Display for Error {
+impl<T: core::fmt::Display> core::fmt::Display for Error<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Error::Encode(e) => e.fmt(f),
@@ -25,14 +25,17 @@ impl core::fmt::Display for Error {
     }
 }
 
-impl From<CoreError> for Error {
-    fn from(err: CoreError) -> Self {
+impl<T> From<CoreError<T>> for Error<T> {
+    fn from(err: CoreError<T>) -> Self {
         Error::Encode(err)
     }
 }
 
-impl ser::StdError for Error {}
-impl ser::Error for Error {
+impl<T> ser::StdError for Error<T> where T: core::error::Error {}
+impl<E> ser::Error for Error<E>
+where
+    E: core::error::Error,
+{
     #[allow(unused_variables)]
     fn custom<T>(msg: T) -> Self
     where
