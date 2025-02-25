@@ -59,10 +59,7 @@ where
 
 impl<'a> SliceWriter<'a, core::slice::IterMut<'a, u8>> {
     pub fn from_slice(buf: &'a mut [u8]) -> Self {
-        Self {
-            buf: buf.iter_mut(),
-            _phantom: Default::default(),
-        }
+        Self ::new(buf.iter_mut())
     }
 }
 
@@ -84,8 +81,8 @@ where
 
     fn write_iter<II: IntoIterator<Item = u8>>(&mut self, iter: II) -> Result<(), Self::Error> {
         let buf = &mut self.buf;
-        let mut iter = iter.into_iter();
-        for (to, byte) in buf.zip(&mut iter) {
+        let iter = &mut iter.into_iter();
+        for (byte, to) in iter.zip(buf) {
             *to = byte;
         }
 
