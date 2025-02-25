@@ -2,9 +2,7 @@
 
 #[cfg(not(codspeed))]
 use divan::counter::BytesCount;
-use messagepack_bench::{
-    ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StringTypes,
-};
+use messagepack_bench::{ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StrTypes};
 use serde::{Serialize, de::DeserializeOwned};
 use std::iter::repeat_with;
 
@@ -16,14 +14,14 @@ fn main() {
     divan::main();
 }
 
-const LENS: &[usize] = &[1, 2, 4, 8, 16, 32];
+const LENS: &[usize] = &[1024];
 const BUFFER_SIZE: usize = (2u32.pow(16)) as usize;
 
 #[divan::bench(
-    types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StringTypes],
+    types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StrTypes],
     args = LENS
 )]
-fn deserializer_messagepack_serde<T: Serialize + DeserializeOwned + Default + Sync>(
+fn deserialize_messagepack_serde<T: Serialize + DeserializeOwned + Default + Sync>(
     #[allow(unused_mut)] mut bencher: divan::Bencher,
     len: usize,
 ) {
@@ -43,10 +41,10 @@ fn deserializer_messagepack_serde<T: Serialize + DeserializeOwned + Default + Sy
 }
 
 #[divan::bench(
-    types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StringTypes],
+    types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StrTypes],
     args = LENS
 )]
-fn deserializer_rmp_serde<T: Serialize + DeserializeOwned + Default + Sync>(
+fn deserialize_rmp_serde<T: Serialize + DeserializeOwned + Default + Sync>(
     #[allow(unused_mut)] mut bencher: divan::Bencher,
     len: usize,
 ) {

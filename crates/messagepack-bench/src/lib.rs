@@ -42,18 +42,35 @@ impl Default for PrimitiveTypes {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct StringTypes {
+pub struct StrTypes {
     short: String,
     medium: String,
     long: String,
 }
 
-impl Default for StringTypes {
+impl Default for StrTypes {
     fn default() -> Self {
         Self {
             short: include_str!("../data/lorem-ipsum.txt").into(),
             medium: include_str!("../data/jp-constitution.txt").into(),
             long: include_str!("../data/raven.txt").into(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StrTypesBorrowed<'a> {
+    short: &'a str,
+    medium: &'a str,
+    long: &'a str,
+}
+
+impl Default for StrTypesBorrowed<'_> {
+    fn default() -> Self {
+        Self {
+            short: include_str!("../data/lorem-ipsum.txt"),
+            medium: include_str!("../data/jp-constitution.txt"),
+            long: include_str!("../data/raven.txt"),
         }
     }
 }
@@ -91,6 +108,26 @@ impl Default for ByteType {
             short: include_bytes!("../data/lorem-ipsum.txt").into(),
             medium: include_bytes!("../data/jp-constitution.txt").into(),
             long: include_bytes!("../data/raven.txt").into(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ByteTypeBorrowed<'a> {
+    #[serde(with = "serde_bytes")]
+    short: &'a [u8],
+    #[serde(with = "serde_bytes")]
+    medium: &'a [u8],
+    #[serde(with = "serde_bytes")]
+    long: &'a [u8],
+}
+
+impl Default for ByteTypeBorrowed<'_> {
+    fn default() -> Self {
+        Self {
+            short: include_bytes!("../data/lorem-ipsum.txt"),
+            medium: include_bytes!("../data/jp-constitution.txt"),
+            long: include_bytes!("../data/raven.txt"),
         }
     }
 }
@@ -146,7 +183,7 @@ impl Default for MapType {
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct CompositeType {
     pub primitives: PrimitiveTypes,
-    pub strings: StringTypes,
+    pub strings: StrTypes,
     pub bytes: ByteType,
     pub arrays: ArrayTypes,
     pub map: MapType,
@@ -160,7 +197,7 @@ mod tests {
 
     #[test]
     fn str_size() {
-        let s = StringTypes::default();
+        let s = StrTypes::default();
 
         let rmp = to_vec_named(&s).unwrap();
 
