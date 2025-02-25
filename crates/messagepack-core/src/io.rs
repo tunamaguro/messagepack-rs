@@ -3,13 +3,12 @@ use core::marker::PhantomData;
 pub trait IoWrite {
     type Error: core::error::Error;
     fn write_byte(&mut self, byte: u8) -> Result<(), Self::Error>;
-    fn write_iter<I: IntoIterator<Item = u8>>(&mut self, iter: I) -> Result<usize, Self::Error> {
-        let mut count = 0;
+    fn write_iter<I: IntoIterator<Item = u8>>(&mut self, iter: I) -> Result<(), Self::Error> {
         for byte in iter {
-            self.write_byte(byte)?
+            self.write_byte(byte)?;
         }
 
-        Ok(count)
+        Ok(())
     }
 }
 
@@ -80,6 +79,20 @@ where
                 Ok(())
             }
             None => Err(WError::BufferFull),
+        }
+    }
+
+    fn write_iter<II: IntoIterator<Item = u8>>(&mut self, iter: II) -> Result<(), Self::Error> {
+        let buf = &mut self.buf;
+        let mut iter = iter.into_iter();
+        for (to, byte) in buf.zip(&mut iter) {
+            *to = byte;
+        }
+
+        if iter.next().is_none() {
+            Ok(())
+        } else {
+            Err(WError::BufferFull)
         }
     }
 }
