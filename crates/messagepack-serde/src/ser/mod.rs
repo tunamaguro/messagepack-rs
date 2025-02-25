@@ -1,4 +1,3 @@
-
 pub use error::Error;
 use messagepack_core::{
     Encode, SliceWriter,

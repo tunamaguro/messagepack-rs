@@ -59,7 +59,7 @@ where
 
 impl<'a> SliceWriter<'a, core::slice::IterMut<'a, u8>> {
     pub fn from_slice(buf: &'a mut [u8]) -> Self {
-        Self ::new(buf.iter_mut())
+        Self::new(buf.iter_mut())
     }
 }
 
