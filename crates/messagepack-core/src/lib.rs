@@ -5,7 +5,9 @@
 pub mod decode;
 pub mod encode;
 mod formats;
+mod io;
 
 pub use decode::Decode;
 pub use encode::Encode;
 pub use formats::Format;
+pub use io::{IoRead, SliceReader, SliceWriter};
