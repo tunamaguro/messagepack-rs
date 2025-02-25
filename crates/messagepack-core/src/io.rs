@@ -78,20 +78,6 @@ where
             None => Err(WError::BufferFull),
         }
     }
-
-    fn write_iter<II: IntoIterator<Item = u8>>(&mut self, iter: II) -> Result<(), Self::Error> {
-        let buf = &mut self.buf;
-        let iter = &mut iter.into_iter();
-        for (byte, to) in iter.zip(buf) {
-            *to = byte;
-        }
-
-        if iter.next().is_none() {
-            Ok(())
-        } else {
-            Err(WError::BufferFull)
-        }
-    }
 }
 
 /// `SliceReader` Error
@@ -148,21 +134,6 @@ where
             None => Err(RError::EofData),
         }
     }
-
-    fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
-        let write_buf = &mut buf.iter_mut();
-        let cur_buf = &mut self.buf;
-
-        for (to, byte) in write_buf.zip(cur_buf) {
-            *to = *byte
-        }
-
-        if write_buf.next().is_none() {
-            Ok(())
-        } else {
-            Err(RError::EofData)
-        }
-    }
 }
 
 #[cfg(feature = "std")]
@@ -196,5 +167,26 @@ where
 
     fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
         self.read_exact(buf)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic]
+    fn buffer_full() {
+        let buf: &mut [u8] = &mut [0u8];
+        let mut writer = SliceWriter::from_slice(buf);
+        writer.write_iter([1, 2]).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn eof_of_data() {
+        let buf: &mut [u8] = &mut [0u8];
+        let mut reader = SliceReader::from_slice(buf);
+        reader.read_exact(&mut [255; 2]).unwrap();
     }
 }
