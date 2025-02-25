@@ -24,3 +24,11 @@ let (decoded, rest) = StrDecoder::decode(&buf).unwrap();
 assert_eq!(decoded, "MessagePack");
 assert_eq!(rest.len(), 0);
   ```
+
+## `no_std` support
+
+If you want this crate for `no_std`, please opt out default features.
+
+```toml
+messagepack-core = { git = "https://github.com/tunamaguro/messagepack-rs.git", default-features = false }
+```

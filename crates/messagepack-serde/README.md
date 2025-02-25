@@ -1,6 +1,6 @@
 ## messagepack-serde
 
-[rmp-serde](https://crates.io/crates/rmp-serde) for `no_std` programs
+messagepack for `no_std` with `serde`
 
 ## Examples
 
@@ -31,4 +31,13 @@ assert_eq!(data, expected);
 let mut deserialized = [0u8; 33];
 let len = messagepack_serde::to_slice(&expected, &mut deserialized).unwrap();
 assert_eq!(&deserialized[..len], buf);
+```
+
+## `no_std` support
+
+If you want this crate for `no_std`, please opt out default features.
+
+```toml
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+messagepack-serde = { git = "https://github.com/tunamaguro/messagepack-rs.git", default-features = false }
 ```

@@ -34,6 +34,27 @@ impl<Buf> AsMut<Self> for Serializer<'_, Buf> {
     }
 }
 
+pub fn to_slice<T>(value: &T, buf: &mut [u8]) -> Result<usize, Error<WError>>
+where
+    T: ser::Serialize + ?Sized,
+{
+    let mut writer = SliceWriter::from_slice(buf);
+    let mut ser = Serializer::new(&mut writer);
+    value.serialize(&mut ser)?;
+    Ok(ser.current_length)
+}
+
+#[cfg(feature = "std")]
+pub fn to_writer<T, W>(value: &T, writer: &mut W) -> Result<usize, Error<std::io::Error>>
+where
+    T: ser::Serialize + ?Sized,
+    W: std::io::Write,
+{
+    let mut ser = Serializer::new(writer);
+    value.serialize(&mut ser)?;
+    Ok(ser.current_length)
+}
+
 impl<'a, 'b: 'a, W> ser::Serializer for &'a mut Serializer<'b, W>
 where
     W: IoWrite,
@@ -253,16 +274,6 @@ where
     }
 }
 
-pub fn to_slice<T>(value: &T, buf: &mut [u8]) -> Result<usize, Error<WError>>
-where
-    T: ser::Serialize + ?Sized,
-{
-    let mut writer = SliceWriter::from_slice(buf);
-    let mut ser = Serializer::new(&mut writer);
-    value.serialize(&mut ser)?;
-    Ok(ser.current_length)
-}
-
 #[cfg(test)]
 mod tests {
     use serde::Serialize;
@@ -475,5 +486,24 @@ mod tests {
         let buf = &mut [0u8; 128];
         let len = to_slice(&v, buf).unwrap();
         assert_eq!(buf[..len], [0xe0]);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn encode_with_writer() {
+        #[derive(Serialize)]
+        struct V(i16, u32, i32);
+
+        let mut buf = vec![];
+        let len = to_writer(&V(1, 2, 3), &mut buf).unwrap();
+        assert_eq!(
+            buf[..len],
+            [
+                0x93, // fixarr len = 3
+                0xd1, 0x00, 0x01, // int16
+                0xce, 0x00, 0x00, 0x00, 0x02, // uint32
+                0xd2, 0x00, 0x00, 0x00, 0x03, // uint32
+            ]
+        );
     }
 }
