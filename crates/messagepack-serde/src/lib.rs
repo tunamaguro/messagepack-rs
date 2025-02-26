@@ -12,4 +12,4 @@ pub use ser::{Error as SerializationError, Serializer, to_slice};
 pub use de::from_reader;
 
 #[cfg(feature = "std")]
-pub use ser::to_writer;
+pub use ser::{to_vec, to_writer};
