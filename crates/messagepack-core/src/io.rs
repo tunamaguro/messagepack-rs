@@ -40,42 +40,42 @@ impl core::fmt::Display for WError {
 
 impl core::error::Error for WError {}
 
-pub struct SliceWriter<'a, I> {
-    buf: I,
-    _phantom: PhantomData<&'a ()>,
+pub struct SliceWriter<'a> {
+    buf: &'a mut [u8],
+    cursor: usize,
 }
 
-impl<'a, I> SliceWriter<'a, I>
-where
-    I: Iterator<Item = &'a mut u8>,
-{
-    pub fn new(buf: I) -> Self {
-        Self {
-            buf,
-            _phantom: Default::default(),
-        }
-    }
-}
-
-impl<'a> SliceWriter<'a, core::slice::IterMut<'a, u8>> {
+impl<'a> SliceWriter<'a> {
     pub fn from_slice(buf: &'a mut [u8]) -> Self {
-        Self::new(buf.iter_mut())
+        Self { buf, cursor: 0 }
+    }
+
+    fn len(&self) -> usize {
+        self.buf.len() - self.cursor
     }
 }
 
-impl<'a, I> IoWrite for SliceWriter<'a, I>
-where
-    I: Iterator<Item = &'a mut u8>,
-{
+impl IoWrite for SliceWriter<'_> {
     type Error = WError;
 
     fn write_byte(&mut self, byte: u8) -> Result<(), Self::Error> {
-        match self.buf.next() {
-            Some(to) => {
-                *to = byte;
-                Ok(())
-            }
-            None => Err(WError::BufferFull),
+        if self.len() >= 1 {
+            self.buf[self.cursor] = byte;
+            self.cursor += 1;
+            Ok(())
+        } else {
+            Err(WError::BufferFull)
+        }
+    }
+
+    fn write_bytes(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        if self.len() >= buf.len() {
+            let to = &mut self.buf[self.cursor..self.cursor + buf.len()];
+            to.copy_from_slice(buf);
+            self.cursor += buf.len();
+            Ok(())
+        } else {
+            Err(WError::BufferFull)
         }
     }
 }
