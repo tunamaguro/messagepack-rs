@@ -3,9 +3,9 @@ use core::marker::PhantomData;
 pub trait IoWrite {
     type Error: core::error::Error;
     fn write_byte(&mut self, byte: u8) -> Result<(), Self::Error>;
-    fn write_iter<I: IntoIterator<Item = u8>>(&mut self, iter: I) -> Result<(), Self::Error> {
-        for byte in iter {
-            self.write_byte(byte)?;
+    fn write_bytes(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        for byte in buf {
+            self.write_byte(*byte)?;
         }
 
         Ok(())
@@ -40,42 +40,42 @@ impl core::fmt::Display for WError {
 
 impl core::error::Error for WError {}
 
-pub struct SliceWriter<'a, I> {
-    buf: I,
-    _phantom: PhantomData<&'a ()>,
+pub struct SliceWriter<'a> {
+    buf: &'a mut [u8],
+    cursor: usize,
 }
 
-impl<'a, I> SliceWriter<'a, I>
-where
-    I: Iterator<Item = &'a mut u8>,
-{
-    pub fn new(buf: I) -> Self {
-        Self {
-            buf,
-            _phantom: Default::default(),
-        }
-    }
-}
-
-impl<'a> SliceWriter<'a, core::slice::IterMut<'a, u8>> {
+impl<'a> SliceWriter<'a> {
     pub fn from_slice(buf: &'a mut [u8]) -> Self {
-        Self::new(buf.iter_mut())
+        Self { buf, cursor: 0 }
+    }
+
+    fn len(&self) -> usize {
+        self.buf.len() - self.cursor
     }
 }
 
-impl<'a, I> IoWrite for SliceWriter<'a, I>
-where
-    I: Iterator<Item = &'a mut u8>,
-{
+impl IoWrite for SliceWriter<'_> {
     type Error = WError;
 
     fn write_byte(&mut self, byte: u8) -> Result<(), Self::Error> {
-        match self.buf.next() {
-            Some(to) => {
-                *to = byte;
-                Ok(())
-            }
-            None => Err(WError::BufferFull),
+        if self.len() >= 1 {
+            self.buf[self.cursor] = byte;
+            self.cursor += 1;
+            Ok(())
+        } else {
+            Err(WError::BufferFull)
+        }
+    }
+
+    fn write_bytes(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        if self.len() >= buf.len() {
+            let to = &mut self.buf[self.cursor..self.cursor + buf.len()];
+            to.copy_from_slice(buf);
+            self.cursor += buf.len();
+            Ok(())
+        } else {
+            Err(WError::BufferFull)
         }
     }
 }
@@ -179,7 +179,7 @@ mod tests {
     fn buffer_full() {
         let buf: &mut [u8] = &mut [0u8];
         let mut writer = SliceWriter::from_slice(buf);
-        writer.write_iter([1, 2]).unwrap();
+        writer.write_bytes(&[1, 2]).unwrap();
     }
 
     #[test]

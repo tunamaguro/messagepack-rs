@@ -14,20 +14,25 @@ impl<W: IoWrite> Encode<W> for ArrayFormatEncoder {
         match self.0 {
             0x00..=0b1111 => {
                 let cast = self.0 as u8;
-                let it = Format::FixArray(cast);
-                writer.write_iter(it)?;
+                writer.write_bytes(&[Format::FixArray(cast).as_byte()])?;
                 Ok(1)
             }
             0x10..=0xffff => {
-                let cast = self.0 as u16;
-                let it = Format::Array16.into_iter().chain(cast.to_be_bytes());
-                writer.write_iter(it)?;
+                let cast = (self.0 as u16).to_be_bytes();
+                writer.write_bytes(&[Format::Array16.as_byte(), cast[0], cast[1]])?;
+
                 Ok(3)
             }
             0x10000..=0xffffffff => {
-                let cast = self.0 as u32;
-                let it = Format::Array32.into_iter().chain(cast.to_be_bytes());
-                writer.write_iter(it)?;
+                let cast = (self.0 as u32).to_be_bytes();
+                writer.write_bytes(&[
+                    Format::Array32.as_byte(),
+                    cast[0],
+                    cast[1],
+                    cast[2],
+                    cast[3],
+                ])?;
+
                 Ok(5)
             }
             _ => Err(Error::InvalidFormat),

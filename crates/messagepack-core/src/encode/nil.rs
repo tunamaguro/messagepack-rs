@@ -5,7 +5,7 @@ pub struct NilEncoder;
 
 impl<W: IoWrite> Encode<W> for NilEncoder {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        writer.write_iter(Format::Nil)?;
+        writer.write_bytes(&Format::Nil.as_slice())?;
         Ok(1)
     }
 }

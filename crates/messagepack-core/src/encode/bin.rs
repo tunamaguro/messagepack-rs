@@ -17,26 +17,30 @@ impl<W: IoWrite> Encode<W> for BinaryEncoder<'_> {
         let format_len = match self_len {
             0x00..=0xff => {
                 let cast = self_len as u8;
-                let it = Format::Bin8.into_iter().chain(cast.to_be_bytes());
-                writer.write_iter(it)?;
+                writer.write_bytes(&[Format::Bin8.as_byte(), cast])?;
                 Ok(2)
             }
             0x100..=0xffff => {
-                let cast = self_len as u16;
-                let it = Format::Bin16.into_iter().chain(cast.to_be_bytes());
-                writer.write_iter(it)?;
+                let cast = (self_len as u16).to_be_bytes();
+                writer.write_bytes(&[Format::Bin16.as_byte(), cast[0], cast[1]])?;
                 Ok(3)
             }
             0x10000..=0xffffffff => {
-                let cast = self_len as u32;
-                let it = Format::Bin32.into_iter().chain(cast.to_be_bytes());
-                writer.write_iter(it)?;
+                let cast = (self_len as u32).to_be_bytes();
+                writer.write_bytes(&[
+                    Format::Bin32.as_byte(),
+                    cast[0],
+                    cast[1],
+                    cast[2],
+                    cast[3],
+                ])?;
+
                 Ok(5)
             }
             _ => Err(Error::InvalidFormat),
         }?;
 
-        writer.write_iter(self.iter().cloned())?;
+        writer.write_bytes(self.0)?;
         Ok(format_len + self_len)
     }
 }

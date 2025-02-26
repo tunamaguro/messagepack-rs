@@ -165,6 +165,10 @@ impl Format {
             0xe0..=0xff => Self::NegativeFixInt(byte as i8),
         }
     }
+
+    pub const fn as_slice(&self) -> [u8; 1] {
+        self.as_byte().to_be_bytes()
+    }
 }
 
 impl IntoIterator for Format {

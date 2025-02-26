@@ -10,12 +10,13 @@ where
     fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
         match self {
             0x00..=0x7f => {
-                writer.write_iter(Format::PositiveFixInt(*self))?;
+                writer.write_bytes(&Format::PositiveFixInt(*self).as_slice())?;
 
                 Ok(1)
             }
             _ => {
-                writer.write_iter(Format::Uint8.into_iter().chain(self.to_be_bytes()))?;
+                writer.write_bytes(&Format::Uint8.as_slice())?;
+                writer.write_bytes(&self.to_be_bytes())?;
                 Ok(2)
             }
         }
@@ -41,13 +42,13 @@ where
     fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
         match self {
             -32..=-1 => {
-                let it = Format::NegativeFixInt(*self);
-                writer.write_iter(it)?;
+                writer.write_bytes(&Format::NegativeFixInt(*self).as_slice())?;
                 Ok(1)
             }
             _ => {
-                let it = Format::Int8.into_iter().chain(self.to_be_bytes());
-                writer.write_iter(it)?;
+                writer.write_bytes(&Format::Int8.as_slice())?;
+                writer.write_bytes(&self.to_be_bytes())?;
+
                 Ok(2)
             }
         }
@@ -61,7 +62,8 @@ macro_rules! impl_encode_int {
             W: IoWrite,
         {
             fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
-                writer.write_iter($format.into_iter().chain(self.to_be_bytes()))?;
+                writer.write_bytes(&$format.as_slice())?;
+                writer.write_bytes(&self.to_be_bytes())?;
                 Ok($size)
             }
         }
