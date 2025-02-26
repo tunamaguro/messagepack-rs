@@ -2,6 +2,10 @@
 
 messagepack for `no_std` with `serde`
 
+[![workflow](https://github.com/tunamaguro/messagepack-rs/actions/workflows/pull_request.yaml/badge.svg)](https://github.com/tunamaguro/messagepack-rs/actions)
+[![codecov](https://codecov.io/gh/tunamaguro/messagepack-rs/graph/badge.svg?token=1UJNSKR2C1)](https://codecov.io/gh/tunamaguro/messagepack-rs)
+[![CodSpeed Badge](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/tunamaguro/messagepack-rs)
+
 ## Examples
 
 ```rust
@@ -33,11 +37,22 @@ let len = messagepack_serde::to_slice(&expected, &mut deserialized).unwrap();
 assert_eq!(&deserialized[..len], buf);
 ```
 
-## `no_std` support
+## `std` support
 
-If you want this crate for `no_std`, please opt out default features.
+If you want this crate with `std::io::Read` or `std::io::Write`, please add feature `std` and use `messagepack_serde::from_reader` or `messagepack_serde::to_writer`.
 
 ```toml
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-messagepack-serde = { git = "https://github.com/tunamaguro/messagepack-rs.git", default-features = false }
+messagepack-serde = { git = "https://github.com/tunamaguro/messagepack-rs.git", feature = ["std"] }
 ```
+
+## License
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](https://github.com/tunamaguro/messagepack-rs/blob/main/LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](https://github.com/tunamaguro/messagepack-rs/blob/main/LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
+
+## Contribution
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.

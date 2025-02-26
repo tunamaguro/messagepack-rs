@@ -55,6 +55,17 @@ where
     Ok(ser.current_length)
 }
 
+#[cfg(feature = "std")]
+pub fn to_vec<T, W>(value: &T) -> Result<Vec<u8>, Error<std::io::Error>>
+where
+    T: ser::Serialize + ?Sized,
+{
+    let mut buf = Vec::new();
+    let mut ser = Serializer::new(&mut buf);
+    value.serialize(&mut ser)?;
+    Ok(buf)
+}
+
 impl<'a, 'b: 'a, W> ser::Serializer for &'a mut Serializer<'b, W>
 where
     W: IoWrite,
