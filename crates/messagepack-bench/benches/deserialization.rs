@@ -21,16 +21,14 @@ const BUFFER_SIZE: usize = (2u32.pow(16)) as usize;
 
 #[divan::bench(
     types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StrTypes],
-    consts = LENS
+    args = LENS
 )]
-fn deserialize_messagepack_serde<
-    T: Serialize + DeserializeOwned + Default + Sync,
-    const N: usize,
->(
+fn deserialize_messagepack_serde<T: Serialize + DeserializeOwned + Default + Sync>(
     #[allow(unused_mut)] mut bencher: divan::Bencher,
+    len: usize,
 ) {
-    let s = repeat_with(|| T::default()).take(N).collect::<Vec<_>>();
-    let mut buf = vec![0u8; BUFFER_SIZE * N];
+    let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
+    let mut buf = vec![0u8; BUFFER_SIZE * len];
     let buf_len = messagepack_serde::to_slice(&s, &mut buf).unwrap();
 
     #[cfg(not(codspeed))]
@@ -63,13 +61,14 @@ fn deserialize_borrowed_messagepack_serde(#[allow(unused_mut)] mut bencher: diva
 
 #[divan::bench(
     types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StrTypes],
-    consts = LENS
+    args = LENS
 )]
-fn deserialize_rmp_serde<T: Serialize + DeserializeOwned + Default + Sync, const N: usize>(
+fn deserialize_rmp_serde<T: Serialize + DeserializeOwned + Default + Sync>(
     #[allow(unused_mut)] mut bencher: divan::Bencher,
+    len: usize,
 ) {
-    let s = repeat_with(|| T::default()).take(N).collect::<Vec<_>>();
-    let mut buf = vec![0u8; BUFFER_SIZE * N];
+    let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
+    let mut buf = vec![0u8; BUFFER_SIZE * len];
     let buf_len = messagepack_serde::to_slice(&s, &mut buf).unwrap();
 
     #[cfg(not(codspeed))]
