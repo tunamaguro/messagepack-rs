@@ -2,10 +2,9 @@
 
 messagepack for `no_std`
 
-
 ### Example
 
- ```rust
+```rust
 use messagepack_core::{Decode, Encode, decode::StrDecoder, io::SliceWriter};
 
 let mut buf = [0u8; 12];
@@ -23,12 +22,16 @@ assert_eq!(written, 12);
 let (decoded, rest) = StrDecoder::decode(&buf).unwrap();
 assert_eq!(decoded, "MessagePack");
 assert_eq!(rest.len(), 0);
-  ```
-
-## `no_std` support
-
-If you want this crate for `no_std`, please opt out default features.
-
-```toml
-messagepack-core = { git = "https://github.com/tunamaguro/messagepack-rs.git", default-features = false }
 ```
+
+## License
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](https://github.com/tunamaguro/messagepack-rs/blob/main/LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](https://github.com/tunamaguro/messagepack-rs/blob/main/LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
+
+## Contribution
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
