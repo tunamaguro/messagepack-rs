@@ -1,5 +1,3 @@
-use core::iter;
-
 use super::{Encode, Error, Result};
 use crate::{formats::Format, io::IoWrite};
 
@@ -21,73 +19,60 @@ impl<W: IoWrite> Encode<W> for ExtensionEncoder<'_> {
 
         match data_len {
             1 => {
-                let it = &mut Format::FixExt1
-                    .into_iter()
-                    .chain(iter::once(self.r#type))
-                    .chain(self.data.iter().cloned());
-                writer.write_iter(it)?;
+                writer.write_bytes(&[Format::FixExt1.as_byte(), self.r#type])?;
+                writer.write_bytes(self.data)?;
+
                 Ok(2 + data_len)
             }
             2 => {
-                let it = &mut Format::FixExt2
-                    .into_iter()
-                    .chain(iter::once(self.r#type))
-                    .chain(self.data.iter().cloned());
-                writer.write_iter(it)?;
+                writer.write_bytes(&[Format::FixExt2.as_byte(), self.r#type])?;
+                writer.write_bytes(self.data)?;
+
                 Ok(2 + data_len)
             }
             4 => {
-                let it = &mut Format::FixExt4
-                    .into_iter()
-                    .chain(iter::once(self.r#type))
-                    .chain(self.data.iter().cloned());
-                writer.write_iter(it)?;
+                writer.write_bytes(&[Format::FixExt4.as_byte(), self.r#type])?;
+                writer.write_bytes(self.data)?;
                 Ok(2 + data_len)
             }
             8 => {
-                let it = &mut Format::FixExt8
-                    .into_iter()
-                    .chain(iter::once(self.r#type))
-                    .chain(self.data.iter().cloned());
-                writer.write_iter(it)?;
+                writer.write_bytes(&[Format::FixExt8.as_byte(), self.r#type])?;
+                writer.write_bytes(self.data)?;
+
                 Ok(2 + data_len)
             }
             16 => {
-                let it = &mut Format::FixExt16
-                    .into_iter()
-                    .chain(iter::once(self.r#type))
-                    .chain(self.data.iter().cloned());
-                writer.write_iter(it)?;
+                writer.write_bytes(&[Format::FixExt16.as_byte(), self.r#type])?;
+                writer.write_bytes(self.data)?;
+
                 Ok(2 + data_len)
             }
             0x00..=0xff => {
                 let cast = data_len as u8;
-                let it = &mut Format::Ext8
-                    .into_iter()
-                    .chain(cast.to_be_bytes())
-                    .chain(iter::once(self.r#type))
-                    .chain(self.data.iter().cloned());
-                writer.write_iter(it)?;
+                writer.write_bytes(&[Format::Ext8.as_byte(), cast, self.r#type])?;
+                writer.write_bytes(self.data)?;
+
                 Ok(3 + data_len)
             }
             0x100..=0xffff => {
-                let cast = data_len as u16;
-                let it = &mut Format::Ext16
-                    .into_iter()
-                    .chain(cast.to_be_bytes())
-                    .chain(iter::once(self.r#type))
-                    .chain(self.data.iter().cloned());
-                writer.write_iter(it)?;
+                let cast = (data_len as u16).to_be_bytes();
+                writer.write_bytes(&[Format::Ext16.as_byte(), cast[0], cast[1], self.r#type])?;
+                writer.write_bytes(self.data)?;
+
                 Ok(4 + data_len)
             }
             0x10000..0xffffffff => {
-                let cast = data_len as u32;
-                let it = &mut Format::Ext32
-                    .into_iter()
-                    .chain(cast.to_be_bytes())
-                    .chain(iter::once(self.r#type))
-                    .chain(self.data.iter().cloned());
-                writer.write_iter(it)?;
+                let cast = (data_len as u32).to_be_bytes();
+                writer.write_bytes(&[
+                    Format::Ext32.as_byte(),
+                    cast[0],
+                    cast[1],
+                    cast[2],
+                    cast[3],
+                    self.r#type,
+                ])?;
+                writer.write_bytes(self.data)?;
+
                 Ok(6 + data_len)
             }
             _ => Err(Error::InvalidFormat),

@@ -3,9 +3,9 @@ use core::marker::PhantomData;
 pub trait IoWrite {
     type Error: core::error::Error;
     fn write_byte(&mut self, byte: u8) -> Result<(), Self::Error>;
-    fn write_iter<I: IntoIterator<Item = u8>>(&mut self, iter: I) -> Result<(), Self::Error> {
-        for byte in iter {
-            self.write_byte(byte)?;
+    fn write_bytes(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        for byte in buf {
+            self.write_byte(*byte)?;
         }
 
         Ok(())
@@ -179,7 +179,7 @@ mod tests {
     fn buffer_full() {
         let buf: &mut [u8] = &mut [0u8];
         let mut writer = SliceWriter::from_slice(buf);
-        writer.write_iter([1, 2]).unwrap();
+        writer.write_bytes(&[1, 2]).unwrap();
     }
 
     #[test]

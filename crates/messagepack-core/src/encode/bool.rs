@@ -5,11 +5,11 @@ impl<W: IoWrite> Encode<W> for bool {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match self {
             true => {
-                writer.write_iter(Format::True)?;
+                writer.write_bytes(&Format::True.as_slice())?;
                 Ok(1)
             }
             false => {
-                writer.write_iter(Format::False)?;
+                writer.write_bytes(&Format::False.as_slice())?;
                 Ok(1)
             }
         }
