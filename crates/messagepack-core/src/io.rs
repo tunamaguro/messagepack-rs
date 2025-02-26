@@ -136,7 +136,7 @@ where
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 impl<W> IoWrite for W
 where
     W: std::io::Write,
@@ -151,7 +151,7 @@ where
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(any(test, feature = "std"))]
 impl<R> IoRead for R
 where
     R: std::io::Read,
