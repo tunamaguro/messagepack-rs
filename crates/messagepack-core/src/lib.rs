@@ -10,4 +10,4 @@ pub mod io;
 pub use decode::Decode;
 pub use encode::Encode;
 pub use formats::Format;
-pub use io::{SliceReader, SliceWriter};
+pub use io::SliceWriter;

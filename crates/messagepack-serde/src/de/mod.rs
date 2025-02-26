@@ -42,6 +42,19 @@ pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error
     T::deserialize(&mut deserializer)
 }
 
+#[cfg(feature = "std")]
+pub fn from_reader<R, T>(reader: &mut R) -> std::io::Result<T>
+where
+    R: std::io::Read,
+    T: for<'a> Deserialize<'a>,
+{
+    let mut buf = Vec::new();
+    reader.read_to_end(&mut buf)?;
+
+    let mut deserializer = Deserializer::from_slice(&buf);
+    T::deserialize(&mut deserializer).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+}
+
 impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     type Error = Error;
 
