@@ -10,5 +10,5 @@ num-traits = { workspace = true }
 rstest = { workspace = true }
 
 [features]
-default = ["std"]
+default = []
 std = []
