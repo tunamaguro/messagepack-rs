@@ -1,27 +1,34 @@
+mod enum_;
+mod error;
+mod num;
+mod seq;
+use core::marker::PhantomData;
+
+pub use error::Error;
+
+use error::CoreError;
 use messagepack_core::{
     Decode, Format,
     decode::{NbyteReader, NilDecoder},
 };
+use num::NumDecoder;
 use serde::{
     Deserialize,
     de::{self, IntoDeserializer},
 };
 
-mod enum_;
-mod error;
-mod seq;
-
-use error::CoreError;
-pub use error::Error;
-
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub struct Deserializer<'de> {
+pub struct Deserializer<'de, Num> {
     input: &'de [u8],
+    _phantom: PhantomData<Num>,
 }
 
-impl<'de> Deserializer<'de> {
-    pub fn from_slice(input: &'de [u8]) -> Self {
-        Deserializer { input }
+impl<'de, Num: NumDecoder<'de>> Deserializer<'de, Num> {
+    pub fn from_slice(input: &'de [u8], _num: Num) -> Self {
+        Deserializer {
+            input,
+            _phantom: Default::default(),
+        }
     }
 
     fn decode<V: Decode<'de>>(&mut self) -> Result<V::Value, Error> {
@@ -31,14 +38,14 @@ impl<'de> Deserializer<'de> {
     }
 }
 
-impl AsMut<Self> for Deserializer<'_> {
+impl<Num> AsMut<Self> for Deserializer<'_, Num> {
     fn as_mut(&mut self) -> &mut Self {
         self
     }
 }
 
 pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
-    let mut deserializer = Deserializer::from_slice(input);
+    let mut deserializer = Deserializer::from_slice(input, num::Exact);
     T::deserialize(&mut deserializer)
 }
 
@@ -51,11 +58,11 @@ where
     let mut buf = Vec::new();
     reader.read_to_end(&mut buf)?;
 
-    let mut deserializer = Deserializer::from_slice(&buf);
+    let mut deserializer = Deserializer::from_slice(&buf, num::Exact);
     T::deserialize(&mut deserializer).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
 }
 
-impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
+impl<'de, Num: NumDecoder<'de>> de::Deserializer<'de> for &mut Deserializer<'de, Num> {
     type Error = Error;
 
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
@@ -77,7 +84,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<i8>()?;
+        let (decoded, rest) = Num::decode_i8(self.input)?;
+        self.input = rest;
         visitor.visit_i8(decoded)
     }
 
@@ -85,7 +93,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<i16>()?;
+        let (decoded, rest) = Num::decode_i16(self.input)?;
+        self.input = rest;
         visitor.visit_i16(decoded)
     }
 
@@ -93,7 +102,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<i32>()?;
+        let (decoded, rest) = Num::decode_i32(self.input)?;
+        self.input = rest;
         visitor.visit_i32(decoded)
     }
 
@@ -101,15 +111,26 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<i64>()?;
+        let (decoded, rest) = Num::decode_i64(self.input)?;
+        self.input = rest;
         visitor.visit_i64(decoded)
+    }
+
+    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        let (decoded, rest) = Num::decode_i128(self.input)?;
+        self.input = rest;
+        visitor.visit_i128(decoded)
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<u8>()?;
+        let (decoded, rest) = Num::decode_u8(self.input)?;
+        self.input = rest;
         visitor.visit_u8(decoded)
     }
 
@@ -117,7 +138,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<u16>()?;
+        let (decoded, rest) = Num::decode_u16(self.input)?;
+        self.input = rest;
         visitor.visit_u16(decoded)
     }
 
@@ -125,7 +147,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<u32>()?;
+        let (decoded, rest) = Num::decode_u32(self.input)?;
+        self.input = rest;
         visitor.visit_u32(decoded)
     }
 
@@ -133,15 +156,26 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<u64>()?;
+        let (decoded, rest) = Num::decode_u64(self.input)?;
+        self.input = rest;
         visitor.visit_u64(decoded)
+    }
+
+    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        let (decoded, rest) = Num::decode_u128(self.input)?;
+        self.input = rest;
+        visitor.visit_u128(decoded)
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<f32>()?;
+        let (decoded, rest) = Num::decode_f32(self.input)?;
+        self.input = rest;
         visitor.visit_f32(decoded)
     }
 
@@ -149,7 +183,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<f64>()?;
+        let (decoded, rest) = Num::decode_f64(self.input)?;
+        self.input = rest;
         visitor.visit_f64(decoded)
     }
 
