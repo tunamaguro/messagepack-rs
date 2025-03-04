@@ -58,7 +58,7 @@ where
     T: ser::Serialize + ?Sized,
     W: std::io::Write,
 {
-    let mut ser = Serializer::new(writer);
+    let mut ser = Serializer::new(writer, num::Exact);
     value.serialize(&mut ser)?;
     Ok(ser.current_length)
 }
@@ -69,7 +69,7 @@ where
     T: ser::Serialize + ?Sized,
 {
     let mut buf = Vec::new();
-    let mut ser = Serializer::new(&mut buf);
+    let mut ser = Serializer::new(&mut buf, num::Exact);
     value.serialize(&mut ser)?;
     Ok(buf)
 }
