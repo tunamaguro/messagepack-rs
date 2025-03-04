@@ -28,7 +28,7 @@ pub trait NumEncoder<W: IoWrite> {
 /// This does not minimise or convert, so the value is written as is.
 ///
 /// ## Examples
-/// 
+///
 /// ```rust
 /// use serde::{Deserialize, Serialize};
 /// use messagepack_core::SliceWriter;
@@ -129,7 +129,7 @@ impl<W: IoWrite> NumEncoder<W> for Exact {
 /// let expected = [1_u8]; // 1 encoded in `positive fixint`
 /// assert_eq!(buf,expected);
 /// ```
-/// 
+///
 /// ```rust
 /// use serde::Serialize;
 /// use messagepack_core::SliceWriter;
@@ -157,7 +157,7 @@ impl<W: IoWrite> NumEncoder<W> for Exact {
 /// let expected = [0xca,0x3f,0x80,0x00,0x00]; // 1.0 encoded in `float 32`
 /// assert_eq!(buf,expected);
 /// ```
-/// 
+///
 /// ```rust
 /// use serde::Serialize;
 /// use messagepack_core::SliceWriter;
@@ -245,7 +245,7 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 ///
 /// If the float is finite and its fractional part is zero, it first tries to encode it as an integer.
 /// If this conversion fails, it falls back to encoding the value as a float.
-/// 
+///
 /// ## Examples
 ///
 /// ```rust
@@ -261,7 +261,7 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 /// let expected = [1_u8]; // 1 encoded in `positive fixint`
 /// assert_eq!(buf,expected);
 /// ```
-/// 
+///
 /// ```rust
 /// use serde::Serialize;
 /// use messagepack_core::SliceWriter;
@@ -289,7 +289,7 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 /// let expected = [1_u8]; // 1 encoded in `positive fixint`
 /// assert_eq!(buf,expected);
 /// ```
-/// 
+///
 /// ```rust
 /// use serde::Serialize;
 /// use messagepack_core::SliceWriter;
