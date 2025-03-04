@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 messagepack-core = { workspace = true }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-
+num-traits = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true }

@@ -310,6 +310,7 @@ name = "messagepack-serde"
 version = "0.1.0"
 dependencies = [
  "messagepack-core",
+ "num-traits",
  "rstest",
  "serde",
  "serde_bytes",

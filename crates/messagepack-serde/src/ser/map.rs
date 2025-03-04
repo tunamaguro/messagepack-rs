@@ -1,22 +1,24 @@
 use super::Error;
 use super::Serializer;
+use super::num::NumEncoder;
 use messagepack_core::io::IoWrite;
 use serde::ser;
 
-pub struct SerializeMap<'a, 'b, W> {
-    ser: &'a mut Serializer<'b, W>,
+pub struct SerializeMap<'a, 'b, W, Num> {
+    ser: &'a mut Serializer<'b, W, Num>,
 }
 
-impl<'a, 'b, W> SerializeMap<'a, 'b, W> {
-    pub(crate) fn new(ser: &'a mut Serializer<'b, W>) -> Self {
+impl<'a, 'b, W, Num> SerializeMap<'a, 'b, W, Num> {
+    pub(crate) fn new(ser: &'a mut Serializer<'b, W, Num>) -> Self {
         Self { ser }
     }
 }
 
-impl<'a, 'b, W> ser::SerializeMap for SerializeMap<'a, 'b, W>
+impl<'a, 'b, W, Num> ser::SerializeMap for SerializeMap<'a, 'b, W, Num>
 where
     'b: 'a,
     W: IoWrite,
+    Num: NumEncoder<W>,
 {
     type Ok = ();
     type Error = Error<W::Error>;
@@ -40,10 +42,11 @@ where
     }
 }
 
-impl<'a, 'b, W> ser::SerializeStruct for SerializeMap<'a, 'b, W>
+impl<'a, 'b, W, Num> ser::SerializeStruct for SerializeMap<'a, 'b, W, Num>
 where
     'b: 'a,
     W: IoWrite,
+    Num: NumEncoder<W>,
 {
     type Ok = ();
     type Error = Error<W::Error>;
@@ -60,10 +63,11 @@ where
     }
 }
 
-impl<'a, 'b, W> ser::SerializeStructVariant for SerializeMap<'a, 'b, W>
+impl<'a, 'b, W, Num> ser::SerializeStructVariant for SerializeMap<'a, 'b, W, Num>
 where
     'b: 'a,
     W: IoWrite,
+    Num: NumEncoder<W>,
 {
     type Ok = ();
     type Error = Error<W::Error>;

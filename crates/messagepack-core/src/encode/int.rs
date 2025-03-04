@@ -266,6 +266,7 @@ mod tests {
     #[case(0_i32,[0x00])]
     #[case(0_i64,[0x00])]
     #[case(0_i128,[0x00])]
+    #[case(3.0_f32,[0x03])]
     fn encode_int_minimize<V: ToPrimitive, E: AsRef<[u8]> + Sized>(
         #[case] value: V,
         #[case] expected: E,
