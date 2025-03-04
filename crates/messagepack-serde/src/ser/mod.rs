@@ -1,34 +1,42 @@
+mod error;
+mod map;
+mod num;
+mod seq;
+pub use num::{AggressiveMinimize, Exact, LosslessMinimize, NumEncoder};
+
+use core::marker::PhantomData;
+
 pub use error::Error;
 use messagepack_core::{
     Encode, SliceWriter,
     encode::{ArrayFormatEncoder, BinaryEncoder, MapFormatEncoder, NilEncoder},
     io::{IoWrite, WError},
 };
+
 use serde::ser;
 
-mod error;
-mod map;
-mod seq;
-
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
-pub struct Serializer<'a, W> {
+pub struct Serializer<'a, W, Num> {
     writer: &'a mut W,
     current_length: usize,
+    num_encoder: PhantomData<Num>,
 }
 
-impl<'a, W> Serializer<'a, W>
+impl<'a, W, Num> Serializer<'a, W, Num>
 where
     W: IoWrite,
+    Num: num::NumEncoder<W>,
 {
-    pub fn new(writer: &'a mut W) -> Self {
+    pub fn new(writer: &'a mut W, _num_encoder: Num) -> Self {
         Self {
             writer,
             current_length: 0,
+            num_encoder: PhantomData,
         }
     }
 }
 
-impl<Buf> AsMut<Self> for Serializer<'_, Buf> {
+impl<W, Num> AsMut<Self> for Serializer<'_, W, Num> {
     fn as_mut(&mut self) -> &mut Self {
         self
     }
@@ -39,7 +47,7 @@ where
     T: ser::Serialize + ?Sized,
 {
     let mut writer = SliceWriter::from_slice(buf);
-    let mut ser = Serializer::new(&mut writer);
+    let mut ser = Serializer::new(&mut writer, num::Exact);
     value.serialize(&mut ser)?;
     Ok(ser.current_length)
 }
@@ -66,20 +74,21 @@ where
     Ok(buf)
 }
 
-impl<'a, 'b: 'a, W> ser::Serializer for &'a mut Serializer<'b, W>
+impl<'a, 'b: 'a, W, Num> ser::Serializer for &'a mut Serializer<'b, W, Num>
 where
     W: IoWrite,
+    Num: NumEncoder<W>,
 {
     type Ok = ();
     type Error = Error<W::Error>;
 
-    type SerializeSeq = seq::SerializeSeq<'a, 'b, W>;
-    type SerializeTuple = seq::SerializeSeq<'a, 'b, W>;
-    type SerializeTupleStruct = seq::SerializeSeq<'a, 'b, W>;
-    type SerializeTupleVariant = seq::SerializeSeq<'a, 'b, W>;
-    type SerializeMap = map::SerializeMap<'a, 'b, W>;
-    type SerializeStruct = map::SerializeMap<'a, 'b, W>;
-    type SerializeStructVariant = map::SerializeMap<'a, 'b, W>;
+    type SerializeSeq = seq::SerializeSeq<'a, 'b, W, Num>;
+    type SerializeTuple = seq::SerializeSeq<'a, 'b, W, Num>;
+    type SerializeTupleStruct = seq::SerializeSeq<'a, 'b, W, Num>;
+    type SerializeTupleVariant = seq::SerializeSeq<'a, 'b, W, Num>;
+    type SerializeMap = map::SerializeMap<'a, 'b, W, Num>;
+    type SerializeStruct = map::SerializeMap<'a, 'b, W, Num>;
+    type SerializeStructVariant = map::SerializeMap<'a, 'b, W, Num>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         self.current_length += v.encode(self.writer)?;
@@ -87,52 +96,62 @@ where
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode(self.writer)?;
+        self.current_length += Num::encode_i8(v, self.writer)?;
         Ok(())
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode(self.writer)?;
+        self.current_length += Num::encode_i16(v, self.writer)?;
         Ok(())
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode(self.writer)?;
+        self.current_length += Num::encode_i32(v, self.writer)?;
         Ok(())
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode(self.writer)?;
+        self.current_length += Num::encode_i64(v, self.writer)?;
+        Ok(())
+    }
+
+    fn serialize_i128(self, v: i128) -> Result<Self::Ok, Self::Error> {
+        self.current_length += Num::encode_i128(v, self.writer)?;
         Ok(())
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode(self.writer)?;
+        self.current_length += Num::encode_u8(v, self.writer)?;
         Ok(())
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode(self.writer)?;
+        self.current_length += Num::encode_u16(v, self.writer)?;
         Ok(())
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode(self.writer)?;
+        self.current_length += Num::encode_u32(v, self.writer)?;
         Ok(())
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode(self.writer)?;
+        self.current_length += Num::encode_u64(v, self.writer)?;
+        Ok(())
+    }
+
+    fn serialize_u128(self, v: u128) -> Result<Self::Ok, Self::Error> {
+        self.current_length += Num::encode_u128(v, self.writer)?;
         Ok(())
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode(self.writer)?;
+        self.current_length += Num::encode_f32(v, self.writer)?;
         Ok(())
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        self.current_length += v.encode(self.writer)?;
+        self.current_length += Num::encode_f64(v, self.writer)?;
         Ok(())
     }
 
@@ -268,7 +287,7 @@ where
         self.serialize_struct(name, len)
     }
 
-    #[cfg_attr(not(feature = "std"), allow(unused_variables))]
+    #[allow(unused_variables)]
     fn collect_str<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
     where
         T: ?Sized + core::fmt::Display,
@@ -282,6 +301,10 @@ where
             let s = value.to_string();
             self.serialize_str(&s)
         }
+    }
+
+    fn is_human_readable(&self) -> bool {
+        false
     }
 }
 

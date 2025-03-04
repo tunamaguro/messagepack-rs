@@ -1,23 +1,24 @@
-use super::Serializer;
+use super::{Serializer, num::NumEncoder};
 use messagepack_core::io::IoWrite;
 use serde::ser;
 
 use super::error::Error;
 
-pub struct SerializeSeq<'a, 'b, W> {
-    ser: &'a mut Serializer<'b, W>,
+pub struct SerializeSeq<'a, 'b, W, Num> {
+    ser: &'a mut Serializer<'b, W, Num>,
 }
 
-impl<'a, 'b, W> SerializeSeq<'a, 'b, W> {
-    pub(crate) fn new(ser: &'a mut Serializer<'b, W>) -> Self {
+impl<'a, 'b, W, Num> SerializeSeq<'a, 'b, W, Num> {
+    pub(crate) fn new(ser: &'a mut Serializer<'b, W, Num>) -> Self {
         Self { ser }
     }
 }
 
-impl<'a, 'b, W> ser::SerializeSeq for SerializeSeq<'a, 'b, W>
+impl<'a, 'b, W, Num> ser::SerializeSeq for SerializeSeq<'a, 'b, W, Num>
 where
     'b: 'a,
     W: IoWrite,
+    Num: NumEncoder<W>,
 {
     type Ok = ();
     type Error = Error<W::Error>;
@@ -34,10 +35,11 @@ where
     }
 }
 
-impl<'a, 'b, W> ser::SerializeTuple for SerializeSeq<'a, 'b, W>
+impl<'a, 'b, W, Num> ser::SerializeTuple for SerializeSeq<'a, 'b, W, Num>
 where
     'b: 'a,
     W: IoWrite,
+    Num: NumEncoder<W>,
 {
     type Ok = ();
     type Error = Error<W::Error>;
@@ -54,10 +56,11 @@ where
     }
 }
 
-impl<'a, 'b, W> ser::SerializeTupleStruct for SerializeSeq<'a, 'b, W>
+impl<'a, 'b, W, Num> ser::SerializeTupleStruct for SerializeSeq<'a, 'b, W, Num>
 where
     'b: 'a,
     W: IoWrite,
+    Num: NumEncoder<W>,
 {
     type Ok = ();
     type Error = Error<W::Error>;
@@ -72,10 +75,11 @@ where
     }
 }
 
-impl<'a, 'b, W> ser::SerializeTupleVariant for SerializeSeq<'a, 'b, W>
+impl<'a, 'b, W, Num> ser::SerializeTupleVariant for SerializeSeq<'a, 'b, W, Num>
 where
     'b: 'a,
     W: IoWrite,
+    Num: NumEncoder<W>,
 {
     type Ok = ();
     type Error = Error<W::Error>;

@@ -1,6 +1,5 @@
-use super::{Encode, Error, Result};
+use super::{Encode, Result};
 use crate::{formats::Format, io::IoWrite};
-use num_traits::ToPrimitive;
 
 impl<W> Encode<W> for f32
 where
@@ -24,29 +23,46 @@ where
     }
 }
 
-/// encode minimum byte size
-#[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub struct EncodeMinimizeFloat<N>(pub N);
+fn is_exactly_representable(x: f64) -> bool {
+    x.is_finite() && (x as f32) as f64 == x
+}
 
-impl<W, N> Encode<W> for EncodeMinimizeFloat<N>
+/// encode minimum byte size
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+pub enum EncodeMinimizeFloat {
+    F32(f32),
+    F64(f64),
+}
+
+impl From<f32> for EncodeMinimizeFloat {
+    fn from(value: f32) -> Self {
+        EncodeMinimizeFloat::F32(value)
+    }
+}
+
+impl From<f64> for EncodeMinimizeFloat {
+    fn from(value: f64) -> Self {
+        EncodeMinimizeFloat::F64(value)
+    }
+}
+
+impl<W> Encode<W> for EncodeMinimizeFloat
 where
     W: IoWrite,
-    N: ToPrimitive,
 {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         {
-            let n = &self.0;
-
-            if let Some(v) = n.to_f32() {
-                if v.is_normal() {
-                    return v.encode(writer);
-                };
-            };
-            if let Some(v) = n.to_f64() {
-                return v.encode(writer);
-            };
-
-            Err(Error::InvalidFormat)
+            match self {
+                EncodeMinimizeFloat::F32(v) => v.encode(writer),
+                EncodeMinimizeFloat::F64(v) => {
+                    let v = *v;
+                    if is_exactly_representable(v) {
+                        (v as f32).encode(writer)
+                    } else {
+                        v.encode(writer)
+                    }
+                }
+            }
         }
     }
 }
@@ -86,14 +102,14 @@ mod tests {
     }
 
     #[rstest]
-    // #[case(123.456_f64, [Format::Float32.as_byte(), 0x42, 0xf6, 0xe9, 0x79])]
+    #[case(1.0_f64, [Format::Float32.as_byte(), 0x3f, 0x80, 0x00, 0x00])]
     #[case(1e39_f64, [Format::Float64.as_byte(), 0x48,0x07,0x82,0x87,0xf4,0x9c,0x4a,0x1d])]
-    fn encode_float_minimize<V: ToPrimitive, E: AsRef<[u8]> + Sized>(
+    fn encode_float_minimize<V: Into<EncodeMinimizeFloat>, E: AsRef<[u8]> + Sized>(
         #[case] value: V,
         #[case] expected: E,
     ) {
         let expected = expected.as_ref();
-        let encoder = EncodeMinimizeFloat(value);
+        let encoder = value.into();
 
         let mut buf = vec![];
         let n = encoder.encode(&mut buf).unwrap();
