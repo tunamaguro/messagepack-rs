@@ -4,6 +4,7 @@ use messagepack_core::{
 };
 use num_traits::{FromPrimitive, Zero};
 
+/// Decide how to decode numeric values
 pub trait NumDecoder<'a> {
     fn decode_u8(buf: &'a [u8]) -> Result<(u8, &'a [u8]), Error>;
     fn decode_u16(buf: &'a [u8]) -> Result<(u16, &'a [u8]), Error>;
@@ -74,42 +75,40 @@ impl<'de> NumDecoder<'de> for Exact {
 struct LosslessLenient;
 
 impl LosslessLenient {
-    fn decode_int<T: FromPrimitive>(buf: &[u8]) -> Result<(T, &[u8]), Error> {
-        let (format, rest) = Format::decode(buf)?;
-
+    fn decode_int_inner<T: FromPrimitive>(buf: &[u8], format: Format) -> Result<(T, &[u8]), Error> {
         let (n, rest) = match format {
-            Format::PositiveFixInt(v) => (T::from_u8(v), rest),
+            Format::PositiveFixInt(v) => (T::from_u8(v), buf),
             Format::Uint8 => {
-                let (v, rest) = u8::decode_with_format(format, rest)?;
+                let (v, rest) = u8::decode_with_format(format, buf)?;
                 (T::from_u8(v), rest)
             }
             Format::Uint16 => {
-                let (v, rest) = u16::decode_with_format(format, rest)?;
+                let (v, rest) = u16::decode_with_format(format, buf)?;
                 (T::from_u16(v), rest)
             }
             Format::Uint32 => {
-                let (v, rest) = u32::decode_with_format(format, rest)?;
+                let (v, rest) = u32::decode_with_format(format, buf)?;
                 (T::from_u32(v), rest)
             }
             Format::Uint64 => {
-                let (v, rest) = u64::decode_with_format(format, rest)?;
+                let (v, rest) = u64::decode_with_format(format, buf)?;
                 (T::from_u64(v), rest)
             }
-            Format::NegativeFixInt(v) => (T::from_i8(v), rest),
+            Format::NegativeFixInt(v) => (T::from_i8(v), buf),
             Format::Int8 => {
-                let (v, rest) = i8::decode_with_format(format, rest)?;
+                let (v, rest) = i8::decode_with_format(format, buf)?;
                 (T::from_i8(v), rest)
             }
             Format::Int16 => {
-                let (v, rest) = i16::decode_with_format(format, rest)?;
+                let (v, rest) = i16::decode_with_format(format, buf)?;
                 (T::from_i16(v), rest)
             }
             Format::Int32 => {
-                let (v, rest) = i32::decode_with_format(format, rest)?;
+                let (v, rest) = i32::decode_with_format(format, buf)?;
                 (T::from_i32(v), rest)
             }
             Format::Int64 => {
-                let (v, rest) = i64::decode_with_format(format, rest)?;
+                let (v, rest) = i64::decode_with_format(format, buf)?;
                 (T::from_i64(v), rest)
             }
             _ => return Err(Error::UnexpectedFormat),
@@ -117,6 +116,12 @@ impl LosslessLenient {
 
         let n = n.ok_or(Error::InvalidData)?;
         Ok((n, rest))
+    }
+
+    fn decode_int<T: FromPrimitive>(buf: &[u8]) -> Result<(T, &[u8]), Error> {
+        let (format, rest) = Format::decode(buf)?;
+
+        Self::decode_int_inner(rest, format)
     }
 
     fn decode_float<T: FromPrimitive>(buf: &[u8]) -> Result<(T, &[u8]), Error> {
@@ -209,7 +214,7 @@ impl AggressiveLenient {
                 (T::from_f64(v), rest)
             }
             _ => {
-                let (v, rest) = LosslessLenient::decode_int::<T>(buf)?;
+                let (v, rest) = LosslessLenient::decode_int_inner::<T>(buf, format)?;
                 (Some(v), rest)
             }
         };
@@ -229,7 +234,7 @@ impl AggressiveLenient {
                 (T::from_f64(v), rest)
             }
             _ => {
-                let (v, rest) = LosslessLenient::decode_int::<T>(buf)?;
+                let (v, rest) = LosslessLenient::decode_int_inner::<T>(buf, format)?;
                 (Some(v), rest)
             }
         };
