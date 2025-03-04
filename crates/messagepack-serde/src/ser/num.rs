@@ -26,6 +26,36 @@ pub trait NumEncoder<W: IoWrite> {
 /// Encode a given numeric value exactly using its native format.
 ///
 /// This does not minimise or convert, so the value is written as is.
+///
+/// ## Examples
+/// 
+/// ```rust
+/// use serde::{Deserialize, Serialize};
+/// use messagepack_core::SliceWriter;
+/// use messagepack_serde::ser::{Serializer, Exact};
+///
+/// let mut buf = [0_u8;1];
+/// let mut writer = SliceWriter::from_slice(&mut buf);
+/// let mut ser = Serializer::new(&mut writer, Exact);
+/// 1_u8.serialize(&mut ser).unwrap();
+///
+/// let expected = [1_u8]; // 1 encoded in `positive fixint`
+/// assert_eq!(buf,expected);
+/// ```
+///  
+/// ```rust
+/// use serde::Serialize;
+/// use messagepack_core::SliceWriter;
+/// use messagepack_serde::ser::{Serializer, Exact};
+///
+/// let mut buf = [0_u8;3];
+/// let mut writer = SliceWriter::from_slice(&mut buf);
+/// let mut ser = Serializer::new(&mut writer, Exact);
+/// 1_u16.serialize(&mut ser).unwrap();
+///
+/// let expected = [0xcd_u8, 0x00_u8, 1_u8]; // 1 encoded in `uint 16`
+/// assert_eq!(buf,expected);
+/// ```
 pub struct Exact;
 
 impl<W: IoWrite> NumEncoder<W> for Exact {
@@ -81,8 +111,66 @@ impl<W: IoWrite> NumEncoder<W> for Exact {
 /// Encode a given numeric value in a lossless minimised format without changing its original format.
 ///
 /// This encoder minimises the encoded size of a numeric value without any loss of information or change in its inherent type.
-/// For integer types, it encodes the value using the smallest  integer format that can exactly represent the original value.
+/// For integer types, it encodes the value using the smallest integer format that can exactly represent the original value.
 /// For floating-point types, it encodes the value using the smallest floating-point format that preserves its precision.
+///
+/// ## Examples
+///
+/// ```rust
+/// use serde::Serialize;
+/// use messagepack_core::SliceWriter;
+/// use messagepack_serde::ser::{Serializer, LosslessMinimize};
+///
+/// let mut buf = [0_u8;1];
+/// let mut writer = SliceWriter::from_slice(&mut buf);
+/// let mut ser = Serializer::new(&mut writer, LosslessMinimize);
+/// 1_u16.serialize(&mut ser).unwrap();
+///
+/// let expected = [1_u8]; // 1 encoded in `positive fixint`
+/// assert_eq!(buf,expected);
+/// ```
+/// 
+/// ```rust
+/// use serde::Serialize;
+/// use messagepack_core::SliceWriter;
+/// use messagepack_serde::ser::{Serializer, LosslessMinimize};
+///
+/// let mut buf = [0_u8;5];
+/// let mut writer = SliceWriter::from_slice(&mut buf);
+/// let mut ser = Serializer::new(&mut writer, LosslessMinimize);
+/// 1.0_f32.serialize(&mut ser).unwrap();
+///
+/// let expected = [0xca,0x3f,0x80,0x00,0x00]; // 1.0 encoded in `float 32`
+/// assert_eq!(buf,expected);
+/// ```
+///
+/// ```rust
+/// use serde::Serialize;
+/// use messagepack_core::SliceWriter;
+/// use messagepack_serde::ser::{Serializer, LosslessMinimize};
+///
+/// let mut buf = [0_u8;5];
+/// let mut writer = SliceWriter::from_slice(&mut buf);
+/// let mut ser = Serializer::new(&mut writer, LosslessMinimize);
+/// 1.0_f64.serialize(&mut ser).unwrap();
+///
+/// let expected = [0xca,0x3f,0x80,0x00,0x00]; // 1.0 encoded in `float 32`
+/// assert_eq!(buf,expected);
+/// ```
+/// 
+/// ```rust
+/// use serde::Serialize;
+/// use messagepack_core::SliceWriter;
+/// use messagepack_serde::ser::{Serializer, LosslessMinimize};
+///
+/// let mut buf = [0_u8;9];
+/// let mut writer = SliceWriter::from_slice(&mut buf);
+/// let mut ser = Serializer::new(&mut writer, LosslessMinimize);
+/// 0.1_f64.serialize(&mut ser).unwrap();
+///
+/// let expected = [0xcb,0x3f,0xb9,0x99,0x99,0x99,0x99,0x99,0x9a]; // 0.1 encoded in `float 64`
+/// assert_eq!(buf,expected);
+/// ```
 pub struct LosslessMinimize;
 
 impl LosslessMinimize {
@@ -157,6 +245,64 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 ///
 /// If the float is finite and its fractional part is zero, it first tries to encode it as an integer.
 /// If this conversion fails, it falls back to encoding the value as a float.
+/// 
+/// ## Examples
+///
+/// ```rust
+/// use serde::Serialize;
+/// use messagepack_core::SliceWriter;
+/// use messagepack_serde::ser::{Serializer, AggressiveMinimize};
+///
+/// let mut buf = [0_u8;1];
+/// let mut writer = SliceWriter::from_slice(&mut buf);
+/// let mut ser = Serializer::new(&mut writer, AggressiveMinimize);
+/// 1_u16.serialize(&mut ser).unwrap();
+///
+/// let expected = [1_u8]; // 1 encoded in `positive fixint`
+/// assert_eq!(buf,expected);
+/// ```
+/// 
+/// ```rust
+/// use serde::Serialize;
+/// use messagepack_core::SliceWriter;
+/// use messagepack_serde::ser::{Serializer, AggressiveMinimize};
+///
+/// let mut buf = [0_u8;1];
+/// let mut writer = SliceWriter::from_slice(&mut buf);
+/// let mut ser = Serializer::new(&mut writer, AggressiveMinimize);
+/// 1.0_f32.serialize(&mut ser).unwrap();
+///
+/// let expected = [1_u8]; // 1 encoded in `positive fixint`
+/// assert_eq!(buf,expected);
+/// ```
+///
+/// ```rust
+/// use serde::Serialize;
+/// use messagepack_core::SliceWriter;
+/// use messagepack_serde::ser::{Serializer, AggressiveMinimize};
+///
+/// let mut buf = [0_u8;1];
+/// let mut writer = SliceWriter::from_slice(&mut buf);
+/// let mut ser = Serializer::new(&mut writer, AggressiveMinimize);
+/// 1.0_f64.serialize(&mut ser).unwrap();
+///
+/// let expected = [1_u8]; // 1 encoded in `positive fixint`
+/// assert_eq!(buf,expected);
+/// ```
+/// 
+/// ```rust
+/// use serde::Serialize;
+/// use messagepack_core::SliceWriter;
+/// use messagepack_serde::ser::{Serializer, AggressiveMinimize};
+///
+/// let mut buf = [0_u8;9];
+/// let mut writer = SliceWriter::from_slice(&mut buf);
+/// let mut ser = Serializer::new(&mut writer, AggressiveMinimize);
+/// 0.1_f64.serialize(&mut ser).unwrap();
+///
+/// let expected = [0xcb,0x3f,0xb9,0x99,0x99,0x99,0x99,0x99,0x9a]; // 0.1 encoded in `float 64`
+/// assert_eq!(buf,expected);
+/// ```
 pub struct AggressiveMinimize;
 
 impl AggressiveMinimize {
