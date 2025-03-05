@@ -2,7 +2,7 @@ mod enum_;
 mod error;
 mod num;
 mod seq;
-pub use num::{AggressiveLenient, Exact, Lanient, NumDecoder};
+pub use num::{AggressiveLenient, Exact, Lenient, NumDecoder};
 
 use core::marker::PhantomData;
 

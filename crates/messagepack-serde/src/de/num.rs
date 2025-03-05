@@ -44,7 +44,7 @@ pub trait NumDecoder<'a> {
 /// ### Failure
 ///
 /// This decoder does not covert
-/// 
+///
 /// ```should_panic
 /// use serde::Deserialize;
 /// use messagepack_serde::de::{Deserializer, Exact};
@@ -53,9 +53,9 @@ pub trait NumDecoder<'a> {
 /// let mut de = Deserializer::from_slice(&buf, Exact);
 /// let _ = u16::deserialize(&mut de).unwrap();
 /// ```
-/// 
+///
 /// `u128` always fails because it does not exist in the messagepack format
-/// 
+///
 /// ```should_panic
 /// use serde::Deserialize;
 /// use messagepack_serde::de::{Deserializer, Exact};
@@ -64,7 +64,7 @@ pub trait NumDecoder<'a> {
 /// let mut de = Deserializer::from_slice(&buf, Exact);
 /// let _ = u128::deserialize(&mut de).unwrap();
 /// ```
-/// 
+///
 pub struct Exact;
 
 impl<'de> NumDecoder<'de> for Exact {
@@ -131,10 +131,10 @@ impl<'de> NumDecoder<'de> for Exact {
 ///
 /// ```rust
 /// use serde::Deserialize;
-/// use messagepack_serde::de::{Deserializer, Lanient};
+/// use messagepack_serde::de::{Deserializer, Lenient};
 ///
 /// let buf = [1_u8]; // 1 encoded in `positive fixint`
-/// let mut de = Deserializer::from_slice(&buf, Lanient);
+/// let mut de = Deserializer::from_slice(&buf, Lenient);
 /// let res = u16::deserialize(&mut de).unwrap();
 ///
 /// let expected = 1;
@@ -145,10 +145,10 @@ impl<'de> NumDecoder<'de> for Exact {
 ///
 /// ```rust
 /// use serde::Deserialize;
-/// use messagepack_serde::de::{Deserializer, Lanient};
+/// use messagepack_serde::de::{Deserializer, Lenient};
 ///
 /// let buf = [1_u8]; // 1 encoded in `positive fixint`
-/// let mut de = Deserializer::from_slice(&buf, Lanient);
+/// let mut de = Deserializer::from_slice(&buf, Lenient);
 /// let res = u128::deserialize(&mut de).unwrap();
 ///
 /// let expected = 1;
@@ -159,10 +159,10 @@ impl<'de> NumDecoder<'de> for Exact {
 ///
 /// ```rust
 /// use serde::Deserialize;
-/// use messagepack_serde::de::{Deserializer, Lanient};
+/// use messagepack_serde::de::{Deserializer, Lenient};
 ///
 /// let buf = [0xca,0x3f,0x80,0x00,0x00]; // 1.0 encoded in `float 32`
-/// let mut de = Deserializer::from_slice(&buf, Lanient);
+/// let mut de = Deserializer::from_slice(&buf, Lenient);
 /// let res = f64::deserialize(&mut de).unwrap();
 ///
 /// let expected = 1.0;
@@ -173,10 +173,10 @@ impl<'de> NumDecoder<'de> for Exact {
 ///
 /// ```rust
 /// use serde::Deserialize;
-/// use messagepack_serde::de::{Deserializer, Lanient};
+/// use messagepack_serde::de::{Deserializer, Lenient};
 ///
 /// let buf = [0xca,0x3d,0xcc,0xcc,0xcd]; // 0.1 encoded in `float 32`
-/// let mut de = Deserializer::from_slice(&buf, Lanient);
+/// let mut de = Deserializer::from_slice(&buf, Lenient);
 /// let res = f64::deserialize(&mut de).unwrap();
 ///
 /// let expected = 0.1;
@@ -189,10 +189,10 @@ impl<'de> NumDecoder<'de> for Exact {
 ///
 /// ```should_panic
 /// use serde::Deserialize;
-/// use messagepack_serde::de::{Deserializer, Lanient};
+/// use messagepack_serde::de::{Deserializer, Lenient};
 ///
 /// let buf = [0xca,0x3f,0x80,0x00,0x00]; // 1.0 encoded in `float 32`
-/// let mut de = Deserializer::from_slice(&buf, Lanient);
+/// let mut de = Deserializer::from_slice(&buf, Lenient);
 /// let _ = u8::deserialize(&mut de).unwrap();
 /// ```
 ///
@@ -200,16 +200,16 @@ impl<'de> NumDecoder<'de> for Exact {
 ///
 /// ```should_panic
 /// use serde::Deserialize;
-/// use messagepack_serde::de::{Deserializer, Lanient};
+/// use messagepack_serde::de::{Deserializer, Lenient};
 ///
 /// let buf = [1_u8]; // 1 encoded in `positive fixint`
-/// let mut de = Deserializer::from_slice(&buf, Lanient);
+/// let mut de = Deserializer::from_slice(&buf, Lenient);
 /// let _ = f32::deserialize(&mut de).unwrap();
 /// ```
 ///
-pub struct Lanient;
+pub struct Lenient;
 
-impl Lanient {
+impl Lenient {
     fn decode_int_inner<T: FromPrimitive>(buf: &[u8], format: Format) -> Result<(T, &[u8]), Error> {
         #[cfg(test)]
         {
@@ -282,7 +282,7 @@ impl Lanient {
     }
 }
 
-impl<'de> NumDecoder<'de> for Lanient {
+impl<'de> NumDecoder<'de> for Lenient {
     fn decode_u8(buf: &'de [u8]) -> Result<(u8, &'de [u8]), Error> {
         Self::decode_int(buf)
     }
@@ -369,11 +369,11 @@ impl<'de> NumDecoder<'de> for Lanient {
 /// let expected = 1.0;
 /// assert_eq!(res, expected);
 /// ```
-/// 
+///
 /// ## Failure
-/// 
+///
 /// `f32` with fractional part -> `u8`
-/// 
+///
 /// ```should_panic
 /// use serde::Deserialize;
 /// use messagepack_serde::de::{Deserializer, AggressiveLenient};
@@ -404,7 +404,7 @@ impl AggressiveLenient {
                 (T::from_f64(v), rest)
             }
             _ => {
-                let (v, rest) = Lanient::decode_int_inner::<T>(buf, format)?;
+                let (v, rest) = Lenient::decode_int_inner::<T>(buf, format)?;
                 (Some(v), rest)
             }
         };
@@ -424,7 +424,7 @@ impl AggressiveLenient {
                 (T::from_f64(v), rest)
             }
             _ => {
-                let (v, rest) = Lanient::decode_int_inner::<T>(buf, format)?;
+                let (v, rest) = Lenient::decode_int_inner::<T>(buf, format)?;
                 (Some(v), rest)
             }
         };
