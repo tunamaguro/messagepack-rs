@@ -2,6 +2,8 @@ mod enum_;
 mod error;
 mod num;
 mod seq;
+pub use num::{AggressiveLenient, Exact, Lanient, NumDecoder};
+
 use core::marker::PhantomData;
 
 pub use error::Error;
@@ -11,7 +13,6 @@ use messagepack_core::{
     Decode, Format,
     decode::{NbyteReader, NilDecoder},
 };
-use num::NumDecoder;
 use serde::{
     Deserialize,
     de::{self, IntoDeserializer},
