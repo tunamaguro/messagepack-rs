@@ -211,10 +211,6 @@ pub struct Lenient;
 
 impl Lenient {
     fn decode_int_inner<T: FromPrimitive>(buf: &[u8], format: Format) -> Result<(T, &[u8]), Error> {
-        #[cfg(test)]
-        {
-            dbg!(&format);
-        }
         let (n, rest) = match format {
             Format::PositiveFixInt(v) => (T::from_u8(v), buf),
             Format::Uint8 => {
@@ -388,6 +384,7 @@ pub struct AggressiveLenient;
 impl AggressiveLenient {
     fn decode_int<T: FromPrimitive>(buf: &[u8]) -> Result<(T, &[u8]), Error> {
         let (format, rest) = Format::decode(buf)?;
+
         let (n, rest) = match format {
             Format::Float32 => {
                 let (v, rest) = f32::decode_with_format(format, rest)?;
@@ -404,7 +401,7 @@ impl AggressiveLenient {
                 (T::from_f64(v), rest)
             }
             _ => {
-                let (v, rest) = Lenient::decode_int_inner::<T>(buf, format)?;
+                let (v, rest) = Lenient::decode_int_inner::<T>(rest, format)?;
                 (Some(v), rest)
             }
         };
@@ -424,7 +421,7 @@ impl AggressiveLenient {
                 (T::from_f64(v), rest)
             }
             _ => {
-                let (v, rest) = Lenient::decode_int_inner::<T>(buf, format)?;
+                let (v, rest) = Lenient::decode_int_inner::<T>(rest, format)?;
                 (Some(v), rest)
             }
         };
