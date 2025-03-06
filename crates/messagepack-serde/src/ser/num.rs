@@ -26,9 +26,11 @@ pub trait NumEncoder<W: IoWrite> {
 /// This does not minimise or convert, so the value is written as is.
 ///
 /// ## Examples
+/// 
+/// `u8` is encoded to `positive fixint` or `uint 8`
 ///
 /// ```rust
-/// use serde::{Deserialize, Serialize};
+/// use serde::Serialize;
 /// use messagepack_core::SliceWriter;
 /// use messagepack_serde::ser::{Serializer, Exact};
 ///
@@ -41,6 +43,8 @@ pub trait NumEncoder<W: IoWrite> {
 /// assert_eq!(buf,expected);
 /// ```
 ///  
+/// `u16` is encoded to `uint 16` 
+/// 
 /// ```rust
 /// use serde::Serialize;
 /// use messagepack_core::SliceWriter;
@@ -113,6 +117,8 @@ impl<W: IoWrite> NumEncoder<W> for Exact {
 /// For floating-point types, it encodes the value using the smallest floating-point format that preserves its precision.
 ///
 /// ## Examples
+/// 
+/// If there is no loss in a smaller format, it is encoded with that value
 ///
 /// ```rust
 /// use serde::Serialize;
@@ -127,6 +133,8 @@ impl<W: IoWrite> NumEncoder<W> for Exact {
 /// let expected = [1_u8]; // 1 encoded in `positive fixint`
 /// assert_eq!(buf,expected);
 /// ```
+/// 
+/// Floating point is encoded as floating point type
 ///
 /// ```rust
 /// use serde::Serialize;
@@ -141,6 +149,8 @@ impl<W: IoWrite> NumEncoder<W> for Exact {
 /// let expected = [0xca,0x3f,0x80,0x00,0x00]; // 1.0 encoded in `float 32`
 /// assert_eq!(buf,expected);
 /// ```
+/// 
+/// If floating point can be encoded without loss, it will be encoded in a smaller format
 ///
 /// ```rust
 /// use serde::Serialize;
@@ -155,6 +165,8 @@ impl<W: IoWrite> NumEncoder<W> for Exact {
 /// let expected = [0xca,0x3f,0x80,0x00,0x00]; // 1.0 encoded in `float 32`
 /// assert_eq!(buf,expected);
 /// ```
+/// 
+/// `0.1` is encoded as `float 64` due to loss when converted to `f32
 ///
 /// ```rust
 /// use serde::Serialize;
@@ -245,6 +257,8 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 /// If this conversion fails, it falls back to encoding the value as a float.
 ///
 /// ## Examples
+/// 
+/// If there is no loss in a smaller format, it is encoded with that value
 ///
 /// ```rust
 /// use serde::Serialize;
@@ -259,6 +273,8 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 /// let expected = [1_u8]; // 1 encoded in `positive fixint`
 /// assert_eq!(buf,expected);
 /// ```
+/// 
+/// Floating point without fractional part is encoded as `int`
 ///
 /// ```rust
 /// use serde::Serialize;
@@ -273,6 +289,8 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 /// let expected = [1_u8]; // 1 encoded in `positive fixint`
 /// assert_eq!(buf,expected);
 /// ```
+/// 
+/// `f64` is encoded in the same way as `f32`.
 ///
 /// ```rust
 /// use serde::Serialize;
@@ -285,20 +303,6 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 /// 1.0_f64.serialize(&mut ser).unwrap();
 ///
 /// let expected = [1_u8]; // 1 encoded in `positive fixint`
-/// assert_eq!(buf,expected);
-/// ```
-///
-/// ```rust
-/// use serde::Serialize;
-/// use messagepack_core::SliceWriter;
-/// use messagepack_serde::ser::{Serializer, AggressiveMinimize};
-///
-/// let mut buf = [0_u8;9];
-/// let mut writer = SliceWriter::from_slice(&mut buf);
-/// let mut ser = Serializer::new(&mut writer, AggressiveMinimize);
-/// 0.1_f64.serialize(&mut ser).unwrap();
-///
-/// let expected = [0xcb,0x3f,0xb9,0x99,0x99,0x99,0x99,0x99,0x9a]; // 0.1 encoded in `float 64`
 /// assert_eq!(buf,expected);
 /// ```
 pub struct AggressiveMinimize;
