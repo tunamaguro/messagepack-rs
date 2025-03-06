@@ -46,7 +46,14 @@ impl<Num> AsMut<Self> for Deserializer<'_, Num> {
 }
 
 pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
-    let mut deserializer = Deserializer::from_slice(input, num::Exact);
+    from_slice_with_config(input, num::AggressiveLenient)
+}
+
+pub fn from_slice_with_config<'de, T: Deserialize<'de>, C: NumDecoder<'de>>(
+    input: &'de [u8],
+    config: C,
+) -> Result<T, Error> {
+    let mut deserializer = Deserializer::from_slice(input, config);
     T::deserialize(&mut deserializer)
 }
 
@@ -56,10 +63,20 @@ where
     R: std::io::Read,
     T: for<'a> Deserialize<'a>,
 {
+    from_reader_with_config(reader, num::AggressiveLenient)
+}
+
+#[cfg(feature = "std")]
+pub fn from_reader_with_config<R, T, C>(reader: &mut R, config: C) -> std::io::Result<T>
+where
+    R: std::io::Read,
+    T: for<'a> Deserialize<'a>,
+    C: for<'a> NumDecoder<'a>,
+{
     let mut buf = Vec::new();
     reader.read_to_end(&mut buf)?;
 
-    let mut deserializer = Deserializer::from_slice(&buf, num::Exact);
+    let mut deserializer = Deserializer::from_slice(&buf, config);
     T::deserialize(&mut deserializer).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
 }
 
