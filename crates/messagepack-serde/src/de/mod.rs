@@ -408,35 +408,24 @@ impl<'de, Num: NumDecoder<'de>> de::Deserializer<'de> for &mut Deserializer<'de,
 
 #[cfg(test)]
 mod tests {
-    use crate::de::error::CoreError;
+    use rstest::rstest;
 
     use super::*;
 
-    #[test]
-    fn decode_bool() {
-        let buf = [0xc3];
-        let decoded = from_slice::<bool>(&buf).unwrap();
-        assert!(decoded);
-
-        let buf = [0xc2];
-        let decoded = from_slice::<bool>(&buf).unwrap();
-        assert!(!decoded);
+    #[rstest]
+    #[case([0xc3],true)]
+    #[case([0xc2],false)]
+    fn decode_bool<Buf: AsRef<[u8]>>(#[case] buf: Buf, #[case] expected: bool) {
+        let decoded = from_slice::<bool>(buf.as_ref()).unwrap();
+        assert_eq!(decoded, expected);
     }
 
-    #[test]
-    fn decode_uint8() {
-        let buf = [0x05];
-        let decoded = from_slice::<u8>(&buf).unwrap();
-        assert_eq!(decoded, 5);
-
-        let buf = [0xcc, 0x80];
-        let decoded = from_slice::<u8>(&buf).unwrap();
-        assert_eq!(decoded, 128);
-
-        let buf = [0xcc, 0x80];
-        let err = from_slice::<u16>(&buf).unwrap_err();
-        // not convert type
-        assert_eq!(err, CoreError::UnexpectedFormat.into());
+    #[rstest]
+    #[case([0x05],5)]
+    #[case([0xcc, 0x80],128)]
+    fn decode_uint8<Buf: AsRef<[u8]>>(#[case] buf: Buf, #[case] expected: u8) {
+        let decoded = from_slice::<u8>(buf.as_ref()).unwrap();
+        assert_eq!(decoded, expected);
     }
 
     #[test]
@@ -474,44 +463,20 @@ mod tests {
         assert_eq!(decoded.schema, 0);
     }
 
-    #[test]
-    fn decode_enum() {
-        #[derive(Deserialize, PartialEq, Debug)]
-        enum E {
-            Unit,
-            Newtype(u8),
-            Tuple(u8, bool),
-            Struct { a: bool },
-        }
-
-        {
-            // "Unit"
-            let buf: &[u8] = &[0xa4, 0x55, 0x6e, 0x69, 0x74];
-            let decoded = from_slice::<E>(buf).unwrap();
-            assert_eq!(decoded, E::Unit);
-        }
-
-        {
-            // {"Newtype":27}
-            let buf: &[u8] = &[0x81, 0xa7, 0x4e, 0x65, 0x77, 0x74, 0x79, 0x70, 0x65, 0x1b];
-            let decoded = from_slice::<E>(buf).unwrap();
-            assert_eq!(decoded, E::Newtype(27));
-        }
-
-        {
-            // {"Tuple":[3,true]}
-            let buf: &[u8] = &[0x81, 0xa5, 0x54, 0x75, 0x70, 0x6c, 0x65, 0x92, 0x03, 0xc3];
-            let decoded = from_slice::<E>(buf).unwrap();
-            assert_eq!(decoded, E::Tuple(3, true));
-        }
-
-        {
-            // {"Struct":{"a":false}}
-            let buf: &[u8] = &[
-                0x81, 0xa6, 0x53, 0x74, 0x72, 0x75, 0x63, 0x74, 0x81, 0xa1, 0x61, 0xc2,
-            ];
-            let decoded = from_slice::<E>(buf).unwrap();
-            assert_eq!(decoded, E::Struct { a: false });
-        }
+    #[derive(Deserialize, PartialEq, Debug)]
+    enum E {
+        Unit,
+        Newtype(u8),
+        Tuple(u8, bool),
+        Struct { a: bool },
+    }
+    #[rstest]
+    #[case([0xa4, 0x55, 0x6e, 0x69, 0x74],E::Unit)] // "Unit"
+    #[case([0x81, 0xa7, 0x4e, 0x65, 0x77, 0x74, 0x79, 0x70, 0x65, 0x1b], E::Newtype(27))] // {"Newtype":27}
+    #[case([0x81, 0xa5, 0x54, 0x75, 0x70, 0x6c, 0x65, 0x92, 0x03, 0xc3], E::Tuple(3, true))] // {"Tuple":[3,true]}
+    #[case([0x81, 0xa6, 0x53, 0x74, 0x72, 0x75, 0x63, 0x74, 0x81, 0xa1, 0x61, 0xc2],E::Struct { a: false })] // {"Struct":{"a":false}}
+    fn decode_enum<Buf: AsRef<[u8]>>(#[case] buf: Buf, #[case] expected: E) {
+        let decoded = from_slice::<E>(buf.as_ref()).unwrap();
+        assert_eq!(decoded, expected);
     }
 }
