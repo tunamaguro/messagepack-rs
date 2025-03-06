@@ -46,8 +46,20 @@ pub fn to_slice<T>(value: &T, buf: &mut [u8]) -> Result<usize, Error<WError>>
 where
     T: ser::Serialize + ?Sized,
 {
+    to_slice_with_config(value, buf, num::Exact)
+}
+
+pub fn to_slice_with_config<'a, T, C>(
+    value: &T,
+    buf: &'a mut [u8],
+    config: C,
+) -> Result<usize, Error<WError>>
+where
+    T: ser::Serialize + ?Sized,
+    C: NumEncoder<SliceWriter<'a>>,
+{
     let mut writer = SliceWriter::from_slice(buf);
-    let mut ser = Serializer::new(&mut writer, num::Exact);
+    let mut ser = Serializer::new(&mut writer, config);
     value.serialize(&mut ser)?;
     Ok(ser.current_length)
 }
@@ -58,19 +70,45 @@ where
     T: ser::Serialize + ?Sized,
     W: std::io::Write,
 {
-    let mut ser = Serializer::new(writer, num::Exact);
+    to_writer_with_config(value, writer, num::Exact)
+}
+
+#[cfg(feature = "std")]
+pub fn to_writer_with_config<T, W, C>(
+    value: &T,
+    writer: &mut W,
+    config: C,
+) -> Result<usize, Error<std::io::Error>>
+where
+    T: ser::Serialize + ?Sized,
+    W: std::io::Write,
+    C: NumEncoder<W>,
+{
+    let mut ser = Serializer::new(writer, config);
     value.serialize(&mut ser)?;
     Ok(ser.current_length)
 }
 
 #[cfg(feature = "std")]
-pub fn to_vec<T, W>(value: &T) -> Result<Vec<u8>, Error<std::io::Error>>
+pub fn to_vec<T>(value: &T) -> Result<Vec<u8>, Error<std::io::Error>>
 where
     T: ser::Serialize + ?Sized,
 {
     let mut buf = Vec::new();
-    let mut ser = Serializer::new(&mut buf, num::Exact);
-    value.serialize(&mut ser)?;
+
+    to_writer(value, &mut buf)?;
+    Ok(buf)
+}
+
+#[cfg(feature = "std")]
+pub fn to_vec_with_config<T, C>(value: &T, config: C) -> Result<Vec<u8>, Error<std::io::Error>>
+where
+    T: ser::Serialize + ?Sized,
+    C: NumEncoder<Vec<u8>>,
+{
+    let mut buf = Vec::new();
+
+    to_writer_with_config(value, &mut buf, config)?;
     Ok(buf)
 }
 
