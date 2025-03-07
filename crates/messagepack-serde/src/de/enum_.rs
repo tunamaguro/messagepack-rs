@@ -1,21 +1,21 @@
 use serde::de;
 
-use super::{Deserializer, Error, error::CoreError};
+use super::{Deserializer, Error, error::CoreError, num::NumDecoder};
 
-pub struct Enum<'de, 'a>
+pub struct Enum<'de, 'a, Num>
 where
     'de: 'a,
 {
-    de: &'a mut Deserializer<'de>,
+    de: &'a mut Deserializer<'de, Num>,
 }
 
-impl<'de, 'a> Enum<'de, 'a> {
-    pub fn new(de: &'a mut Deserializer<'de>) -> Self {
+impl<'de, 'a, Num: NumDecoder<'de>> Enum<'de, 'a, Num> {
+    pub fn new(de: &'a mut Deserializer<'de, Num>) -> Self {
         Enum { de }
     }
 }
 
-impl<'de> de::EnumAccess<'de> for Enum<'de, '_> {
+impl<'de, Num: NumDecoder<'de>> de::EnumAccess<'de> for Enum<'de, '_, Num> {
     type Error = Error;
 
     type Variant = Self;
@@ -30,7 +30,7 @@ impl<'de> de::EnumAccess<'de> for Enum<'de, '_> {
     }
 }
 
-impl<'de> de::VariantAccess<'de> for Enum<'de, '_> {
+impl<'de, Num: NumDecoder<'de>> de::VariantAccess<'de> for Enum<'de, '_, Num> {
     type Error = Error;
 
     fn unit_variant(self) -> Result<(), Self::Error> {

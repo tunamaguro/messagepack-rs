@@ -1,3 +1,14 @@
+mod enum_;
+mod error;
+mod num;
+mod seq;
+pub use num::{AggressiveLenient, Exact, Lenient, NumDecoder};
+
+use core::marker::PhantomData;
+
+pub use error::Error;
+
+use error::CoreError;
 use messagepack_core::{
     Decode, Format,
     decode::{NbyteReader, NilDecoder},
@@ -7,21 +18,18 @@ use serde::{
     de::{self, IntoDeserializer},
 };
 
-mod enum_;
-mod error;
-mod seq;
-
-use error::CoreError;
-pub use error::Error;
-
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub struct Deserializer<'de> {
+pub struct Deserializer<'de, Num> {
     input: &'de [u8],
+    _phantom: PhantomData<Num>,
 }
 
-impl<'de> Deserializer<'de> {
-    pub fn from_slice(input: &'de [u8]) -> Self {
-        Deserializer { input }
+impl<'de, Num: NumDecoder<'de>> Deserializer<'de, Num> {
+    pub fn from_slice(input: &'de [u8], _num: Num) -> Self {
+        Deserializer {
+            input,
+            _phantom: Default::default(),
+        }
     }
 
     fn decode<V: Decode<'de>>(&mut self) -> Result<V::Value, Error> {
@@ -31,14 +39,21 @@ impl<'de> Deserializer<'de> {
     }
 }
 
-impl AsMut<Self> for Deserializer<'_> {
+impl<Num> AsMut<Self> for Deserializer<'_, Num> {
     fn as_mut(&mut self) -> &mut Self {
         self
     }
 }
 
 pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
-    let mut deserializer = Deserializer::from_slice(input);
+    from_slice_with_config(input, num::Exact)
+}
+
+pub fn from_slice_with_config<'de, T: Deserialize<'de>, C: NumDecoder<'de>>(
+    input: &'de [u8],
+    config: C,
+) -> Result<T, Error> {
+    let mut deserializer = Deserializer::from_slice(input, config);
     T::deserialize(&mut deserializer)
 }
 
@@ -48,14 +63,24 @@ where
     R: std::io::Read,
     T: for<'a> Deserialize<'a>,
 {
+    from_reader_with_config(reader, num::Exact)
+}
+
+#[cfg(feature = "std")]
+pub fn from_reader_with_config<R, T, C>(reader: &mut R, config: C) -> std::io::Result<T>
+where
+    R: std::io::Read,
+    T: for<'a> Deserialize<'a>,
+    C: for<'a> NumDecoder<'a>,
+{
     let mut buf = Vec::new();
     reader.read_to_end(&mut buf)?;
 
-    let mut deserializer = Deserializer::from_slice(&buf);
+    let mut deserializer = Deserializer::from_slice(&buf, config);
     T::deserialize(&mut deserializer).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
 }
 
-impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
+impl<'de, Num: NumDecoder<'de>> de::Deserializer<'de> for &mut Deserializer<'de, Num> {
     type Error = Error;
 
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
@@ -77,7 +102,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<i8>()?;
+        let (decoded, rest) = Num::decode_i8(self.input)?;
+        self.input = rest;
         visitor.visit_i8(decoded)
     }
 
@@ -85,7 +111,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<i16>()?;
+        let (decoded, rest) = Num::decode_i16(self.input)?;
+        self.input = rest;
         visitor.visit_i16(decoded)
     }
 
@@ -93,7 +120,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<i32>()?;
+        let (decoded, rest) = Num::decode_i32(self.input)?;
+        self.input = rest;
         visitor.visit_i32(decoded)
     }
 
@@ -101,15 +129,26 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<i64>()?;
+        let (decoded, rest) = Num::decode_i64(self.input)?;
+        self.input = rest;
         visitor.visit_i64(decoded)
+    }
+
+    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        let (decoded, rest) = Num::decode_i128(self.input)?;
+        self.input = rest;
+        visitor.visit_i128(decoded)
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<u8>()?;
+        let (decoded, rest) = Num::decode_u8(self.input)?;
+        self.input = rest;
         visitor.visit_u8(decoded)
     }
 
@@ -117,7 +156,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<u16>()?;
+        let (decoded, rest) = Num::decode_u16(self.input)?;
+        self.input = rest;
         visitor.visit_u16(decoded)
     }
 
@@ -125,7 +165,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<u32>()?;
+        let (decoded, rest) = Num::decode_u32(self.input)?;
+        self.input = rest;
         visitor.visit_u32(decoded)
     }
 
@@ -133,15 +174,26 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<u64>()?;
+        let (decoded, rest) = Num::decode_u64(self.input)?;
+        self.input = rest;
         visitor.visit_u64(decoded)
+    }
+
+    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        let (decoded, rest) = Num::decode_u128(self.input)?;
+        self.input = rest;
+        visitor.visit_u128(decoded)
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<f32>()?;
+        let (decoded, rest) = Num::decode_f32(self.input)?;
+        self.input = rest;
         visitor.visit_f32(decoded)
     }
 
@@ -149,7 +201,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let decoded = self.decode::<f64>()?;
+        let (decoded, rest) = Num::decode_f64(self.input)?;
+        self.input = rest;
         visitor.visit_f64(decoded)
     }
 
@@ -355,35 +408,24 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
 
 #[cfg(test)]
 mod tests {
-    use crate::de::error::CoreError;
+    use rstest::rstest;
 
     use super::*;
 
-    #[test]
-    fn decode_bool() {
-        let buf = [0xc3];
-        let decoded = from_slice::<bool>(&buf).unwrap();
-        assert!(decoded);
-
-        let buf = [0xc2];
-        let decoded = from_slice::<bool>(&buf).unwrap();
-        assert!(!decoded);
+    #[rstest]
+    #[case([0xc3],true)]
+    #[case([0xc2],false)]
+    fn decode_bool<Buf: AsRef<[u8]>>(#[case] buf: Buf, #[case] expected: bool) {
+        let decoded = from_slice::<bool>(buf.as_ref()).unwrap();
+        assert_eq!(decoded, expected);
     }
 
-    #[test]
-    fn decode_uint8() {
-        let buf = [0x05];
-        let decoded = from_slice::<u8>(&buf).unwrap();
-        assert_eq!(decoded, 5);
-
-        let buf = [0xcc, 0x80];
-        let decoded = from_slice::<u8>(&buf).unwrap();
-        assert_eq!(decoded, 128);
-
-        let buf = [0xcc, 0x80];
-        let err = from_slice::<u16>(&buf).unwrap_err();
-        // not convert type
-        assert_eq!(err, CoreError::UnexpectedFormat.into());
+    #[rstest]
+    #[case([0x05],5)]
+    #[case([0xcc, 0x80],128)]
+    fn decode_uint8<Buf: AsRef<[u8]>>(#[case] buf: Buf, #[case] expected: u8) {
+        let decoded = from_slice::<u8>(buf.as_ref()).unwrap();
+        assert_eq!(decoded, expected);
     }
 
     #[test]
@@ -421,44 +463,20 @@ mod tests {
         assert_eq!(decoded.schema, 0);
     }
 
-    #[test]
-    fn decode_enum() {
-        #[derive(Deserialize, PartialEq, Debug)]
-        enum E {
-            Unit,
-            Newtype(u8),
-            Tuple(u8, bool),
-            Struct { a: bool },
-        }
-
-        {
-            // "Unit"
-            let buf: &[u8] = &[0xa4, 0x55, 0x6e, 0x69, 0x74];
-            let decoded = from_slice::<E>(buf).unwrap();
-            assert_eq!(decoded, E::Unit);
-        }
-
-        {
-            // {"Newtype":27}
-            let buf: &[u8] = &[0x81, 0xa7, 0x4e, 0x65, 0x77, 0x74, 0x79, 0x70, 0x65, 0x1b];
-            let decoded = from_slice::<E>(buf).unwrap();
-            assert_eq!(decoded, E::Newtype(27));
-        }
-
-        {
-            // {"Tuple":[3,true]}
-            let buf: &[u8] = &[0x81, 0xa5, 0x54, 0x75, 0x70, 0x6c, 0x65, 0x92, 0x03, 0xc3];
-            let decoded = from_slice::<E>(buf).unwrap();
-            assert_eq!(decoded, E::Tuple(3, true));
-        }
-
-        {
-            // {"Struct":{"a":false}}
-            let buf: &[u8] = &[
-                0x81, 0xa6, 0x53, 0x74, 0x72, 0x75, 0x63, 0x74, 0x81, 0xa1, 0x61, 0xc2,
-            ];
-            let decoded = from_slice::<E>(buf).unwrap();
-            assert_eq!(decoded, E::Struct { a: false });
-        }
+    #[derive(Deserialize, PartialEq, Debug)]
+    enum E {
+        Unit,
+        Newtype(u8),
+        Tuple(u8, bool),
+        Struct { a: bool },
+    }
+    #[rstest]
+    #[case([0xa4, 0x55, 0x6e, 0x69, 0x74],E::Unit)] // "Unit"
+    #[case([0x81, 0xa7, 0x4e, 0x65, 0x77, 0x74, 0x79, 0x70, 0x65, 0x1b], E::Newtype(27))] // {"Newtype":27}
+    #[case([0x81, 0xa5, 0x54, 0x75, 0x70, 0x6c, 0x65, 0x92, 0x03, 0xc3], E::Tuple(3, true))] // {"Tuple":[3,true]}
+    #[case([0x81, 0xa6, 0x53, 0x74, 0x72, 0x75, 0x63, 0x74, 0x81, 0xa1, 0x61, 0xc2],E::Struct { a: false })] // {"Struct":{"a":false}}
+    fn decode_enum<Buf: AsRef<[u8]>>(#[case] buf: Buf, #[case] expected: E) {
+        let decoded = from_slice::<E>(buf.as_ref()).unwrap();
+        assert_eq!(decoded, expected);
     }
 }

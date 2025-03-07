@@ -1,21 +1,22 @@
 use serde::de;
 
-use super::{Deserializer, Error};
+use super::{Deserializer, Error, num::NumDecoder};
 
-pub struct FixLenAccess<'de, 'a> {
-    de: &'a mut Deserializer<'de>,
+pub struct FixLenAccess<'de, 'a, Num> {
+    de: &'a mut Deserializer<'de, Num>,
     left: usize,
 }
 
-impl<'de, 'a> FixLenAccess<'de, 'a> {
-    pub fn new(de: &'a mut Deserializer<'de>, len: usize) -> Self {
+impl<'de, 'a, Num> FixLenAccess<'de, 'a, Num> {
+    pub fn new(de: &'a mut Deserializer<'de, Num>, len: usize) -> Self {
         Self { de, left: len }
     }
 }
 
-impl<'de, 'a> de::SeqAccess<'de> for FixLenAccess<'de, 'a>
+impl<'de, 'a, Num> de::SeqAccess<'de> for FixLenAccess<'de, 'a, Num>
 where
     'de: 'a,
+    Num: NumDecoder<'de>,
 {
     type Error = Error;
 
@@ -35,9 +36,10 @@ where
     }
 }
 
-impl<'de, 'a> de::MapAccess<'de> for FixLenAccess<'de, 'a>
+impl<'de, 'a, Num> de::MapAccess<'de> for FixLenAccess<'de, 'a, Num>
 where
     'de: 'a,
+    Num: NumDecoder<'de>,
 {
     type Error = Error;
 
