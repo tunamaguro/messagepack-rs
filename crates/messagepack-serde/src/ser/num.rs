@@ -26,7 +26,7 @@ pub trait NumEncoder<W: IoWrite> {
 /// This does not minimise or convert, so the value is written as is.
 ///
 /// ## Examples
-/// 
+///
 /// `u8` is encoded to `positive fixint` or `uint 8`
 ///
 /// ```rust
@@ -43,8 +43,8 @@ pub trait NumEncoder<W: IoWrite> {
 /// assert_eq!(buf,expected);
 /// ```
 ///  
-/// `u16` is encoded to `uint 16` 
-/// 
+/// `u16` is encoded to `uint 16`
+///
 /// ```rust
 /// use serde::Serialize;
 /// use messagepack_core::SliceWriter;
@@ -117,7 +117,7 @@ impl<W: IoWrite> NumEncoder<W> for Exact {
 /// For floating-point types, it encodes the value using the smallest floating-point format that preserves its precision.
 ///
 /// ## Examples
-/// 
+///
 /// If there is no loss in a smaller format, it is encoded with that value
 ///
 /// ```rust
@@ -133,7 +133,7 @@ impl<W: IoWrite> NumEncoder<W> for Exact {
 /// let expected = [1_u8]; // 1 encoded in `positive fixint`
 /// assert_eq!(buf,expected);
 /// ```
-/// 
+///
 /// Floating point is encoded as floating point type
 ///
 /// ```rust
@@ -149,7 +149,7 @@ impl<W: IoWrite> NumEncoder<W> for Exact {
 /// let expected = [0xca,0x3f,0x80,0x00,0x00]; // 1.0 encoded in `float 32`
 /// assert_eq!(buf,expected);
 /// ```
-/// 
+///
 /// If floating point can be encoded without loss, it will be encoded in a smaller format
 ///
 /// ```rust
@@ -165,7 +165,7 @@ impl<W: IoWrite> NumEncoder<W> for Exact {
 /// let expected = [0xca,0x3f,0x80,0x00,0x00]; // 1.0 encoded in `float 32`
 /// assert_eq!(buf,expected);
 /// ```
-/// 
+///
 /// `0.1` is encoded as `float 64` due to loss when converted to `f32
 ///
 /// ```rust
@@ -257,7 +257,7 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 /// If this conversion fails, it falls back to encoding the value as a float.
 ///
 /// ## Examples
-/// 
+///
 /// If there is no loss in a smaller format, it is encoded with that value
 ///
 /// ```rust
@@ -273,7 +273,7 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 /// let expected = [1_u8]; // 1 encoded in `positive fixint`
 /// assert_eq!(buf,expected);
 /// ```
-/// 
+///
 /// Floating point without fractional part is encoded as `int`
 ///
 /// ```rust
@@ -289,7 +289,7 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 /// let expected = [1_u8]; // 1 encoded in `positive fixint`
 /// assert_eq!(buf,expected);
 /// ```
-/// 
+///
 /// `f64` is encoded in the same way as `f32`.
 ///
 /// ```rust
