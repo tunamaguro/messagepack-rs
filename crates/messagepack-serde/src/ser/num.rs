@@ -3,7 +3,7 @@ use messagepack_core::{
     encode::{Error, float::EncodeMinimizeFloat, int::EncodeMinimizeInt},
     io::IoWrite,
 };
-use num_traits::{Float, ToPrimitive};
+use num_traits::{ToPrimitive, float::FloatCore};
 
 /// Decide how numeric values are encoded.
 pub trait NumEncoder<W: IoWrite> {
@@ -315,7 +315,7 @@ impl AggressiveMinimize {
         EncodeMinimizeInt(v).encode(writer)
     }
 
-    fn encode_float<T: Float + Into<EncodeMinimizeFloat>, W: IoWrite>(
+    fn encode_float<T: FloatCore + Into<EncodeMinimizeFloat>, W: IoWrite>(
         v: T,
         writer: &mut W,
     ) -> Result<usize, Error<<W as IoWrite>::Error>> {
