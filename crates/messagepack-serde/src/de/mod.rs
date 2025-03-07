@@ -46,7 +46,7 @@ impl<Num> AsMut<Self> for Deserializer<'_, Num> {
 }
 
 pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
-    from_slice_with_config(input, num::AggressiveLenient)
+    from_slice_with_config(input, num::Exact)
 }
 
 pub fn from_slice_with_config<'de, T: Deserialize<'de>, C: NumDecoder<'de>>(
@@ -63,7 +63,7 @@ where
     R: std::io::Read,
     T: for<'a> Deserialize<'a>,
 {
-    from_reader_with_config(reader, num::AggressiveLenient)
+    from_reader_with_config(reader, num::Exact)
 }
 
 #[cfg(feature = "std")]
