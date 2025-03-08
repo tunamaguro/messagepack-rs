@@ -4,6 +4,7 @@
 #[doc = include_str!("../README.md")]
 pub mod de;
 pub mod ser;
+pub mod value;
 
 pub use de::{Deserializer, Error as DeserializationError, from_slice, from_slice_with_config};
 pub use ser::{Error as SerializationError, Serializer, to_slice, to_slice_with_config};
