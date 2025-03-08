@@ -37,6 +37,54 @@ impl<'de, Num: NumDecoder<'de>> Deserializer<'de, Num> {
         self.input = rest;
         Ok(decoded)
     }
+
+    fn decode_with_format<V: Decode<'de>>(&mut self, format: Format) -> Result<V::Value, Error> {
+        let (decoded, rest) = V::decode_with_format(format, self.input)?;
+        self.input = rest;
+        Ok(decoded)
+    }
+
+    fn decode_seq_with_format<V>(&mut self, format: Format, visitor: V) -> Result<V::Value, Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        let n = match format {
+            Format::FixArray(n) => n.into(),
+            Format::Array16 => {
+                let (n, buf) = NbyteReader::<2>::read(self.input)?;
+                self.input = buf;
+                n
+            }
+            Format::Array32 => {
+                let (n, buf) = NbyteReader::<4>::read(self.input)?;
+                self.input = buf;
+                n
+            }
+            _ => return Err(CoreError::UnexpectedFormat.into()),
+        };
+        visitor.visit_seq(seq::FixLenAccess::new(self, n))
+    }
+
+    fn decode_map_with_format<V>(&mut self, format: Format, visitor: V) -> Result<V::Value, Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        let n = match format {
+            Format::FixMap(n) => n.into(),
+            Format::Map16 => {
+                let (n, buf) = NbyteReader::<2>::read(self.input)?;
+                self.input = buf;
+                n
+            }
+            Format::Map32 => {
+                let (n, buf) = NbyteReader::<4>::read(self.input)?;
+                self.input = buf;
+                n
+            }
+            _ => return Err(CoreError::UnexpectedFormat.into()),
+        };
+        visitor.visit_map(seq::FixLenAccess::new(self, n))
+    }
 }
 
 impl<Num> AsMut<Self> for Deserializer<'_, Num> {
@@ -83,11 +131,81 @@ where
 impl<'de, Num: NumDecoder<'de>> de::Deserializer<'de> for &mut Deserializer<'de, Num> {
     type Error = Error;
 
-    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        Err(Error::AnyIsUnsupported)
+        let format = self.decode::<Format>()?;
+        match format {
+            Format::Nil => visitor.visit_none(),
+            Format::False => visitor.visit_bool(false),
+            Format::True => visitor.visit_bool(true),
+            Format::PositiveFixInt(v) => visitor.visit_u8(v),
+            Format::Uint8 => {
+                let v = self.decode_with_format::<u8>(format)?;
+                visitor.visit_u8(v)
+            }
+            Format::Uint16 => {
+                let v = self.decode_with_format::<u16>(format)?;
+                visitor.visit_u16(v)
+            }
+            Format::Uint32 => {
+                let v = self.decode_with_format::<u32>(format)?;
+                visitor.visit_u32(v)
+            }
+            Format::Uint64 => {
+                let v = self.decode_with_format::<u64>(format)?;
+                visitor.visit_u64(v)
+            }
+            Format::NegativeFixInt(v) => visitor.visit_i8(v),
+            Format::Int8 => {
+                let v = self.decode_with_format::<i8>(format)?;
+                visitor.visit_i8(v)
+            }
+            Format::Int16 => {
+                let v = self.decode_with_format::<i16>(format)?;
+                visitor.visit_i16(v)
+            }
+            Format::Int32 => {
+                let v = self.decode_with_format::<i32>(format)?;
+                visitor.visit_i32(v)
+            }
+            Format::Int64 => {
+                let v = self.decode_with_format::<i64>(format)?;
+                visitor.visit_i64(v)
+            }
+            Format::Float32 => {
+                let v = self.decode_with_format::<f32>(format)?;
+                visitor.visit_f32(v)
+            }
+            Format::Float64 => {
+                let v = self.decode_with_format::<f64>(format)?;
+                visitor.visit_f64(v)
+            }
+            Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
+                let v = self.decode_with_format::<&str>(format)?;
+                visitor.visit_borrowed_str(v)
+            }
+            Format::FixArray(_) | Format::Array16 | Format::Array32 => {
+                self.decode_seq_with_format(format, visitor)
+            }
+            Format::Bin8 | Format::Bin16 | Format::Bin32 => {
+                let v = self.decode_with_format::<&[u8]>(format)?;
+                visitor.visit_borrowed_bytes(v)
+            }
+            Format::FixMap(_) | Format::Map16 | Format::Map32 => {
+                self.decode_map_with_format(format, visitor)
+            }
+            Format::Ext8
+            | Format::Ext16
+            | Format::Ext32
+            | Format::FixExt1
+            | Format::FixExt2
+            | Format::FixExt4
+            | Format::FixExt8
+            | Format::FixExt16
+            | Format::NeverUsed => Err(CoreError::UnexpectedFormat.into()),
+        }
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -290,21 +408,7 @@ impl<'de, Num: NumDecoder<'de>> de::Deserializer<'de> for &mut Deserializer<'de,
         V: de::Visitor<'de>,
     {
         let format = self.decode::<Format>()?;
-        let n = match format {
-            Format::FixArray(n) => n.into(),
-            Format::Array16 => {
-                let (n, buf) = NbyteReader::<2>::read(self.input)?;
-                self.input = buf;
-                n
-            }
-            Format::Array32 => {
-                let (n, buf) = NbyteReader::<4>::read(self.input)?;
-                self.input = buf;
-                n
-            }
-            _ => return Err(CoreError::UnexpectedFormat.into()),
-        };
-        visitor.visit_seq(seq::FixLenAccess::new(self, n))
+        self.decode_seq_with_format(format, visitor)
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
@@ -331,21 +435,7 @@ impl<'de, Num: NumDecoder<'de>> de::Deserializer<'de> for &mut Deserializer<'de,
         V: de::Visitor<'de>,
     {
         let format = self.decode::<Format>()?;
-        let n = match format {
-            Format::FixMap(n) => n.into(),
-            Format::Map16 => {
-                let (n, buf) = NbyteReader::<2>::read(self.input)?;
-                self.input = buf;
-                n
-            }
-            Format::Map32 => {
-                let (n, buf) = NbyteReader::<4>::read(self.input)?;
-                self.input = buf;
-                n
-            }
-            _ => return Err(CoreError::UnexpectedFormat.into()),
-        };
-        visitor.visit_map(seq::FixLenAccess::new(self, n))
+        self.decode_map_with_format(format, visitor)
     }
 
     fn deserialize_struct<V>(
