@@ -270,6 +270,12 @@ pub struct ExtensionRef<'a> {
     data: &'a [u8],
 }
 
+impl<'a> ExtensionRef<'a> {
+    pub fn new(kind: i8, data: &'a [u8]) -> Self {
+        Self { kind, data }
+    }
+}
+
 impl ser::Serialize for ExtensionRef<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -343,10 +349,7 @@ mod tests {
 
         let kind: i8 = 123;
 
-        let ext = ExtensionRef {
-            kind,
-            data: &[0x12],
-        };
+        let ext = ExtensionRef::new(kind, &[0x12]);
 
         ext.serialize(&mut ser).unwrap();
 
