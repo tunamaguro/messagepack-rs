@@ -1,4 +1,4 @@
-mod error;
+pub mod error;
 mod map;
 mod num;
 mod seq;
@@ -13,6 +13,9 @@ use messagepack_core::{
     io::{IoWrite, WError},
 };
 
+use crate::value::extension::{
+    EXTENSION_SER_ENUM_NAME, EXTENSION_SER_VARIANT_NAME, SerializeExtSeq,
+};
 use serde::ser;
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
@@ -123,7 +126,7 @@ where
     type SerializeSeq = seq::SerializeSeq<'a, 'b, W, Num>;
     type SerializeTuple = seq::SerializeSeq<'a, 'b, W, Num>;
     type SerializeTupleStruct = seq::SerializeSeq<'a, 'b, W, Num>;
-    type SerializeTupleVariant = seq::SerializeSeq<'a, 'b, W, Num>;
+    type SerializeTupleVariant = TupleStructSerializer<'a, 'b, W, Num>;
     type SerializeMap = map::SerializeMap<'a, 'b, W, Num>;
     type SerializeStruct = map::SerializeMap<'a, 'b, W, Num>;
     type SerializeStructVariant = map::SerializeMap<'a, 'b, W, Num>;
@@ -272,8 +275,7 @@ where
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        self.current_length += ArrayFormatEncoder::new(len).encode(self.writer)?;
-        Ok(seq::SerializeSeq::new(self))
+        self.serialize_seq(Some(len))
     }
 
     fn serialize_tuple_struct(
@@ -281,21 +283,24 @@ where
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        self.current_length += ArrayFormatEncoder::new(len).encode(self.writer)?;
-        Ok(seq::SerializeSeq::new(self))
+        self.serialize_seq(Some(len))
     }
 
     fn serialize_tuple_variant(
         self,
-        _name: &'static str,
+        name: &'static str,
         _variant_index: u32,
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        self.current_length += MapFormatEncoder::new(1).encode(self.writer)?;
-        self.serialize_str(variant)?;
-        self.current_length += ArrayFormatEncoder::new(len).encode(self.writer)?;
-        Ok(seq::SerializeSeq::new(self))
+        if name == EXTENSION_SER_ENUM_NAME && variant == EXTENSION_SER_VARIANT_NAME {
+            Ok(TupleStructSerializer::extension(self))
+        } else {
+            self.current_length += MapFormatEncoder::new(1).encode(self.writer)?;
+            self.serialize_str(variant)?;
+            self.current_length += ArrayFormatEncoder::new(len).encode(self.writer)?;
+            Ok(TupleStructSerializer::other(self))
+        }
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
@@ -325,24 +330,50 @@ where
         self.serialize_struct(name, len)
     }
 
-    #[allow(unused_variables)]
-    fn collect_str<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
-    where
-        T: ?Sized + core::fmt::Display,
-    {
-        #[cfg(not(feature = "std"))]
-        {
-            unreachable!()
-        }
-        #[cfg(feature = "std")]
-        {
-            let s = value.to_string();
-            self.serialize_str(&s)
-        }
-    }
-
     fn is_human_readable(&self) -> bool {
         false
+    }
+}
+
+pub enum TupleStructSerializer<'a, 'b, W, Num> {
+    Extension(SerializeExtSeq<'a, W>),
+    Other(seq::SerializeSeq<'a, 'b, W, Num>),
+}
+
+impl<'a, 'b, W, Num> TupleStructSerializer<'a, 'b, W, Num> {
+    fn extension(ser: &'a mut Serializer<'b, W, Num>) -> Self {
+        Self::Extension(SerializeExtSeq::from_ref(
+            ser.writer,
+            &mut ser.current_length,
+        ))
+    }
+    fn other(ser: &'a mut Serializer<'b, W, Num>) -> Self {
+        Self::Other(seq::SerializeSeq::new(ser))
+    }
+}
+
+impl<'a, 'b, W, Num> ser::SerializeTupleVariant for TupleStructSerializer<'a, 'b, W, Num>
+where
+    'b: 'a,
+    W: IoWrite,
+    Num: NumEncoder<W>,
+{
+    type Ok = ();
+    type Error = Error<W::Error>;
+    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + ser::Serialize,
+    {
+        match self {
+            Self::Extension(serialize_ext) => serialize_ext.serialize_field(value),
+            Self::Other(serialize_seq) => serialize_seq.serialize_field(value),
+        }
+    }
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        match self {
+            Self::Extension(serialize_ext) => serialize_ext.end(),
+            Self::Other(serialize_seq) => serialize_seq.end(),
+        }
     }
 }
 
