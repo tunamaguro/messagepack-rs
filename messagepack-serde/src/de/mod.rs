@@ -8,6 +8,7 @@ use core::marker::PhantomData;
 
 pub use error::Error;
 
+use crate::value::extension::DeserializeExt;
 use error::CoreError;
 use messagepack_core::{
     Decode, Format,
@@ -203,8 +204,14 @@ impl<'de, Num: NumDecoder<'de>> de::Deserializer<'de> for &mut Deserializer<'de,
             | Format::FixExt2
             | Format::FixExt4
             | Format::FixExt8
-            | Format::FixExt16
-            | Format::NeverUsed => Err(CoreError::UnexpectedFormat.into()),
+            | Format::FixExt16 => {
+                let mut de_ext = DeserializeExt::new(format, self.input)?;
+                let val = (&mut de_ext).deserialize_seq(visitor)?;
+                self.input = de_ext.input;
+
+                Ok(val)
+            }
+            Format::NeverUsed => Err(CoreError::UnexpectedFormat.into()),
         }
     }
 
@@ -568,5 +575,16 @@ mod tests {
     fn decode_enum<Buf: AsRef<[u8]>>(#[case] buf: Buf, #[case] expected: E) {
         let decoded = from_slice::<E>(buf.as_ref()).unwrap();
         assert_eq!(decoded, expected);
+    }
+
+    #[rstest]
+    fn decode_extension() {
+        use crate::value::extension::ExtensionRef;
+
+        let buf: &[u8] = &[0xd4, 0x7b, 0x12];
+
+        let ext = from_slice::<ExtensionRef<'_>>(buf).unwrap();
+        assert_eq!(ext.kind(), 123);
+        assert_eq!(ext.data(), [0x12_u8])
     }
 }

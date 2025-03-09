@@ -1,10 +1,30 @@
-use messagepack_core::{encode::ExtensionEncoder, io::IoWrite};
+use messagepack_core::{Format, encode::ExtensionEncoder, io::IoWrite};
 use serde::{
-    Serialize, Serializer,
+    Deserialize, Serialize, Serializer,
+    de::Visitor,
     ser::{self, SerializeTupleVariant},
 };
 
 use crate::ser::error::{CoreError, Error};
+
+pub struct ExtensionRef<'a> {
+    kind: i8,
+    data: &'a [u8],
+}
+
+impl<'a> ExtensionRef<'a> {
+    pub fn new(kind: i8, data: &'a [u8]) -> Self {
+        Self { kind, data }
+    }
+
+    pub fn kind(&self) -> i8 {
+        self.kind
+    }
+
+    pub fn data(&self) -> &[u8] {
+        self.data
+    }
+}
 
 pub(crate) struct SerializeExt<'a, W> {
     writer: &'a mut W,
@@ -265,17 +285,6 @@ where
 pub const EXTENSION_SER_ENUM_NAME: &str = "ExtensionSer";
 pub const EXTENSION_SER_VARIANT_NAME: &str = "Extension";
 
-pub struct ExtensionRef<'a> {
-    kind: i8,
-    data: &'a [u8],
-}
-
-impl<'a> ExtensionRef<'a> {
-    pub fn new(kind: i8, data: &'a [u8]) -> Self {
-        Self { kind, data }
-    }
-}
-
 impl ser::Serialize for ExtensionRef<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -331,6 +340,147 @@ impl ser::Serialize for ExtensionRef<'_> {
         seq.serialize_field(serde_bytes::Bytes::new(self.data))?;
 
         seq.end()
+    }
+}
+
+pub(crate) struct DeserializeExt<'de> {
+    data_len: usize,
+    pub(crate) input: &'de [u8],
+}
+
+impl<'de> AsMut<Self> for DeserializeExt<'de> {
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+
+impl<'de> DeserializeExt<'de> {
+    pub(crate) fn new(format: Format, input: &'de [u8]) -> Result<Self, crate::de::Error> {
+        let (data_len, rest) = match format {
+            Format::FixExt1 => (1, input),
+            Format::FixExt2 => (2, input),
+            Format::FixExt4 => (4, input),
+            Format::FixExt8 => (8, input),
+            Format::FixExt16 => (16, input),
+            Format::Ext8 => {
+                let (first, rest) = input
+                    .split_first_chunk::<1>()
+                    .ok_or(messagepack_core::decode::Error::EofData)?;
+                let val = u8::from_be_bytes(*first);
+                (val.into(), rest)
+            }
+            Format::Ext16 => {
+                let (first, rest) = input
+                    .split_first_chunk::<2>()
+                    .ok_or(messagepack_core::decode::Error::EofData)?;
+                let val = u16::from_be_bytes(*first);
+                (val.into(), rest)
+            }
+            Format::Ext32 => {
+                let (first, rest) = input
+                    .split_first_chunk::<4>()
+                    .ok_or(messagepack_core::decode::Error::EofData)?;
+                let val = u32::from_be_bytes(*first);
+                (val as usize, rest)
+            }
+            _ => return Err(messagepack_core::decode::Error::UnexpectedFormat.into()),
+        };
+        Ok(DeserializeExt {
+            data_len,
+            input: rest,
+        })
+    }
+}
+
+impl<'de> serde::Deserializer<'de> for &mut DeserializeExt<'de> {
+    type Error = crate::de::Error;
+
+    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        Err(crate::de::Error::AnyIsUnsupported)
+    }
+
+    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let (first, rest) = self
+            .input
+            .split_first_chunk::<1>()
+            .ok_or(messagepack_core::decode::Error::EofData)?;
+
+        let val = i8::from_be_bytes(*first);
+        self.input = rest;
+        visitor.visit_i8(val)
+    }
+
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let (data, rest) = self
+            .input
+            .split_at_checked(self.data_len)
+            .ok_or(messagepack_core::decode::Error::EofData)?;
+        self.input = rest;
+        visitor.visit_borrowed_bytes(data)
+    }
+
+    fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_seq(&mut self)
+    }
+
+    serde::forward_to_deserialize_any! {
+        bool i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        byte_buf option unit unit_struct newtype_struct tuple
+        tuple_struct map struct enum identifier ignored_any
+    }
+}
+
+impl<'de> serde::de::SeqAccess<'de> for &mut DeserializeExt<'de> {
+    type Error = crate::de::Error;
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
+    where
+        T: serde::de::DeserializeSeed<'de>,
+    {
+        seed.deserialize(self.as_mut()).map(Some)
+    }
+}
+
+impl<'de> Deserialize<'de> for ExtensionRef<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ExtensionVisitor;
+
+        impl<'de> Visitor<'de> for ExtensionVisitor {
+            type Value = ExtensionRef<'de>;
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+                formatter.write_str("expect extension")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let kind = seq
+                    .next_element::<i8>()?
+                    .ok_or(serde::de::Error::custom("expect i8"))?;
+
+                let data = seq
+                    .next_element::<&[u8]>()?
+                    .ok_or(serde::de::Error::custom("expect [u8]"))?;
+
+                Ok(ExtensionRef::new(kind, data))
+            }
+        }
+        deserializer.deserialize_any(ExtensionVisitor)
     }
 }
 
