@@ -2,8 +2,6 @@ mod enum_;
 mod error;
 mod seq;
 
-use core::marker::PhantomData;
-
 pub use error::Error;
 
 use crate::value::extension::DeserializeExt;
