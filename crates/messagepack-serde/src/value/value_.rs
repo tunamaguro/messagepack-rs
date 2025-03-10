@@ -2,6 +2,7 @@ use super::{extension::ExtensionRef, number::Number};
 use alloc::vec::Vec;
 use serde::{Deserialize, de::Visitor, ser::SerializeMap};
 
+/// Represents any messagepack value. `alloc` needed.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum ValueRef<'a> {
     Nil,

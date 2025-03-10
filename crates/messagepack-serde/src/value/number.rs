@@ -1,5 +1,28 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
 
+/// Represents any number, it could be int or float.
+///
+/// ## Example
+///
+/// ```rust
+/// use serde::{Deserialize, Serialize};
+/// use messagepack_serde::{from_slice,value::Number};
+/// #[derive(Debug, Serialize, Deserialize, PartialEq)]
+/// struct Data{
+///     num: Number
+/// }
+/// let buf:&[u8] = &[0x81,0xa3,0x6e,0x75,0x6d,0x01]; // {"num":1}
+/// let data = from_slice::<Data>(buf).unwrap();
+/// assert_eq!(data.num,Number::UnsignedInt(1));
+/// 
+/// let buf:&[u8] = &[0x81,0xa3,0x6e,0x75,0x6d,0xd0,0x85]; // {"num":-123}
+/// let data = from_slice::<Data>(buf).unwrap();
+/// assert_eq!(data.num,Number::SignedInt(-123));
+///
+/// let buf:&[u8] = &[0x81,0xa3,0x6e,0x75,0x6d,0xcb,0x3f,0xf8,0x00,0x00,0x00,0x00,0x00,0x00]; // {"num":1.5}
+/// let data = from_slice::<Data>(buf).unwrap();
+/// assert_eq!(data.num,Number::Float(1.5));
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Number {
     UnsignedInt(u64),
