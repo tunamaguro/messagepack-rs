@@ -7,6 +7,48 @@ pub enum Number {
     Float(f64),
 }
 
+impl Number {
+    pub fn as_unsigned_int(&self) -> Option<u64> {
+        match self {
+            Number::UnsignedInt(v) => Some(*v),
+            _ => None,
+        }
+    }
+    pub fn as_signed_int(&self) -> Option<i64> {
+        match self {
+            Number::SignedInt(v) => Some(*v),
+            _ => None,
+        }
+    }
+    pub fn as_float(&self) -> Option<f64> {
+        match self {
+            Number::Float(v) => Some(*v),
+            _ => None,
+        }
+    }
+}
+
+macro_rules! impl_from_num {
+    ($from:ident,$ty:path,$cast:path) => {
+        impl From<$from> for Number {
+            fn from(value: $from) -> Self {
+                $ty(value as $cast)
+            }
+        }
+    };
+}
+
+impl_from_num!(u8, Number::UnsignedInt, u64);
+impl_from_num!(u16, Number::UnsignedInt, u64);
+impl_from_num!(u32, Number::UnsignedInt, u64);
+impl_from_num!(u64, Number::UnsignedInt, u64);
+impl_from_num!(i8, Number::SignedInt, i64);
+impl_from_num!(i16, Number::SignedInt, i64);
+impl_from_num!(i32, Number::SignedInt, i64);
+impl_from_num!(i64, Number::SignedInt, i64);
+impl_from_num!(f32, Number::Float, f64);
+impl_from_num!(f64, Number::Float, f64);
+
 impl Serialize for Number {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

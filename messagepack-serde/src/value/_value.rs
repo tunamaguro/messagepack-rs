@@ -14,6 +14,54 @@ pub enum ValueRef<'a> {
     Map(Vec<(ValueRef<'a>, ValueRef<'a>)>),
 }
 
+impl ValueRef<'_> {
+    pub fn is_nil(&self) -> bool {
+        matches!(self, ValueRef::Nil)
+    }
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            ValueRef::Bool(v) => Some(*v),
+            _ => None,
+        }
+    }
+    pub fn as_bin(&self) -> Option<&[u8]> {
+        match self {
+            ValueRef::Bin(v) => Some(*v),
+            _ => None,
+        }
+    }
+    pub fn as_extension(&self) -> Option<&ExtensionRef<'_>> {
+        match self {
+            ValueRef::Extension(v) => Some(v),
+            _ => None,
+        }
+    }
+    pub fn as_number(&self) -> Option<Number> {
+        match self {
+            ValueRef::Number(v) => Some(*v),
+            _ => None,
+        }
+    }
+    pub fn as_string(&self) -> Option<&str> {
+        match self {
+            ValueRef::String(v) => Some(*v),
+            _ => None,
+        }
+    }
+    pub fn as_array(&self) -> Option<&[ValueRef<'_>]> {
+        match self {
+            ValueRef::Array(v) => Some(v),
+            _ => None,
+        }
+    }
+    pub fn as_map(&self) -> Option<&[(ValueRef<'_>, ValueRef<'_>)]> {
+        match self {
+            ValueRef::Map(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
 impl serde::Serialize for ValueRef<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
