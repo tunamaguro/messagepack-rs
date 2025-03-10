@@ -349,7 +349,7 @@ pub(crate) struct DeserializeExt<'de> {
     pub(crate) input: &'de [u8],
 }
 
-impl<'de> AsMut<Self> for DeserializeExt<'de> {
+impl AsMut<Self> for DeserializeExt<'_> {
     fn as_mut(&mut self) -> &mut Self {
         self
     }
