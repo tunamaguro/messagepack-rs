@@ -377,8 +377,13 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let format = self.decode::<Format>()?;
-        self.decode_seq_with_format(format, visitor)
+        let (format, rest) = Format::decode(self.input)?;
+
+        let mut des = Deserializer::from_slice(rest);
+        let val = des.decode_seq_with_format(format, visitor)?;
+        self.input = des.input;
+
+        Ok(val)
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
@@ -404,8 +409,13 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let format = self.decode::<Format>()?;
-        self.decode_map_with_format(format, visitor)
+        let (format, rest) = Format::decode(self.input)?;
+
+        let mut des = Deserializer::from_slice(rest);
+        let val = des.decode_map_with_format(format, visitor)?;
+        self.input = des.input;
+
+        Ok(val)
     }
 
     fn deserialize_struct<V>(
@@ -433,16 +443,22 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         match ident {
             Ok(ident) => visitor.visit_enum(ident.into_deserializer()),
             _ => {
-                let format = self.decode::<Format>()?;
-                match format {
+                let (format, rest) = Format::decode(self.input)?;
+
+                let mut des = Deserializer::from_slice(rest);
+                let val = match format {
                     Format::FixMap(_)
                     | Format::Map16
                     | Format::Map32
                     | Format::FixArray(_)
                     | Format::Array16
-                    | Format::Array32 => visitor.visit_enum(enum_::Enum::new(self)),
+                    | Format::Array32 => visitor.visit_enum(enum_::Enum::new(&mut des)),
                     _ => Err(CoreError::UnexpectedFormat.into()),
-                }
+                }?;
+
+                self.input = des.input;
+
+                Ok(val)
             }
         }
     }
