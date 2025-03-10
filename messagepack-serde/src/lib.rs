@@ -1,6 +1,9 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(all(not(test), not(feature = "std")), no_std)]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 #[doc = include_str!("../README.md")]
 pub mod de;
 pub mod ser;

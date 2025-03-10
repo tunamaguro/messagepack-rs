@@ -14,4 +14,5 @@ rstest = { workspace = true }
 
 [features]
 default = []
-std = ["serde/std", "messagepack-core/std"]
+alloc = []
+std = ["serde/std", "messagepack-core/std", "alloc"]

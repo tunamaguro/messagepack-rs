@@ -206,7 +206,10 @@ impl<'de, Num: NumDecoder<'de>> de::Deserializer<'de> for &mut Deserializer<'de,
             | Format::FixExt8
             | Format::FixExt16 => {
                 let mut de_ext = DeserializeExt::new(format, self.input)?;
-                let val = (&mut de_ext).deserialize_seq(visitor)?;
+                let val = (&mut de_ext).deserialize_newtype_struct(
+                    crate::value::extension::EXTENSION_DER_NAME,
+                    visitor,
+                )?;
                 self.input = de_ext.input;
 
                 Ok(val)

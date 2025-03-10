@@ -7,6 +7,7 @@ use serde::{
 
 use crate::ser::error::{CoreError, Error};
 
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct ExtensionRef<'a> {
     kind: i8,
     data: &'a [u8],
@@ -354,6 +355,8 @@ impl<'de> AsMut<Self> for DeserializeExt<'de> {
     }
 }
 
+pub const EXTENSION_DER_NAME: &str = "$__MSGPACK_EXTENSION_DER";
+
 impl<'de> DeserializeExt<'de> {
     pub(crate) fn new(format: Format, input: &'de [u8]) -> Result<Self, crate::de::Error> {
         let (data_len, rest) = match format {
@@ -435,9 +438,20 @@ impl<'de> serde::Deserializer<'de> for &mut DeserializeExt<'de> {
         visitor.visit_seq(&mut self)
     }
 
+    fn deserialize_newtype_struct<V>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_newtype_struct(self)
+    }
+
     serde::forward_to_deserialize_any! {
         bool i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        byte_buf option unit unit_struct newtype_struct tuple
+        byte_buf option unit unit_struct tuple
         tuple_struct map struct enum identifier ignored_any
     }
 }
@@ -463,6 +477,13 @@ impl<'de> Deserialize<'de> for ExtensionRef<'de> {
             type Value = ExtensionRef<'de>;
             fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
                 formatter.write_str("expect extension")
+            }
+
+            fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                deserializer.deserialize_seq(self)
             }
 
             fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
