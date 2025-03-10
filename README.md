@@ -1,1 +1,1 @@
-crates/messagepack-serde/README.md
+messagepack-serde/README.md
