@@ -32,9 +32,9 @@ let expected = Data {
 };
 assert_eq!(data, expected);
 
-let mut deserialized = [0u8; 33];
-let len = messagepack_serde::to_slice(&expected, &mut deserialized).unwrap();
-assert_eq!(&deserialized[..len], buf);
+let mut serialized = [0u8; 33];
+let len = messagepack_serde::to_slice(&expected, &mut serialized).unwrap();
+assert_eq!(&serialized[..len], buf);
 ```
 
 ## Installation
@@ -51,15 +51,14 @@ messagepack-serde = { git = "https://github.com/tunamaguro/messagepack-rs.git" }
 
     If you want this crate with `std::io::Read` or `std::io::Write`, please add feature `std` and use `messagepack_serde::from_reader` or `messagepack_serde::to_writer`.
 
-- Flexible Numeric Serialization and Deserialization
+- Flexible Numeric Serialization
     - Provides multiple numeric encoding strategies:
         - `Exact`: Encodes numeric types exactly as provided without minimization. This is default.
         - `Lossless Minimization`: Minimizes numeric type size during serialization without any loss of information (e.g., encoding 1_u16 as positive fixint).
         - `Aggressive Minimization`: Aggressively minimizes numeric values, including converting floats with integer values into integers for the most compact representation.
-    - Provides flexible numeric decoding strategies:
-        - `Exact`: Decodes numeric types exactly matching the encoding format. This is default.
-        - `Lenient`: Allows decoding numeric types flexibly, converting between numeric formats where possible without precision loss.
-        - `Aggressive Lenient`: Aggressively decodes numeric values, interpreting floats with zero fractional parts as integers for a compact representation.
+    - If you want deserialize any numeric value, please use `messagepack_serde::value::Number`.
+
+- `ext` format support
 
 ## License
 

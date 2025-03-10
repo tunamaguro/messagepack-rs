@@ -1,7 +1,7 @@
 #[cfg(feature = "alloc")]
-pub(crate) mod _value;
+pub(crate) mod value_;
 #[cfg(feature = "alloc")]
-pub use _value::ValueRef;
+pub use value_::ValueRef;
 
 pub(crate) mod extension;
 pub use extension::ExtensionRef;

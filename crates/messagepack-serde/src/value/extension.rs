@@ -7,23 +7,16 @@ use serde::{
 
 use crate::ser::error::{CoreError, Error};
 
+/// Represents `ext` format. This is also available with `no_std` to borrow data.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct ExtensionRef<'a> {
-    kind: i8,
-    data: &'a [u8],
+    pub kind: i8,
+    pub data: &'a [u8],
 }
 
 impl<'a> ExtensionRef<'a> {
     pub fn new(kind: i8, data: &'a [u8]) -> Self {
         Self { kind, data }
-    }
-
-    pub fn kind(&self) -> i8 {
-        self.kind
-    }
-
-    pub fn data(&self) -> &[u8] {
-        self.data
     }
 }
 
@@ -508,7 +501,7 @@ impl<'de> Deserialize<'de> for ExtensionRef<'de> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use messagepack_core::SliceWriter;
+    use messagepack_core::{Decode, SliceWriter};
     use rstest::rstest;
 
     #[rstest]
@@ -526,5 +519,15 @@ mod tests {
 
         assert_eq!(length, 3);
         assert_eq!(buf, [0xd4, kind.to_be_bytes()[0], 0x12]);
+    }
+
+    #[rstest]
+    fn decode_ext() {
+        let buf = [0xd6, 0xff, 0x00, 0x00, 0x00, 0x00]; // timestamp ext type
+
+        let ext = crate::from_slice::<ExtensionRef>(&buf).unwrap();
+        assert_eq!(ext.kind, -1);
+        let seconds = u32::from_be_bytes(ext.data.try_into().unwrap());
+        assert_eq!(seconds, 0);
     }
 }
