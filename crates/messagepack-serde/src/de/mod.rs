@@ -195,7 +195,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
             | Format::FixExt16 => {
                 let mut de_ext = DeserializeExt::new(format, self.input)?;
                 let val = (&mut de_ext).deserialize_newtype_struct(
-                    crate::value::extension::EXTENSION_DER_NAME,
+                    crate::value::extension::EXTENSION_STRUCT_NAME,
                     visitor,
                 )?;
                 self.input = de_ext.input;
