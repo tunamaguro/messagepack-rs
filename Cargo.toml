@@ -6,4 +6,4 @@ resolver = "3"
 messagepack-core = { path = "crates/messagepack-core" }
 messagepack-serde = { path = "crates/messagepack-serde" }
 num-traits = { version = "0.2", default-features = false }
-rstest = "0.24.0"
+rstest = "0.25.0"
