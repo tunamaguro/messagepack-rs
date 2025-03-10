@@ -14,7 +14,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
 /// let buf:&[u8] = &[0x81,0xa3,0x6e,0x75,0x6d,0x01]; // {"num":1}
 /// let data = from_slice::<Data>(buf).unwrap();
 /// assert_eq!(data.num,Number::UnsignedInt(1));
-/// 
+///
 /// let buf:&[u8] = &[0x81,0xa3,0x6e,0x75,0x6d,0xd0,0x85]; // {"num":-123}
 /// let data = from_slice::<Data>(buf).unwrap();
 /// assert_eq!(data.num,Number::SignedInt(-123));

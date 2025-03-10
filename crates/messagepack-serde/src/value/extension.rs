@@ -2,10 +2,12 @@ use messagepack_core::{Format, encode::ExtensionEncoder, io::IoWrite};
 use serde::{
     Deserialize, Serialize, Serializer,
     de::Visitor,
-    ser::{self, SerializeTupleVariant},
+    ser::{self, SerializeSeq},
 };
 
 use crate::ser::error::{CoreError, Error};
+
+pub(crate) const EXTENSION_STRUCT_NAME: &str = "$__MSGPACK_EXTENSION_STRUCT";
 
 /// Represents `ext` format. This is also available with `no_std` to borrow data.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
@@ -52,13 +54,13 @@ where
 
     type Error = Error<W::Error>;
 
-    type SerializeSeq = serde::ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeSeq = SerializeExtSeq<'a, 'b, W>;
 
     type SerializeTuple = serde::ser::Impossible<Self::Ok, Self::Error>;
 
     type SerializeTupleStruct = serde::ser::Impossible<Self::Ok, Self::Error>;
 
-    type SerializeTupleVariant = SerializeExtSeq<'a, W>;
+    type SerializeTupleVariant = serde::ser::Impossible<Self::Ok, Self::Error>;
 
     type SerializeMap = serde::ser::Impossible<Self::Ok, Self::Error>;
 
@@ -155,12 +157,12 @@ where
     fn serialize_newtype_struct<T>(
         self,
         _name: &'static str,
-        _value: &T,
+        value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: ?Sized + Serialize,
     {
-        Err(self.unexpected())
+        value.serialize(self)
     }
 
     fn serialize_newtype_variant<T>(
@@ -177,7 +179,7 @@ where
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        Err(self.unexpected())
+        Ok(SerializeExtSeq::new(self))
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple, Self::Error> {
@@ -199,7 +201,7 @@ where
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        Ok(SerializeExtSeq::new(self))
+        Err(self.unexpected())
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
@@ -225,22 +227,19 @@ where
     }
 }
 
-pub struct SerializeExtSeq<'a, W> {
-    writer: &'a mut W,
-    length: &'a mut usize,
+pub struct SerializeExtSeq<'a, 'b, W> {
+    ser: &'a mut SerializeExt<'b, W>,
 }
 
-impl<'a, W> SerializeExtSeq<'a, W> {
-    pub(crate) fn new(ser: &'a mut SerializeExt<'_, W>) -> Self {
-        Self::from_ref(ser.writer, ser.length)
-    }
-    pub(crate) fn from_ref(writer: &'a mut W, length: &'a mut usize) -> Self {
-        Self { writer, length }
+impl<'a, 'b, W> SerializeExtSeq<'a, 'b, W> {
+    pub(crate) fn new(ser: &'a mut SerializeExt<'b, W>) -> Self {
+        Self { ser }
     }
 }
 
-impl<W> ser::SerializeSeq for SerializeExtSeq<'_, W>
+impl<'a, 'b, W> ser::SerializeSeq for SerializeExtSeq<'a, 'b, W>
 where
+    'b: 'a,
     W: IoWrite,
 {
     type Ok = ();
@@ -249,37 +248,19 @@ where
     where
         T: ?Sized + Serialize,
     {
-        let mut ser = SerializeExt::new(self.writer, self.length);
-        value.serialize(&mut ser)
+        value.serialize(self.ser.as_mut())
     }
     fn end(self) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 }
 
-impl<W> ser::SerializeTupleVariant for SerializeExtSeq<'_, W>
-where
-    W: IoWrite,
-{
-    type Ok = ();
-    type Error = Error<W::Error>;
-
-    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
-    where
-        T: ?Sized + Serialize,
-    {
-        ser::SerializeSeq::serialize_element(self, value)
-    }
-
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        ser::SerializeSeq::end(self)
-    }
+struct ExtInner<'a> {
+    kind: i8,
+    data: &'a [u8],
 }
 
-pub const EXTENSION_SER_ENUM_NAME: &str = "ExtensionSer";
-pub const EXTENSION_SER_VARIANT_NAME: &str = "Extension";
-
-impl ser::Serialize for ExtensionRef<'_> {
+impl ser::Serialize for ExtInner<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -289,51 +270,61 @@ impl ser::Serialize for ExtensionRef<'_> {
             .to_format::<()>()
             .map_err(|_| ser::Error::custom("Invalid data length"))?;
 
-        let mut seq = serializer.serialize_tuple_variant(
-            EXTENSION_SER_ENUM_NAME,
-            0,
-            EXTENSION_SER_VARIANT_NAME,
-            4,
-        )?;
+        let mut seq = serializer.serialize_seq(Some(4))?;
 
-        seq.serialize_field(serde_bytes::Bytes::new(&format.as_slice()))?;
+        seq.serialize_element(serde_bytes::Bytes::new(&format.as_slice()))?;
 
         const EMPTY: &[u8] = &[];
 
         match format {
             messagepack_core::Format::FixExt1 => {
-                seq.serialize_field(serde_bytes::Bytes::new(EMPTY))
+                seq.serialize_element(serde_bytes::Bytes::new(EMPTY))
             }
             messagepack_core::Format::FixExt2 => {
-                seq.serialize_field(serde_bytes::Bytes::new(EMPTY))
+                seq.serialize_element(serde_bytes::Bytes::new(EMPTY))
             }
             messagepack_core::Format::FixExt4 => {
-                seq.serialize_field(serde_bytes::Bytes::new(EMPTY))
+                seq.serialize_element(serde_bytes::Bytes::new(EMPTY))
             }
             messagepack_core::Format::FixExt8 => {
-                seq.serialize_field(serde_bytes::Bytes::new(EMPTY))
+                seq.serialize_element(serde_bytes::Bytes::new(EMPTY))
             }
             messagepack_core::Format::FixExt16 => {
-                seq.serialize_field(serde_bytes::Bytes::new(EMPTY))
+                seq.serialize_element(serde_bytes::Bytes::new(EMPTY))
             }
             messagepack_core::Format::Ext8 => {
                 let len = (self.data.len() as u8).to_be_bytes();
-                seq.serialize_field(serde_bytes::Bytes::new(&len))
+                seq.serialize_element(serde_bytes::Bytes::new(&len))
             }
             messagepack_core::Format::Ext16 => {
                 let len = (self.data.len() as u16).to_be_bytes();
-                seq.serialize_field(serde_bytes::Bytes::new(&len))
+                seq.serialize_element(serde_bytes::Bytes::new(&len))
             }
             messagepack_core::Format::Ext32 => {
                 let len = (self.data.len() as u32).to_be_bytes();
-                seq.serialize_field(serde_bytes::Bytes::new(&len))
+                seq.serialize_element(serde_bytes::Bytes::new(&len))
             }
             _ => unreachable!(),
         }?;
-        seq.serialize_field(serde_bytes::Bytes::new(&self.kind.to_be_bytes()))?;
-        seq.serialize_field(serde_bytes::Bytes::new(self.data))?;
+        seq.serialize_element(serde_bytes::Bytes::new(&self.kind.to_be_bytes()))?;
+        seq.serialize_element(serde_bytes::Bytes::new(self.data))?;
 
         seq.end()
+    }
+}
+
+impl ser::Serialize for ExtensionRef<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_newtype_struct(
+            EXTENSION_STRUCT_NAME,
+            &ExtInner {
+                kind: self.kind,
+                data: self.data,
+            },
+        )
     }
 }
 
@@ -347,8 +338,6 @@ impl AsMut<Self> for DeserializeExt<'_> {
         self
     }
 }
-
-pub const EXTENSION_DER_NAME: &str = "$__MSGPACK_EXTENSION_DER";
 
 impl<'de> DeserializeExt<'de> {
     pub(crate) fn new(format: Format, input: &'de [u8]) -> Result<Self, crate::de::Error> {
@@ -501,7 +490,7 @@ impl<'de> Deserialize<'de> for ExtensionRef<'de> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use messagepack_core::{Decode, SliceWriter};
+    use messagepack_core::SliceWriter;
     use rstest::rstest;
 
     #[rstest]
