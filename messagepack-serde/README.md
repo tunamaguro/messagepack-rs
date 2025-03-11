@@ -1,10 +1,12 @@
 ## messagepack-serde
 
-messagepack for `no_std` with `serde`
-
 [![workflow](https://github.com/tunamaguro/messagepack-rs/actions/workflows/pull_request.yaml/badge.svg)](https://github.com/tunamaguro/messagepack-rs/actions)
+[![Crates.io Version](https://img.shields.io/crates/v/messagepack_serde)](https://crates.io/crates/messagepack-serde)
 [![codecov](https://codecov.io/gh/tunamaguro/messagepack-rs/graph/badge.svg?token=1UJNSKR2C1)](https://codecov.io/gh/tunamaguro/messagepack-rs)
 [![CodSpeed Badge](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/tunamaguro/messagepack-rs)
+
+messagepack for `no_std` with `serde`
+
 
 ## Examples
 
