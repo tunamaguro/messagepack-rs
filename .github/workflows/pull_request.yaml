@@ -17,7 +17,7 @@ concurrency:
 env:
   RUST_LOG: info
   RUST_BACKTRACE: 1
- 
+
 jobs:
   format:
     name: Format
@@ -48,8 +48,11 @@ jobs:
         run: |
            RUSTFLAGS="--deny warnings" cargo clippy --workspace --all-targets --all-features
   test:
-    name: Test coverage
-    runs-on: ubuntu-latest
+    name: Test on ${{matrix.os}}
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
@@ -57,13 +60,6 @@ jobs:
         uses: moonrepo/setup-rust@v1
         with:
           cache-base: main
-          components: llvm-tools-preview
-          bins: cargo-llvm-cov
       - name: Run test
         run: |
-          cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
-      - uses: codecov/codecov-action@v5
-        with:
-          files: ./lcov.info
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          cargo test --all-features --workspace

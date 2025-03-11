@@ -1,0 +1,41 @@
+name: codecov
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  RUST_LOG: info
+  RUST_BACKTRACE: 1
+
+jobs:
+  coverage:
+    name: Test coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: moonrepo/setup-rust@v1
+        with:
+          cache-base: main
+          components: llvm-tools-preview
+          bins: cargo-llvm-cov
+      - name: Run test coverage
+        run: |
+          cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./lcov.info
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
