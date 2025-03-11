@@ -66,7 +66,6 @@ where
 }
 
 #[cfg(feature = "std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn to_writer<T, W>(value: &T, writer: &mut W) -> Result<usize, Error<std::io::Error>>
 where
     T: ser::Serialize + ?Sized,
@@ -76,7 +75,6 @@ where
 }
 
 #[cfg(feature = "std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn to_writer_with_config<T, W, C>(
     value: &T,
     writer: &mut W,
@@ -93,7 +91,6 @@ where
 }
 
 #[cfg(feature = "std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn to_vec<T>(value: &T) -> Result<Vec<u8>, Error<std::io::Error>>
 where
     T: ser::Serialize + ?Sized,
@@ -105,7 +102,6 @@ where
 }
 
 #[cfg(feature = "std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn to_vec_with_config<T, C>(value: &T, config: C) -> Result<Vec<u8>, Error<std::io::Error>>
 where
     T: ser::Serialize + ?Sized,

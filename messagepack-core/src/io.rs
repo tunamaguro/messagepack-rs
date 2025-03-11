@@ -68,7 +68,6 @@ impl IoWrite for SliceWriter<'_> {
 }
 
 #[cfg(any(test, feature = "std"))]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<W> IoWrite for W
 where
     W: std::io::Write,
