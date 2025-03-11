@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
 ///
 /// ```rust
 /// use serde::{Deserialize, Serialize};
-/// use messagepack_serde::{from_slice,value::Number};
+/// use messagepack_serde::{from_slice,Number};
 /// #[derive(Debug, Serialize, Deserialize, PartialEq)]
 /// struct Data{
 ///     num: Number
