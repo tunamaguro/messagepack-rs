@@ -5,7 +5,7 @@ use serde::{
     ser::{self, SerializeSeq},
 };
 
-use crate::ser::error::{CoreError, Error};
+use crate::ser::{CoreError, Error};
 
 pub(crate) const EXTENSION_STRUCT_NAME: &str = "$__MSGPACK_EXTENSION_STRUCT";
 

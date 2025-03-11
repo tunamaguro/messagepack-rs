@@ -2,10 +2,9 @@ mod enum_;
 mod error;
 mod seq;
 
-pub use error::Error;
+pub use error::{CoreError, Error};
 
 use crate::value::extension::DeserializeExt;
-use error::CoreError;
 use messagepack_core::{
     Decode, Format,
     decode::{NbyteReader, NilDecoder},

@@ -1,4 +1,4 @@
-//! See https://github.com/msgpack/msgpack/blob/master/spec.md#formats
+//! See <https://github.com/msgpack/msgpack/blob/master/spec.md#formats>
 
 const POSITIVE_FIXINT: u8 = 0x00;
 #[allow(dead_code)]

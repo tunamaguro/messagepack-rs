@@ -1,4 +1,4 @@
-pub mod error;
+mod error;
 mod map;
 mod num;
 mod seq;
@@ -7,7 +7,7 @@ pub use num::{AggressiveMinimize, Exact, LosslessMinimize, NumEncoder};
 use core::marker::PhantomData;
 
 use crate::value::extension::{EXTENSION_STRUCT_NAME, SerializeExt};
-pub use error::Error;
+pub use error::{CoreError, Error};
 use messagepack_core::{
     Encode, SliceWriter,
     encode::{ArrayFormatEncoder, BinaryEncoder, MapFormatEncoder, NilEncoder},
