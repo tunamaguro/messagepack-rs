@@ -95,6 +95,7 @@ pub fn from_slice_with_config<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Res
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn from_reader<R, T>(reader: &mut R) -> std::io::Result<T>
 where
     R: std::io::Read,
@@ -104,6 +105,7 @@ where
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn from_reader_with_config<R, T>(reader: &mut R) -> std::io::Result<T>
 where
     R: std::io::Read,
