@@ -1,8 +1,9 @@
 use super::{Encode, Error, Result};
-use crate::{
-    formats::{Format, U8_MAX, U16_MAX, U32_MAX},
-    io::IoWrite,
-};
+use crate::{formats::Format, io::IoWrite};
+
+pub const U8_MAX: usize = u8::MAX as usize;
+pub const U16_MAX: usize = u16::MAX as usize;
+pub const U32_MAX: usize = u32::MAX as usize;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ExtensionEncoder<'data> {

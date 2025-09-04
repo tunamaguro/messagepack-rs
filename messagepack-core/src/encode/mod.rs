@@ -7,6 +7,7 @@ pub mod int;
 pub mod map;
 pub mod nil;
 pub mod str;
+mod timestamp;
 
 pub use array::{ArrayDataEncoder, ArrayEncoder, ArrayFormatEncoder};
 pub use bin::BinaryEncoder;

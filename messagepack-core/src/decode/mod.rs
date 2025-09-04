@@ -15,6 +15,7 @@ mod nil;
 pub use nil::NilDecoder;
 mod str;
 pub use str::StrDecoder;
+mod timestamp;
 
 /// Messagepack Encode Error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
