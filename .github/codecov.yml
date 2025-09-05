@@ -6,6 +6,9 @@ comment:
   require_head: true
   hide_project_coverage: false # [true :: only show coverage on the git diff aka patch coverage]
 
+ignore:
+  - "messagepack-bench"
+
 coverage:
   status:
     project:
