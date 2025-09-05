@@ -79,7 +79,7 @@ where
     W: IoWrite,
 {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        writer.write_bytes(&self.as_slice())?;
+        writer.write(&self.as_slice())?;
         Ok(1)
     }
 }

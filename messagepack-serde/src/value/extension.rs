@@ -121,7 +121,7 @@ where
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        self.writer.write_bytes(v).map_err(CoreError::Io)?;
+        self.writer.write(v).map_err(CoreError::Io)?;
         *self.length += v.len();
         Ok(())
     }

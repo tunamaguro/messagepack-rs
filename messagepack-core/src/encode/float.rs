@@ -6,8 +6,8 @@ where
     W: IoWrite,
 {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        writer.write_bytes(&Format::Float32.as_slice())?;
-        writer.write_bytes(&self.to_be_bytes())?;
+        writer.write(&Format::Float32.as_slice())?;
+        writer.write(&self.to_be_bytes())?;
         Ok(5)
     }
 }
@@ -17,8 +17,8 @@ where
     W: IoWrite,
 {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        writer.write_bytes(&Format::Float64.as_slice())?;
-        writer.write_bytes(&self.to_be_bytes())?;
+        writer.write(&Format::Float64.as_slice())?;
+        writer.write(&self.to_be_bytes())?;
         Ok(9)
     }
 }

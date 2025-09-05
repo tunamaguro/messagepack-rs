@@ -39,51 +39,51 @@ impl<W: IoWrite> Encode<W> for ExtensionEncoder<'_> {
 
         match data_len {
             1 => {
-                writer.write_bytes(&[Format::FixExt1.as_byte(), type_byte])?;
-                writer.write_bytes(self.data)?;
+                writer.write(&[Format::FixExt1.as_byte(), type_byte])?;
+                writer.write(self.data)?;
 
                 Ok(2 + data_len)
             }
             2 => {
-                writer.write_bytes(&[Format::FixExt2.as_byte(), type_byte])?;
-                writer.write_bytes(self.data)?;
+                writer.write(&[Format::FixExt2.as_byte(), type_byte])?;
+                writer.write(self.data)?;
 
                 Ok(2 + data_len)
             }
             4 => {
-                writer.write_bytes(&[Format::FixExt4.as_byte(), type_byte])?;
-                writer.write_bytes(self.data)?;
+                writer.write(&[Format::FixExt4.as_byte(), type_byte])?;
+                writer.write(self.data)?;
                 Ok(2 + data_len)
             }
             8 => {
-                writer.write_bytes(&[Format::FixExt8.as_byte(), type_byte])?;
-                writer.write_bytes(self.data)?;
+                writer.write(&[Format::FixExt8.as_byte(), type_byte])?;
+                writer.write(self.data)?;
 
                 Ok(2 + data_len)
             }
             16 => {
-                writer.write_bytes(&[Format::FixExt16.as_byte(), type_byte])?;
-                writer.write_bytes(self.data)?;
+                writer.write(&[Format::FixExt16.as_byte(), type_byte])?;
+                writer.write(self.data)?;
 
                 Ok(2 + data_len)
             }
             0..=0xff => {
                 let cast = data_len as u8;
-                writer.write_bytes(&[Format::Ext8.as_byte(), cast, type_byte])?;
-                writer.write_bytes(self.data)?;
+                writer.write(&[Format::Ext8.as_byte(), cast, type_byte])?;
+                writer.write(self.data)?;
 
                 Ok(3 + data_len)
             }
             0x100..=U16_MAX => {
                 let cast = (data_len as u16).to_be_bytes();
-                writer.write_bytes(&[Format::Ext16.as_byte(), cast[0], cast[1], type_byte])?;
-                writer.write_bytes(self.data)?;
+                writer.write(&[Format::Ext16.as_byte(), cast[0], cast[1], type_byte])?;
+                writer.write(self.data)?;
 
                 Ok(4 + data_len)
             }
             0x10000..=U32_MAX => {
                 let cast = (data_len as u32).to_be_bytes();
-                writer.write_bytes(&[
+                writer.write(&[
                     Format::Ext32.as_byte(),
                     cast[0],
                     cast[1],
@@ -91,7 +91,7 @@ impl<W: IoWrite> Encode<W> for ExtensionEncoder<'_> {
                     cast[3],
                     type_byte,
                 ])?;
-                writer.write_bytes(self.data)?;
+                writer.write(self.data)?;
 
                 Ok(6 + data_len)
             }
