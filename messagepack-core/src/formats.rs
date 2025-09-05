@@ -40,10 +40,6 @@ const ARRAY32: u8 = 0xdd;
 const MAP16: u8 = 0xde;
 const MAP32: u8 = 0xdf;
 
-pub const U8_MAX: usize = u8::MAX as usize;
-pub const U16_MAX: usize = u16::MAX as usize;
-pub const U32_MAX: usize = u32::MAX as usize;
-
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Format {
     PositiveFixInt(u8),
