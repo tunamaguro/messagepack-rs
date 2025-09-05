@@ -113,7 +113,7 @@ where
     reader.read_to_end(&mut buf)?;
 
     let mut deserializer = Deserializer::from_slice(&buf);
-    T::deserialize(&mut deserializer).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    T::deserialize(&mut deserializer).map_err(std::io::Error::other)
 }
 
 impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
