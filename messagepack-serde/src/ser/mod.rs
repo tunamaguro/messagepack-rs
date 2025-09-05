@@ -10,7 +10,7 @@ use crate::value::extension::{EXTENSION_STRUCT_NAME, SerializeExt};
 pub use error::{CoreError, Error};
 use messagepack_core::{
     Encode, SliceWriter,
-    encode::{ArrayFormatEncoder, BinaryEncoder, MapFormatEncoder, NilEncoder},
+    encode::{BinaryEncoder, MapFormatEncoder, NilEncoder, array::ArrayFormatEncoder},
     io::{IoWrite, WError},
 };
 
@@ -274,7 +274,7 @@ where
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         let len = len.ok_or(Error::SeqLenNone)?;
-        self.current_length += ArrayFormatEncoder::new(len).encode(self.writer)?;
+        self.current_length += ArrayFormatEncoder(len).encode(self.writer)?;
         Ok(seq::SerializeSeq::new(self))
     }
 
@@ -299,7 +299,7 @@ where
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
         self.current_length += MapFormatEncoder::new(1).encode(self.writer)?;
         self.serialize_str(variant)?;
-        self.current_length += ArrayFormatEncoder::new(len).encode(self.writer)?;
+        self.current_length += ArrayFormatEncoder(len).encode(self.writer)?;
         Ok(seq::SerializeSeq::new(self))
     }
 
