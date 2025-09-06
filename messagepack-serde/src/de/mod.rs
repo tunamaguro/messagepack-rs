@@ -112,7 +112,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     {
         let format = self.decode::<Format>()?;
         match format {
-            Format::Nil => visitor.visit_none(),
+            Format::Nil => visitor.visit_unit(),
             Format::False => visitor.visit_bool(false),
             Format::True => visitor.visit_bool(true),
             Format::PositiveFixInt(v) => visitor.visit_u8(v),
@@ -192,6 +192,22 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         }
     }
 
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        let (first, rest) = self.input.split_first().ok_or(CoreError::EofFormat)?;
+
+        let format = Format::from_byte(*first);
+        match format {
+            Format::Nil => {
+                self.input = rest;
+                visitor.visit_none()
+            }
+            _ => visitor.visit_some(self),
+        }
+    }
+
     fn deserialize_enum<V>(
         self,
         _name: &'static str,
@@ -227,7 +243,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
 
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        bytes byte_buf unit unit_struct newtype_struct seq tuple
         tuple_struct map struct identifier ignored_any
     }
 
@@ -300,6 +316,29 @@ mod tests {
 
         let decoded = from_slice::<(Option<u8>, u8)>(buf).unwrap();
         assert_eq!(decoded, (None, 5));
+    }
+
+    #[test]
+    fn option_some_simple() {
+        let buf: &[u8] = &[0x05];
+        let decoded = from_slice::<Option<u8>>(buf).unwrap();
+        assert_eq!(decoded, Some(5));
+    }
+
+    #[test]
+    fn unit_from_nil() {
+        let buf: &[u8] = &[0xc0];
+        let _ = from_slice::<()>(buf).unwrap();
+    }
+
+    #[test]
+    fn unit_struct() {
+        #[derive(Debug, Deserialize, PartialEq)]
+        struct U;
+
+        let buf: &[u8] = &[0xc0];
+        let decoded = from_slice::<U>(buf).unwrap();
+        assert_eq!(decoded, U);
     }
 
     #[derive(Deserialize, PartialEq, Debug)]
