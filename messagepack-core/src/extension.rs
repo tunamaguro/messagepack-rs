@@ -8,7 +8,7 @@ const U32_MAX: usize = u32::MAX as usize;
 const U8_MAX_PLUS_ONE: usize = U8_MAX + 1;
 const U16_MAX_PLUS_ONE: usize = U16_MAX + 1;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ExtensionRef<'a> {
     pub r#type: i8,
     pub data: &'a [u8],

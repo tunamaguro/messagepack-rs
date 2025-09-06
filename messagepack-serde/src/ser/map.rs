@@ -9,7 +9,7 @@ pub struct SerializeMap<'a, 'b, W, Num> {
 }
 
 impl<'a, 'b, W, Num> SerializeMap<'a, 'b, W, Num> {
-    pub(crate) fn new(ser: &'a mut Serializer<'b, W, Num>) -> Self {
+    pub(super) fn new(ser: &'a mut Serializer<'b, W, Num>) -> Self {
         Self { ser }
     }
 }

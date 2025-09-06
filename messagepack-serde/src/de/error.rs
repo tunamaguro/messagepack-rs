@@ -1,14 +1,17 @@
 use serde::de;
 
-pub type CoreError = messagepack_core::decode::Error;
+pub(crate) type CoreError = messagepack_core::decode::Error;
 
+/// Error during deserialization
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Error {
+    /// Core error
     Decode(CoreError),
-    AnyIsUnsupported,
     #[cfg(not(feature = "std"))]
+    /// Parse error
     Custom,
     #[cfg(feature = "std")]
+    /// Parse error
     Message(String),
 }
 
@@ -16,7 +19,6 @@ impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Error::Decode(e) => e.fmt(f),
-            Error::AnyIsUnsupported => write!(f, "Any is unsupported"),
             #[cfg(not(feature = "std"))]
             Error::Custom => write!(f, "Cannot deserialize format"),
             #[cfg(feature = "std")]

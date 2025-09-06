@@ -1,8 +1,8 @@
 mod enum_;
 mod error;
 mod seq;
-
-pub use error::{CoreError, Error};
+use error::CoreError;
+pub use error::Error;
 
 use crate::value::extension::DeserializeExt;
 use messagepack_core::{Decode, Format, decode::NbyteReader};
@@ -12,8 +12,28 @@ use serde::{
     forward_to_deserialize_any,
 };
 
+/// Deserialize from slice
+pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
+    let mut deserializer = Deserializer::from_slice(input);
+    T::deserialize(&mut deserializer)
+}
+
+#[cfg(feature = "std")]
+/// Deserialize from [std::io::Read]
+pub fn from_reader<R, T>(reader: &mut R) -> std::io::Result<T>
+where
+    R: std::io::Read,
+    T: for<'a> Deserialize<'a>,
+{
+    let mut buf = Vec::new();
+    reader.read_to_end(&mut buf)?;
+
+    let mut deserializer = Deserializer::from_slice(&buf);
+    T::deserialize(&mut deserializer).map_err(std::io::Error::other)
+}
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub struct Deserializer<'de> {
+struct Deserializer<'de> {
     input: &'de [u8],
 }
 
@@ -81,37 +101,6 @@ impl AsMut<Self> for Deserializer<'_> {
     fn as_mut(&mut self) -> &mut Self {
         self
     }
-}
-
-pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
-    from_slice_with_config(input)
-}
-
-pub fn from_slice_with_config<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
-    let mut deserializer = Deserializer::from_slice(input);
-    T::deserialize(&mut deserializer)
-}
-
-#[cfg(feature = "std")]
-pub fn from_reader<R, T>(reader: &mut R) -> std::io::Result<T>
-where
-    R: std::io::Read,
-    T: for<'a> Deserialize<'a>,
-{
-    from_reader_with_config(reader)
-}
-
-#[cfg(feature = "std")]
-pub fn from_reader_with_config<R, T>(reader: &mut R) -> std::io::Result<T>
-where
-    R: std::io::Read,
-    T: for<'a> Deserialize<'a>,
-{
-    let mut buf = Vec::new();
-    reader.read_to_end(&mut buf)?;
-
-    let mut deserializer = Deserializer::from_slice(&buf);
-    T::deserialize(&mut deserializer).map_err(std::io::Error::other)
 }
 
 impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
