@@ -480,24 +480,51 @@ pub mod ext_ref {
     }
 }
 
+pub mod ext_fixed {
+    use serde::de;
+
+    pub fn serialize<const N: usize, S>(
+        ext: &messagepack_core::extension::FixedExtension<N>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        super::ext_ref::serialize(&ext.as_ref(), serializer)
+    }
+
+    pub fn deserialize<'de, const N: usize, D>(
+        deserializer: D,
+    ) -> Result<messagepack_core::extension::FixedExtension<N>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let r = super::ext_ref::deserialize(deserializer)?;
+
+        let ext = messagepack_core::extension::FixedExtension::new(r.r#type, r.data)
+            .ok_or_else(|| de::Error::custom("extension length is too long"))?;
+        Ok(ext)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use messagepack_core::extension::ExtensionRef;
+    use messagepack_core::extension::{ExtensionRef, FixedExtension};
     use rstest::rstest;
 
     #[derive(Debug, Serialize, Deserialize)]
-    struct Wrap<'a>(
+    struct WrapRef<'a>(
         #[serde(with = "ext_ref", borrow)] messagepack_core::extension::ExtensionRef<'a>,
     );
 
     #[rstest]
-    fn encode_ext() {
+    fn encode_ext_ref() {
         let mut buf = [0_u8; 3];
 
         let kind: i8 = 123;
 
-        let ext = Wrap(ExtensionRef::new(kind, &[0x12]));
+        let ext = WrapRef(ExtensionRef::new(kind, &[0x12]));
         let length = crate::to_slice(&ext, &mut buf).unwrap();
 
         assert_eq!(length, 3);
@@ -505,12 +532,44 @@ mod tests {
     }
 
     #[rstest]
-    fn decode_ext() {
+    fn decode_ext_ref() {
         let buf = [0xd6, 0xff, 0x00, 0x00, 0x00, 0x00]; // timestamp ext type
 
-        let ext = crate::from_slice::<Wrap<'_>>(&buf).unwrap().0;
+        let ext = crate::from_slice::<WrapRef<'_>>(&buf).unwrap().0;
         assert_eq!(ext.r#type, -1);
         let seconds = u32::from_be_bytes(ext.data.try_into().unwrap());
         assert_eq!(seconds, 0);
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct WrapFixed<const N: usize>(
+        #[serde(with = "ext_fixed")] messagepack_core::extension::FixedExtension<N>,
+    );
+
+    #[rstest]
+    fn encode_ext_fixed() {
+        let mut buf = [0u8; 3];
+        let kind: i8 = 123;
+
+        let ext = WrapFixed(FixedExtension::new_fixed(kind, [0x12]));
+        let length = crate::to_slice(&ext, &mut buf).unwrap();
+
+        assert_eq!(length, 3);
+        assert_eq!(buf, [0xd4, kind.to_be_bytes()[0], 0x12]);
+    }
+
+    const TIMESTAMP32: &[u8] = &[0xd6, 0xff, 0x00, 0x00, 0x00, 0x00];
+
+    #[rstest]
+    fn decode_ext_fixed_bigger_will_success() {
+        let ext = crate::from_slice::<WrapFixed<6>>(TIMESTAMP32).unwrap().0;
+        assert_eq!(ext.r#type, -1);
+        assert_eq!(ext.data(), &TIMESTAMP32[2..])
+    }
+
+    #[rstest]
+    #[should_panic]
+    fn decode_ext_fixed_smaller_will_failed() {
+        let _ = crate::from_slice::<WrapFixed<3>>(TIMESTAMP32).unwrap();
     }
 }

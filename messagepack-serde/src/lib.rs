@@ -20,6 +20,6 @@ pub use de::{from_reader, from_reader_with_config};
 pub use ser::{to_vec, to_vec_with_config, to_writer, to_writer_with_config};
 
 pub use value::Number;
-pub use value::ext_ref;
 #[cfg(feature = "alloc")]
 pub use value::ValueRef;
+pub use value::{ext_fixed, ext_ref};
