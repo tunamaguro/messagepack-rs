@@ -554,15 +554,4 @@ mod tests {
         let decoded = from_slice::<E>(buf.as_ref()).unwrap();
         assert_eq!(decoded, expected);
     }
-
-    #[rstest]
-    fn decode_extension() {
-        use crate::value::extension::ExtensionRef;
-
-        let buf: &[u8] = &[0xd4, 0x7b, 0x12];
-
-        let ext = from_slice::<ExtensionRef<'_>>(buf).unwrap();
-        assert_eq!(ext.kind, 123);
-        assert_eq!(ext.data, [0x12_u8])
-    }
 }
