@@ -70,8 +70,8 @@ impl<'a> Decode<'a> for Timestamp96 {
             Format::Ext8 => NbyteReader::<1>::read(buf)?,
             _ => return Err(Error::UnexpectedFormat),
         };
-        const TIMESTAMP64_DATA_LENGTH: usize = 12;
-        if len != TIMESTAMP64_DATA_LENGTH {
+        const TIMESTAMP96_DATA_LENGTH: usize = 12;
+        if len != TIMESTAMP96_DATA_LENGTH {
             return Err(Error::InvalidData);
         }
 
