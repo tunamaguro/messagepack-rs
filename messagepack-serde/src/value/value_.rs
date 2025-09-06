@@ -1,6 +1,7 @@
-use super::{extension::ExtensionRef, number::Number};
+use super::number::Number;
 use alloc::vec::Vec;
-use serde::{Deserialize, de::Visitor, ser::SerializeMap};
+use messagepack_core::extension::ExtensionRef;
+use serde::{de::Visitor, ser::SerializeMap};
 
 /// Represents any messagepack value. `alloc` needed.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -72,7 +73,9 @@ impl serde::Serialize for ValueRef<'_> {
             ValueRef::Nil => serializer.serialize_none(),
             ValueRef::Bool(v) => serializer.serialize_bool(*v),
             ValueRef::Bin(items) => (*items).serialize(serializer),
-            ValueRef::Extension(extension_ref) => extension_ref.serialize(serializer),
+            ValueRef::Extension(extension_ref) => {
+                super::ext_ref::serialize(extension_ref, serializer)
+            }
             ValueRef::Number(number) => number.serialize(serializer),
             ValueRef::String(s) => serializer.serialize_str(s),
             ValueRef::Array(value_refs) => (*value_refs).serialize(serializer),
@@ -155,7 +158,7 @@ impl<'de> serde::Deserialize<'de> for ValueRef<'de> {
             where
                 D: serde::Deserializer<'de>,
             {
-                let ext = ExtensionRef::deserialize(deserializer)?;
+                let ext = super::ext_ref::deserialize(deserializer)?;
                 Ok(ValueRef::Extension(ext))
             }
 

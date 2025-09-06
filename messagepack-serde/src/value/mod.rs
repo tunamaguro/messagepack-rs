@@ -4,6 +4,6 @@ pub(crate) mod value_;
 pub use value_::ValueRef;
 
 pub(crate) mod extension;
-pub use extension::ExtensionRef;
+pub use extension::{ext_fixed, ext_ref};
 pub(crate) mod number;
 pub use number::Number;

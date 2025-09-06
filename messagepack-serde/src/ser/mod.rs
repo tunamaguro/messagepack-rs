@@ -250,8 +250,10 @@ where
     {
         match name {
             EXTENSION_STRUCT_NAME => {
-                let mut ser = SerializeExt::new(self.writer, &mut self.current_length);
-                value.serialize(&mut ser)
+                let mut ser = SerializeExt::new(self.writer);
+                value.serialize(&mut ser)?;
+                self.current_length += ser.length();
+                Ok(())
             }
             _ => value.serialize(self.as_mut()),
         }
@@ -547,17 +549,6 @@ mod tests {
         let buf = &mut [0u8; 128];
         let len = to_slice(&v, buf).unwrap();
         assert_eq!(buf[..len], [0xe0]);
-    }
-
-    #[test]
-    fn encode_extension() {
-        use crate::value::extension::ExtensionRef;
-        let kind: i8 = 123;
-        let ext = ExtensionRef::new(kind, &[0x12]);
-        let buf = &mut [0_u8; 3];
-
-        let len = to_slice(&ext, buf).unwrap();
-        assert_eq!(buf[..len], [0xd4, kind.to_be_bytes()[0], 0x12]);
     }
 
     #[cfg(feature = "std")]
