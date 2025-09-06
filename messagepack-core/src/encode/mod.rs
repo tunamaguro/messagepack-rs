@@ -1,7 +1,6 @@
 pub mod array;
 pub mod bin;
 pub mod bool;
-pub mod extension;
 pub mod float;
 pub mod int;
 pub mod map;
@@ -10,7 +9,6 @@ pub mod str;
 mod timestamp;
 
 pub use bin::BinaryEncoder;
-pub use extension::ExtensionEncoder;
 pub use map::{MapDataEncoder, MapEncoder, MapFormatEncoder, MapSliceEncoder};
 pub use nil::NilEncoder;
 

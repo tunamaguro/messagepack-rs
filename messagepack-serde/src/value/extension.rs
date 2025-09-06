@@ -1,4 +1,4 @@
-use messagepack_core::{Format, encode::ExtensionEncoder, io::IoWrite};
+use messagepack_core::{Format, extension::ExtensionRef as CoreExtensionRef, io::IoWrite};
 use serde::{
     Deserialize, Serialize, Serializer,
     de::Visitor,
@@ -265,9 +265,9 @@ impl ser::Serialize for ExtInner<'_> {
     where
         S: Serializer,
     {
-        let encoder = ExtensionEncoder::new(self.kind, self.data);
+        let encoder = CoreExtensionRef::new(self.kind, self.data);
         let format = encoder
-            .to_format::<()>()
+            .to_format::<core::convert::Infallible>()
             .map_err(|_| ser::Error::custom("Invalid data length"))?;
 
         let mut seq = serializer.serialize_seq(Some(4))?;

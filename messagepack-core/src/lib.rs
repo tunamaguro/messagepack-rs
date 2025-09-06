@@ -8,6 +8,7 @@ pub mod encode;
 mod formats;
 pub mod io;
 pub mod timestamp;
+pub mod extension;
 
 pub use decode::Decode;
 pub use encode::Encode;

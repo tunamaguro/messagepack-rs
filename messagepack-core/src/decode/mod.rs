@@ -5,8 +5,6 @@ pub use array::ArrayDecoder;
 mod bin;
 pub use bin::BinDecoder;
 mod bool;
-mod extension;
-pub use extension::{Extension, ExtensionDecoder};
 mod float;
 mod int;
 mod map;
