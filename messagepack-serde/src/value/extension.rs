@@ -11,7 +11,7 @@ pub(crate) const EXTENSION_STRUCT_NAME: &str = "$__MSGPACK_EXTENSION_STRUCT";
 
 pub(crate) struct SerializeExt<'a, W> {
     writer: &'a mut W,
-    length: &'a mut usize,
+    length: usize,
 }
 
 impl<W> AsMut<Self> for SerializeExt<'_, W> {
@@ -21,8 +21,12 @@ impl<W> AsMut<Self> for SerializeExt<'_, W> {
 }
 
 impl<'a, W> SerializeExt<'a, W> {
-    pub fn new(writer: &'a mut W, length: &'a mut usize) -> Self {
-        Self { writer, length }
+    pub fn new(writer: &'a mut W) -> Self {
+        Self { writer, length: 0 }
+    }
+
+    pub(crate) fn length(&self) -> usize {
+        self.length
     }
 }
 
@@ -109,7 +113,7 @@ where
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
         self.writer.write(v).map_err(CoreError::Io)?;
-        *self.length += v.len();
+        self.length += v.len();
         Ok(())
     }
 

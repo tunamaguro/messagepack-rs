@@ -250,8 +250,10 @@ where
     {
         match name {
             EXTENSION_STRUCT_NAME => {
-                let mut ser = SerializeExt::new(self.writer, &mut self.current_length);
-                value.serialize(&mut ser)
+                let mut ser = SerializeExt::new(self.writer);
+                value.serialize(&mut ser)?;
+                self.current_length += ser.length();
+                Ok(())
             }
             _ => value.serialize(self.as_mut()),
         }
