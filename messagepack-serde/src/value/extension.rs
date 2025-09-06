@@ -478,7 +478,7 @@ pub mod ext_ref {
                 Ok(messagepack_core::extension::ExtensionRef::new(kind, data))
             }
         }
-        deserializer.deserialize_any(ExtensionVisitor)
+        deserializer.deserialize_seq(ExtensionVisitor)
     }
 }
 
