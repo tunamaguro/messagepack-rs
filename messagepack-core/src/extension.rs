@@ -2,9 +2,9 @@ use crate::decode::{self, NbyteReader};
 use crate::encode;
 use crate::{Decode, Encode, formats::Format, io::IoWrite};
 
-pub const U8_MAX: usize = u8::MAX as usize;
-pub const U16_MAX: usize = u16::MAX as usize;
-pub const U32_MAX: usize = u32::MAX as usize;
+const U8_MAX: usize = u8::MAX as usize;
+const U16_MAX: usize = u16::MAX as usize;
+const U32_MAX: usize = u32::MAX as usize;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ExtensionRef<'a> {
