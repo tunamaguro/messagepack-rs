@@ -5,6 +5,8 @@ use crate::{Decode, Encode, formats::Format, io::IoWrite};
 const U8_MAX: usize = u8::MAX as usize;
 const U16_MAX: usize = u16::MAX as usize;
 const U32_MAX: usize = u32::MAX as usize;
+const U8_MAX_PLUS_ONE: usize = U8_MAX + 1;
+const U16_MAX_PLUS_ONE: usize = U16_MAX + 1;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ExtensionRef<'a> {
@@ -24,9 +26,9 @@ impl<'a> ExtensionRef<'a> {
             4 => Format::FixExt4,
             8 => Format::FixExt8,
             16 => Format::FixExt16,
-            0..U8_MAX => Format::Ext8,
-            U8_MAX..U16_MAX => Format::Ext16,
-            U16_MAX..U32_MAX => Format::Ext32,
+            0..=U8_MAX => Format::Ext8,
+            U8_MAX_PLUS_ONE..=U16_MAX => Format::Ext16,
+            U16_MAX_PLUS_ONE..=U32_MAX => Format::Ext32,
             _ => return Err(encode::Error::InvalidFormat),
         };
         Ok(format)
@@ -116,7 +118,6 @@ impl<'a> Decode<'a> for ExtensionRef<'a> {
         format: Format,
         buf: &'a [u8],
     ) -> core::result::Result<(Self::Value, &'a [u8]), decode::Error> {
-        let (ext_type, buf) = buf.split_first().ok_or(decode::Error::EofData)?;
         let (len, buf) = match format {
             Format::FixExt1 => (1, buf),
             Format::FixExt2 => (2, buf),
@@ -128,6 +129,7 @@ impl<'a> Decode<'a> for ExtensionRef<'a> {
             Format::Ext32 => NbyteReader::<4>::read(buf)?,
             _ => return Err(decode::Error::UnexpectedFormat),
         };
+        let (ext_type, buf) = buf.split_first().ok_or(decode::Error::EofData)?;
         let (data, rest) = buf.split_at_checked(len).ok_or(decode::Error::EofData)?;
         let ext = ExtensionRef {
             r#type: (*ext_type) as i8,
@@ -290,20 +292,52 @@ mod tests {
         assert_eq!(n, expected.len());
     }
 
-    const TIMESTAMP32: &[u8] = &[0xd6, 0xff, 0x62, 0x15, 0x62, 0x1e];
+    #[rstest]
+    #[case(Format::FixExt1.as_byte(),  5_i8, [0x12])]
+    #[case(Format::FixExt2.as_byte(), -1_i8, [0x34, 0x56])]
+    #[case(Format::FixExt4.as_byte(), 42_i8, [0xde, 0xad, 0xbe, 0xef])]
+    #[case(Format::FixExt8.as_byte(), -7_i8, [0xAA; 8])]
+    #[case(Format::FixExt16.as_byte(), 7_i8, [0x55; 16])]
+    fn decode_ext_fixed<E: AsRef<[u8]>>(#[case] marker: u8, #[case] ty: i8, #[case] data: E) {
+        // Buffer: [FixExtN marker][type][data..]
+        let buf = core::iter::once(marker)
+            .chain(core::iter::once(ty as u8))
+            .chain(data.as_ref().iter().cloned())
+            .collect::<Vec<u8>>();
 
-    #[test]
-    fn decode_fix_ext4() {
-        let (ext, rest) = ExtensionRef::decode(TIMESTAMP32).unwrap();
-        let expect_type = -1;
-        let expect_data = 1645568542;
-        assert_eq!(ext.r#type, expect_type);
-        let data_u32 = u32::from_be_bytes(ext.data.try_into().unwrap());
-        assert_eq!(data_u32, expect_data);
-        assert_eq!(rest.len(), 0);
+        let (ext, rest) = ExtensionRef::decode(&buf).unwrap();
+        assert_eq!(ext.r#type, ty);
+        assert_eq!(ext.data, data.as_ref());
+        assert!(rest.is_empty());
     }
 
-    #[test]
+    #[rstest]
+    #[case(Format::Ext8, 42_i8, 5u8.to_be_bytes(), [0x11;5])] // small: Ext8
+    #[case(Format::Ext16, -7_i8,   300u16.to_be_bytes(), [0xAA;300])] // medium: Ext16 (>255)
+    #[case(Format::Ext32, 7_i8, 70000u32.to_be_bytes(), [0x55;70000])] // large: Ext32 (>65535)
+    fn decode_ext_sized<S: AsRef<[u8]>, D: AsRef<[u8]>>(
+        #[case] format: Format,
+        #[case] ty: i8,
+        #[case] size: S,
+        #[case] data: D,
+    ) {
+        // MessagePack ext variable-length layout: [format][length][type][data]
+        let buf = format
+            .as_slice()
+            .iter()
+            .chain(size.as_ref())
+            .chain(ty.to_be_bytes().iter())
+            .chain(data.as_ref())
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let (ext, rest) = ExtensionRef::decode(&buf).unwrap();
+        assert_eq!(ext.r#type, ty);
+        assert_eq!(ext.data, data.as_ref());
+        assert!(rest.is_empty());
+    }
+
+    #[rstest]
     fn fixed_extension_roundtrip() {
         let data = [1u8, 2, 3, 4];
         let ext = FixedExtension::<8>::new(5, &data).unwrap();
