@@ -304,6 +304,15 @@ mod tests {
         assert_eq!(decoded.schema, 0);
     }
 
+    #[test]
+    fn option_consumes_nil_in_sequence() {
+        // [None, 5] as an array of two elements
+        let buf: &[u8] = &[0x92, 0xc0, 0x05];
+
+        let decoded = from_slice::<(Option<u8>, u8)>(buf).unwrap();
+        assert_eq!(decoded, (None, 5));
+    }
+
     #[derive(Deserialize, PartialEq, Debug)]
     enum E {
         Unit,
