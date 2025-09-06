@@ -304,7 +304,6 @@ impl ser::Serialize for ExtInner<'_> {
 }
 
 pub(crate) struct DeserializeExt<'de> {
-    format: Format,
     data_len: usize,
     pub(crate) input: &'de [u8],
 }
@@ -347,7 +346,6 @@ impl<'de> DeserializeExt<'de> {
             _ => return Err(messagepack_core::decode::Error::UnexpectedFormat.into()),
         };
         Ok(DeserializeExt {
-            format,
             data_len,
             input: rest,
         })
