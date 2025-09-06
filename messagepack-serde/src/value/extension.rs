@@ -1,6 +1,6 @@
 use messagepack_core::{Format, extension::ExtensionRef as CoreExtensionRef, io::IoWrite};
 use serde::{
-    Deserialize, Serialize, Serializer,
+    Serialize, Serializer,
     de::Visitor,
     ser::{self, SerializeSeq},
 };
@@ -514,6 +514,7 @@ mod tests {
     use super::*;
     use messagepack_core::extension::{ExtensionRef, FixedExtension};
     use rstest::rstest;
+    use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize)]
     struct WrapRef<'a>(
