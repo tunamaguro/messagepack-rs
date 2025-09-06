@@ -27,13 +27,7 @@ impl<W: IoWrite> Encode<W> for BinaryEncoder<'_> {
             }
             0x10000..=0xffffffff => {
                 let cast = (self_len as u32).to_be_bytes();
-                writer.write(&[
-                    Format::Bin32.as_byte(),
-                    cast[0],
-                    cast[1],
-                    cast[2],
-                    cast[3],
-                ])?;
+                writer.write(&[Format::Bin32.as_byte(), cast[0], cast[1], cast[2], cast[3]])?;
 
                 Ok(5)
             }

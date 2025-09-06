@@ -49,13 +49,7 @@ impl<W: IoWrite> Encode<W> for MapFormatEncoder {
             }
             0x10000..=0xffffffff => {
                 let cast = (self.0 as u32).to_be_bytes();
-                writer.write(&[
-                    Format::Map32.as_byte(),
-                    cast[0],
-                    cast[1],
-                    cast[2],
-                    cast[3],
-                ])?;
+                writer.write(&[Format::Map32.as_byte(), cast[0], cast[1], cast[2], cast[3]])?;
 
                 Ok(5)
             }

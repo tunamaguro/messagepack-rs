@@ -164,7 +164,6 @@ impl<'de> serde::Deserialize<'de> for ValueRef<'de> {
                 A: serde::de::SeqAccess<'de>,
             {
                 let mut buf = Vec::new();
-                
 
                 while let Some(v) = seq.next_element::<ValueRef>()? {
                     buf.push(v);
