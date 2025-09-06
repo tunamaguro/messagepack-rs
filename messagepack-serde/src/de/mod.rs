@@ -1,8 +1,8 @@
 mod enum_;
 mod error;
 mod seq;
-
-pub use error::{CoreError, Error};
+use error::CoreError;
+pub use error::Error;
 
 use crate::value::extension::DeserializeExt;
 use messagepack_core::{Decode, Format, decode::NbyteReader};
@@ -12,8 +12,28 @@ use serde::{
     forward_to_deserialize_any,
 };
 
+/// Deserialize from slice
+pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
+    let mut deserializer = Deserializer::from_slice(input);
+    T::deserialize(&mut deserializer)
+}
+
+#[cfg(feature = "std")]
+/// Deserialize from [std::io::Read]
+pub fn from_reader<R, T>(reader: &mut R) -> std::io::Result<T>
+where
+    R: std::io::Read,
+    T: for<'a> Deserialize<'a>,
+{
+    let mut buf = Vec::new();
+    reader.read_to_end(&mut buf)?;
+
+    let mut deserializer = Deserializer::from_slice(&buf);
+    T::deserialize(&mut deserializer).map_err(std::io::Error::other)
+}
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub struct Deserializer<'de> {
+struct Deserializer<'de> {
     input: &'de [u8],
 }
 
@@ -83,37 +103,6 @@ impl AsMut<Self> for Deserializer<'_> {
     }
 }
 
-pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
-    from_slice_with_config(input)
-}
-
-pub fn from_slice_with_config<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
-    let mut deserializer = Deserializer::from_slice(input);
-    T::deserialize(&mut deserializer)
-}
-
-#[cfg(feature = "std")]
-pub fn from_reader<R, T>(reader: &mut R) -> std::io::Result<T>
-where
-    R: std::io::Read,
-    T: for<'a> Deserialize<'a>,
-{
-    from_reader_with_config(reader)
-}
-
-#[cfg(feature = "std")]
-pub fn from_reader_with_config<R, T>(reader: &mut R) -> std::io::Result<T>
-where
-    R: std::io::Read,
-    T: for<'a> Deserialize<'a>,
-{
-    let mut buf = Vec::new();
-    reader.read_to_end(&mut buf)?;
-
-    let mut deserializer = Deserializer::from_slice(&buf);
-    T::deserialize(&mut deserializer).map_err(std::io::Error::other)
-}
-
 impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     type Error = Error;
 
@@ -123,7 +112,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     {
         let format = self.decode::<Format>()?;
         match format {
-            Format::Nil => visitor.visit_none(),
+            Format::Nil => visitor.visit_unit(),
             Format::False => visitor.visit_bool(false),
             Format::True => visitor.visit_bool(true),
             Format::PositiveFixInt(v) => visitor.visit_u8(v),
@@ -203,6 +192,22 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         }
     }
 
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        let (first, rest) = self.input.split_first().ok_or(CoreError::EofFormat)?;
+
+        let format = Format::from_byte(*first);
+        match format {
+            Format::Nil => {
+                self.input = rest;
+                visitor.visit_none()
+            }
+            _ => visitor.visit_some(self),
+        }
+    }
+
     fn deserialize_enum<V>(
         self,
         _name: &'static str,
@@ -238,7 +243,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
 
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        bytes byte_buf unit unit_struct newtype_struct seq tuple
         tuple_struct map struct identifier ignored_any
     }
 
@@ -302,6 +307,38 @@ mod tests {
         let decoded = from_slice::<S>(buf).unwrap();
         assert!(decoded.compact);
         assert_eq!(decoded.schema, 0);
+    }
+
+    #[test]
+    fn option_consumes_nil_in_sequence() {
+        // [None, 5] as an array of two elements
+        let buf: &[u8] = &[0x92, 0xc0, 0x05];
+
+        let decoded = from_slice::<(Option<u8>, u8)>(buf).unwrap();
+        assert_eq!(decoded, (None, 5));
+    }
+
+    #[test]
+    fn option_some_simple() {
+        let buf: &[u8] = &[0x05];
+        let decoded = from_slice::<Option<u8>>(buf).unwrap();
+        assert_eq!(decoded, Some(5));
+    }
+
+    #[test]
+    fn unit_from_nil() {
+        let buf: &[u8] = &[0xc0];
+        from_slice::<()>(buf).unwrap();
+    }
+
+    #[test]
+    fn unit_struct() {
+        #[derive(Debug, Deserialize, PartialEq)]
+        struct U;
+
+        let buf: &[u8] = &[0xc0];
+        let decoded = from_slice::<U>(buf).unwrap();
+        assert_eq!(decoded, U);
     }
 
     #[derive(Deserialize, PartialEq, Debug)]

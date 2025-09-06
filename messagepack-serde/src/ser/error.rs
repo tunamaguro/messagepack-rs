@@ -1,14 +1,19 @@
 use serde::ser;
 
-pub type CoreError<T> = messagepack_core::encode::Error<T>;
+pub(crate) type CoreError<T> = messagepack_core::encode::Error<T>;
 
+/// Error during serialization
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Error<T> {
+    /// Core error
     Encode(CoreError<T>),
+    /// Try serialize  array or map but not passed length
     SeqLenNone,
     #[cfg(not(feature = "std"))]
+    /// Parse error
     Custom,
     #[cfg(feature = "std")]
+    /// Parse error
     Message(String),
 }
 

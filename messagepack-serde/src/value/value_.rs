@@ -6,56 +6,79 @@ use serde::{de::Visitor, ser::SerializeMap};
 /// Represents any messagepack value. `alloc` needed.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum ValueRef<'a> {
+    /// Represents nil format
     Nil,
+    /// Represents bool format family
     Bool(bool),
+    /// Represents `bin 8`, `bin 16` and `bin 32`
     Bin(&'a [u8]),
+    /// Represents ext format family
     Extension(ExtensionRef<'a>),
+    /// Represents int format family and float format family
     Number(Number),
+    /// Represents str format family
     String(&'a str),
+    /// Represents array format family
     Array(Vec<ValueRef<'a>>),
+    /// Represents map format family
     Map(Vec<(ValueRef<'a>, ValueRef<'a>)>),
 }
 
 impl ValueRef<'_> {
+    /// Returns true if the `ValueRef` is nil
     pub fn is_nil(&self) -> bool {
         matches!(self, ValueRef::Nil)
     }
+
+    /// If the `ValueRef` is boolean, returns contained value.
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             ValueRef::Bool(v) => Some(*v),
             _ => None,
         }
     }
+
+    /// If the `ValueRef` is bin, returns contained value.
     pub fn as_bin(&self) -> Option<&[u8]> {
         match self {
             ValueRef::Bin(v) => Some(*v),
             _ => None,
         }
     }
+
+    /// If the `ValueRef` is ext, returns contained value.
     pub fn as_extension(&self) -> Option<&ExtensionRef<'_>> {
         match self {
             ValueRef::Extension(v) => Some(v),
             _ => None,
         }
     }
+
+    /// If the `ValueRef` is number, returns contained value.
     pub fn as_number(&self) -> Option<Number> {
         match self {
             ValueRef::Number(v) => Some(*v),
             _ => None,
         }
     }
+
+    /// If the `ValueRef` is str, returns contained value.
     pub fn as_string(&self) -> Option<&str> {
         match self {
             ValueRef::String(v) => Some(*v),
             _ => None,
         }
     }
+
+    /// If the `ValueRef` is array, returns contained value.
     pub fn as_array(&self) -> Option<&[ValueRef<'_>]> {
         match self {
             ValueRef::Array(v) => Some(v),
             _ => None,
         }
     }
+
+    /// If the `ValueRef` is map, returns contained value.
     pub fn as_map(&self) -> Option<&[(ValueRef<'_>, ValueRef<'_>)]> {
         match self {
             ValueRef::Map(v) => Some(v),

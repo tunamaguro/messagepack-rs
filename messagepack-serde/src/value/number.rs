@@ -25,24 +25,32 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Number {
+    /// Represents `positive fixint`, `uint 8`, `uint 16`, `uint 32` and `uint 64`
     UnsignedInt(u64),
+    /// Represents `negative fixint`, `int 8`, `int 16`, `int 32` and `int 64`
     SignedInt(i64),
+    /// Represents `float 32` and `float 64`
     Float(f64),
 }
 
 impl Number {
+    /// If the `Number` is unsigned int, returns `u64`.
     pub fn as_unsigned_int(&self) -> Option<u64> {
         match self {
             Number::UnsignedInt(v) => Some(*v),
             _ => None,
         }
     }
+
+    /// If the `Number` is signed int, returns `i64`.
     pub fn as_signed_int(&self) -> Option<i64> {
         match self {
             Number::SignedInt(v) => Some(*v),
             _ => None,
         }
     }
+
+    /// If the `Number` is floating number, returns `f64`.
     pub fn as_float(&self) -> Option<f64> {
         match self {
             Number::Float(v) => Some(*v),

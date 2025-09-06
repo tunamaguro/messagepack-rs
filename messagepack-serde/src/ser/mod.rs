@@ -7,7 +7,7 @@ pub use num::{AggressiveMinimize, Exact, LosslessMinimize, NumEncoder};
 use core::marker::PhantomData;
 
 use crate::value::extension::{EXTENSION_STRUCT_NAME, SerializeExt};
-pub use error::{CoreError, Error};
+pub use error::Error;
 use messagepack_core::{
     Encode, SliceWriter,
     encode::{BinaryEncoder, MapFormatEncoder, NilEncoder, array::ArrayFormatEncoder},
@@ -17,7 +17,7 @@ use messagepack_core::{
 use serde::ser;
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
-pub struct Serializer<'a, W, Num> {
+struct Serializer<'a, W, Num> {
     writer: &'a mut W,
     current_length: usize,
     num_encoder: PhantomData<Num>,
@@ -43,6 +43,7 @@ impl<W, Num> AsMut<Self> for Serializer<'_, W, Num> {
     }
 }
 
+/// Serialize value as messagepack
 pub fn to_slice<T>(value: &T, buf: &mut [u8]) -> Result<usize, Error<WError>>
 where
     T: ser::Serialize + ?Sized,
@@ -50,6 +51,7 @@ where
     to_slice_with_config(value, buf, num::Exact)
 }
 
+/// Serialize value as messagepack with config.
 pub fn to_slice_with_config<'a, T, C>(
     value: &T,
     buf: &'a mut [u8],
@@ -66,6 +68,7 @@ where
 }
 
 #[cfg(feature = "std")]
+/// Serialize value as messagepack
 pub fn to_writer<T, W>(value: &T, writer: &mut W) -> Result<usize, Error<std::io::Error>>
 where
     T: ser::Serialize + ?Sized,
@@ -75,6 +78,7 @@ where
 }
 
 #[cfg(feature = "std")]
+/// Serialize value as messagepack with config.
 pub fn to_writer_with_config<T, W, C>(
     value: &T,
     writer: &mut W,
@@ -90,7 +94,8 @@ where
     Ok(ser.current_length)
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
+/// Serialize value as messagepack byte vector
 pub fn to_vec<T>(value: &T) -> Result<Vec<u8>, Error<std::io::Error>>
 where
     T: ser::Serialize + ?Sized,
@@ -101,7 +106,8 @@ where
     Ok(buf)
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
+/// Serialize value as messagepack byte vector with config
 pub fn to_vec_with_config<T, C>(value: &T, config: C) -> Result<Vec<u8>, Error<std::io::Error>>
 where
     T: ser::Serialize + ?Sized,

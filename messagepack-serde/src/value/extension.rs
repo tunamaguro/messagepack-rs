@@ -5,7 +5,7 @@ use serde::{
     ser::{self, SerializeSeq},
 };
 
-use crate::ser::{CoreError, Error};
+use crate::ser::Error;
 
 pub(crate) const EXTENSION_STRUCT_NAME: &str = "$__MSGPACK_EXTENSION_STRUCT";
 
@@ -112,7 +112,9 @@ where
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        self.writer.write(v).map_err(CoreError::Io)?;
+        self.writer
+            .write(v)
+            .map_err(messagepack_core::encode::Error::Io)?;
         self.length += v.len();
         Ok(())
     }
@@ -359,7 +361,9 @@ impl<'de> serde::Deserializer<'de> for &mut DeserializeExt<'de> {
     where
         V: Visitor<'de>,
     {
-        Err(crate::de::Error::AnyIsUnsupported)
+        Err(serde::de::Error::custom(
+            "any when deserialize extension is not supported",
+        ))
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -423,9 +427,37 @@ impl<'de> serde::de::SeqAccess<'de> for &mut DeserializeExt<'de> {
     }
 }
 
+/// De/Serialize [messagepack_core::extension::ExtensionRef]
+///
+/// ## Example
+///
+/// ```rust
+/// use serde::{Serialize,Deserialize};
+/// use messagepack_core::extension::ExtensionRef;
+///
+/// #[derive(Debug, Serialize, Deserialize, PartialEq)]
+/// #[serde(transparent)]
+/// struct WrapRef<'a>(
+///     #[serde(with = "messagepack_serde::ext_ref", borrow)] ExtensionRef<'a>,
+/// );
+///
+/// # fn main() {
+///
+/// let ext = WrapRef(
+///     ExtensionRef::new(10,&[0,1,2,3,4,5])
+/// );
+/// let mut buf = [0u8; 9];
+/// messagepack_serde::to_slice(&ext, &mut buf).unwrap();
+///
+/// let result = messagepack_serde::from_slice::<WrapRef<'_>>(&buf).unwrap();
+/// assert_eq!(ext,result);
+///
+/// # }
+/// ```
 pub mod ext_ref {
     use super::*;
 
+    /// Serialize [messagepack_core::extension::ExtensionRef]
     pub fn serialize<S>(
         ext: &messagepack_core::extension::ExtensionRef<'_>,
         serializer: S,
@@ -442,6 +474,7 @@ pub mod ext_ref {
         )
     }
 
+    /// Deserialize [messagepack_core::extension::ExtensionRef]
     pub fn deserialize<'de, D>(
         deserializer: D,
     ) -> Result<messagepack_core::extension::ExtensionRef<'de>, D::Error>
@@ -482,9 +515,37 @@ pub mod ext_ref {
     }
 }
 
+/// De/Serialize [messagepack_core::extension::FixedExtension]
+///
+/// ## Example
+///
+/// ```rust
+/// use serde::{Serialize,Deserialize};
+/// use messagepack_core::extension::FixedExtension;
+///
+/// #[derive(Debug, Serialize, Deserialize, PartialEq)]
+/// #[serde(transparent)]
+/// struct WrapRef(
+///     #[serde(with = "messagepack_serde::ext_fixed")] FixedExtension<16>,
+/// );
+///
+/// # fn main() {
+///
+/// let ext = WrapRef(
+///     FixedExtension::new(10,&[0,1,2,3,4,5]).unwrap()
+/// );
+/// let mut buf = [0u8; 9];
+/// messagepack_serde::to_slice(&ext, &mut buf).unwrap();
+///
+/// let result = messagepack_serde::from_slice::<WrapRef>(&buf).unwrap();
+/// assert_eq!(ext,result);
+///
+/// # }
+/// ```
 pub mod ext_fixed {
     use serde::de;
 
+    /// Serialize [messagepack_core::extension::FixedExtension]
     pub fn serialize<const N: usize, S>(
         ext: &messagepack_core::extension::FixedExtension<N>,
         serializer: S,
@@ -495,6 +556,7 @@ pub mod ext_fixed {
         super::ext_ref::serialize(&ext.as_ref(), serializer)
     }
 
+    /// Deserialize [messagepack_core::extension::FixedExtension]
     pub fn deserialize<'de, const N: usize, D>(
         deserializer: D,
     ) -> Result<messagepack_core::extension::FixedExtension<N>, D::Error>
