@@ -13,10 +13,10 @@ all-features = true
 [dependencies]
 messagepack-core = { workspace = true }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_bytes = { version = "0.11" }
 num-traits = { workspace = true }
 
 [dev-dependencies]
+serde_bytes = { version = "0.11" }
 rstest = { workspace = true }
 
 [features]

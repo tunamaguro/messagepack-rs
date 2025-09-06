@@ -255,6 +255,16 @@ where
     }
 }
 
+struct Bytes<'a>(pub &'a [u8]);
+impl ser::Serialize for Bytes<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bytes(self.0)
+    }
+}
+
 struct ExtInner<'a> {
     kind: i8,
     data: &'a [u8],
@@ -272,42 +282,31 @@ impl ser::Serialize for ExtInner<'_> {
 
         let mut seq = serializer.serialize_seq(Some(4))?;
 
-        seq.serialize_element(serde_bytes::Bytes::new(&format.as_slice()))?;
-
-        const EMPTY: &[u8] = &[];
+        seq.serialize_element(&Bytes(&format.as_slice()))?;
 
         match format {
-            messagepack_core::Format::FixExt1 => {
-                seq.serialize_element(serde_bytes::Bytes::new(EMPTY))
-            }
-            messagepack_core::Format::FixExt2 => {
-                seq.serialize_element(serde_bytes::Bytes::new(EMPTY))
-            }
-            messagepack_core::Format::FixExt4 => {
-                seq.serialize_element(serde_bytes::Bytes::new(EMPTY))
-            }
-            messagepack_core::Format::FixExt8 => {
-                seq.serialize_element(serde_bytes::Bytes::new(EMPTY))
-            }
-            messagepack_core::Format::FixExt16 => {
-                seq.serialize_element(serde_bytes::Bytes::new(EMPTY))
-            }
+            messagepack_core::Format::FixExt1
+            | messagepack_core::Format::FixExt2
+            | messagepack_core::Format::FixExt4
+            | messagepack_core::Format::FixExt8
+            | messagepack_core::Format::FixExt16 => {}
+
             messagepack_core::Format::Ext8 => {
                 let len = (self.data.len() as u8).to_be_bytes();
-                seq.serialize_element(serde_bytes::Bytes::new(&len))
+                seq.serialize_element(&Bytes(&len))?;
             }
             messagepack_core::Format::Ext16 => {
                 let len = (self.data.len() as u16).to_be_bytes();
-                seq.serialize_element(serde_bytes::Bytes::new(&len))
+                seq.serialize_element(&Bytes(&len))?;
             }
             messagepack_core::Format::Ext32 => {
                 let len = (self.data.len() as u32).to_be_bytes();
-                seq.serialize_element(serde_bytes::Bytes::new(&len))
+                seq.serialize_element(&Bytes(&len))?;
             }
-            _ => unreachable!(),
-        }?;
-        seq.serialize_element(serde_bytes::Bytes::new(&self.kind.to_be_bytes()))?;
-        seq.serialize_element(serde_bytes::Bytes::new(self.data))?;
+            _ => return Err(ser::Error::custom("unexpected format")),
+        };
+        seq.serialize_element(&Bytes(&self.kind.to_be_bytes()))?;
+        seq.serialize_element(&Bytes(self.data))?;
 
         seq.end()
     }
