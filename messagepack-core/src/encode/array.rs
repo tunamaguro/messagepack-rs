@@ -1,31 +1,25 @@
-use core::{cell::RefCell, marker::PhantomData};
-
 use super::{Encode, Error, Result};
 use crate::{formats::Format, io::IoWrite};
 
 pub struct ArrayFormatEncoder(pub usize);
-impl ArrayFormatEncoder {
-    pub fn new(size: usize) -> Self {
-        Self(size)
-    }
-}
+
 impl<W: IoWrite> Encode<W> for ArrayFormatEncoder {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match self.0 {
             0x00..=0b1111 => {
                 let cast = self.0 as u8;
-                writer.write_bytes(&[Format::FixArray(cast).as_byte()])?;
+                writer.write(&[Format::FixArray(cast).as_byte()])?;
                 Ok(1)
             }
             0x10..=0xffff => {
                 let cast = (self.0 as u16).to_be_bytes();
-                writer.write_bytes(&[Format::Array16.as_byte(), cast[0], cast[1]])?;
+                writer.write(&[Format::Array16.as_byte(), cast[0], cast[1]])?;
 
                 Ok(3)
             }
             0x10000..=0xffffffff => {
                 let cast = (self.0 as u32).to_be_bytes();
-                writer.write_bytes(&[
+                writer.write(&[
                     Format::Array32.as_byte(),
                     cast[0],
                     cast[1],
@@ -40,57 +34,17 @@ impl<W: IoWrite> Encode<W> for ArrayFormatEncoder {
     }
 }
 
-pub struct ArrayDataEncoder<I, V> {
-    data: RefCell<I>,
-    _phantom: PhantomData<(I, V)>,
-}
-
-impl<I, V> ArrayDataEncoder<I, V> {
-    pub fn new(data: I) -> Self {
-        ArrayDataEncoder {
-            data: RefCell::new(data),
-            _phantom: Default::default(),
-        }
-    }
-}
-
-impl<W, I, V> Encode<W> for ArrayDataEncoder<I, V>
+impl<W, V> Encode<W> for &[V]
 where
     W: IoWrite,
-    I: Iterator<Item = V>,
     V: Encode<W>,
 {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        let format_len = ArrayFormatEncoder(self.len()).encode(writer)?;
         let array_len = self
-            .data
-            .borrow_mut()
-            .by_ref()
+            .iter()
             .map(|v| v.encode(writer))
             .try_fold(0, |acc, v| v.map(|n| acc + n))?;
-        Ok(array_len)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ArrayEncoder<'array, V>(&'array [V]);
-
-impl<'array, V> core::ops::Deref for ArrayEncoder<'array, V> {
-    type Target = &'array [V];
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<W, V> Encode<W> for ArrayEncoder<'_, V>
-where
-    W: IoWrite,
-    V: Encode<W>,
-{
-    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        let self_len = self.len();
-        let format_len = ArrayFormatEncoder(self_len).encode(writer)?;
-
-        let array_len = ArrayDataEncoder::new(self.iter()).encode(writer)?;
         Ok(format_len + array_len)
     }
 }
@@ -107,10 +61,9 @@ mod tests {
         #[case] expected: E,
     ) {
         let expected = expected.as_ref();
-        let encoder = ArrayEncoder(value.as_ref());
 
         let mut buf = vec![];
-        let n = encoder.encode(&mut buf).unwrap();
+        let n = value.as_ref().encode(&mut buf).unwrap();
         assert_eq!(buf, expected);
         assert_eq!(n, expected.len());
     }
@@ -131,10 +84,8 @@ mod tests {
             .cloned()
             .collect::<Vec<u8>>();
 
-        let encoder = ArrayEncoder(data.as_ref());
-
         let mut buf = vec![];
-        let n = encoder.encode(&mut buf).unwrap();
+        let n = data.as_ref().encode(&mut buf).unwrap();
 
         assert_eq!(&buf, &expected);
         assert_eq!(n, expected.len());

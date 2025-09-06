@@ -1,7 +1,6 @@
 pub mod array;
 pub mod bin;
 pub mod bool;
-pub mod extension;
 pub mod float;
 pub mod int;
 pub mod map;
@@ -9,9 +8,7 @@ pub mod nil;
 pub mod str;
 mod timestamp;
 
-pub use array::{ArrayDataEncoder, ArrayEncoder, ArrayFormatEncoder};
 pub use bin::BinaryEncoder;
-pub use extension::ExtensionEncoder;
 pub use map::{MapDataEncoder, MapEncoder, MapFormatEncoder, MapSliceEncoder};
 pub use nil::NilEncoder;
 
@@ -79,7 +76,7 @@ where
     W: IoWrite,
 {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        writer.write_bytes(&self.as_slice())?;
+        writer.write(&self.as_slice())?;
         Ok(1)
     }
 }

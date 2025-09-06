@@ -5,6 +5,7 @@
 
 pub mod decode;
 pub mod encode;
+pub mod extension;
 mod formats;
 pub mod io;
 pub mod timestamp;

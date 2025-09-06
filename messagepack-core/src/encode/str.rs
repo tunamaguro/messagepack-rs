@@ -9,25 +9,25 @@ impl<W: IoWrite> Encode<W> for StrFormatEncoder {
         match self.0 {
             0x00..=31 => {
                 let cast = self.0 as u8;
-                writer.write_bytes(&Format::FixStr(cast).as_slice())?;
+                writer.write(&Format::FixStr(cast).as_slice())?;
                 Ok(1)
             }
             32..=0xff => {
                 let cast = self.0 as u8;
-                writer.write_bytes(&Format::Str8.as_slice())?;
-                writer.write_bytes(&cast.to_be_bytes())?;
+                writer.write(&Format::Str8.as_slice())?;
+                writer.write(&cast.to_be_bytes())?;
                 Ok(2)
             }
             0x100..=0xffff => {
                 let cast = self.0 as u16;
-                writer.write_bytes(&Format::Str16.as_slice())?;
-                writer.write_bytes(&cast.to_be_bytes())?;
+                writer.write(&Format::Str16.as_slice())?;
+                writer.write(&cast.to_be_bytes())?;
                 Ok(3)
             }
             0x10000..=0xffffffff => {
                 let cast = self.0 as u32;
-                writer.write_bytes(&Format::Str32.as_slice())?;
-                writer.write_bytes(&cast.to_be_bytes())?;
+                writer.write(&Format::Str32.as_slice())?;
+                writer.write(&cast.to_be_bytes())?;
                 Ok(5)
             }
             _ => Err(Error::InvalidFormat),
@@ -39,7 +39,7 @@ pub struct StrDataEncoder<'a>(pub &'a str);
 impl<W: IoWrite> Encode<W> for StrDataEncoder<'_> {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let data = self.0.as_bytes();
-        writer.write_bytes(data)?;
+        writer.write(data)?;
         Ok(self.0.len())
     }
 }

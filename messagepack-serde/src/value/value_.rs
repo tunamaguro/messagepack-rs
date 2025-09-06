@@ -165,7 +165,7 @@ impl<'de> serde::Deserialize<'de> for ValueRef<'de> {
             {
                 let mut buf = Vec::new();
 
-                while let Ok(Some(v)) = seq.next_element::<ValueRef>() {
+                while let Some(v) = seq.next_element::<ValueRef>()? {
                     buf.push(v);
                 }
 
@@ -178,7 +178,7 @@ impl<'de> serde::Deserialize<'de> for ValueRef<'de> {
             {
                 let mut buf = Vec::new();
 
-                while let Ok(Some(v)) = map.next_entry() {
+                while let Some(v) = map.next_entry()? {
                     buf.push(v);
                 }
 

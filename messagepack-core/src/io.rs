@@ -1,13 +1,6 @@
 pub trait IoWrite {
     type Error: core::error::Error;
-    fn write_byte(&mut self, byte: u8) -> Result<(), Self::Error>;
-    fn write_bytes(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        for byte in buf {
-            self.write_byte(*byte)?;
-        }
-
-        Ok(())
-    }
+    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error>;
 }
 
 /// `SliceWriter` Error
@@ -45,17 +38,7 @@ impl<'a> SliceWriter<'a> {
 impl IoWrite for SliceWriter<'_> {
     type Error = WError;
 
-    fn write_byte(&mut self, byte: u8) -> Result<(), Self::Error> {
-        if self.len() >= 1 {
-            self.buf[self.cursor] = byte;
-            self.cursor += 1;
-            Ok(())
-        } else {
-            Err(WError::BufferFull)
-        }
-    }
-
-    fn write_bytes(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         if self.len() >= buf.len() {
             let to = &mut self.buf[self.cursor..self.cursor + buf.len()];
             to.copy_from_slice(buf);
@@ -74,11 +57,8 @@ where
 {
     type Error = std::io::Error;
 
-    fn write_byte(&mut self, byte: u8) -> Result<(), Self::Error> {
-        match self.write_all(&[byte]) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        }
+    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        self.write_all(buf)
     }
 }
 
@@ -91,6 +71,6 @@ mod tests {
     fn buffer_full() {
         let buf: &mut [u8] = &mut [0u8];
         let mut writer = SliceWriter::from_slice(buf);
-        writer.write_bytes(&[1, 2]).unwrap();
+        writer.write(&[1, 2]).unwrap();
     }
 }
