@@ -328,7 +328,7 @@ mod tests {
     #[test]
     fn unit_from_nil() {
         let buf: &[u8] = &[0xc0];
-        let _ = from_slice::<()>(buf).unwrap();
+        from_slice::<()>(buf).unwrap();
     }
 
     #[test]
