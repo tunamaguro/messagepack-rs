@@ -1,6 +1,9 @@
+//! Array format encoder.
+
 use super::{Encode, Error, Result};
 use crate::{formats::Format, io::IoWrite};
 
+/// Encode only the array header for an array of a given length.
 pub struct ArrayFormatEncoder(pub usize);
 
 impl<W: IoWrite> Encode<W> for ArrayFormatEncoder {

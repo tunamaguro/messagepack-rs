@@ -2,6 +2,7 @@
 #![cfg_attr(all(not(test), not(feature = "std")), no_std)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc = include_str!("../README.md")]
+#![deny(missing_docs)]
 
 pub mod decode;
 pub mod encode;

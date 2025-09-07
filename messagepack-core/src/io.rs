@@ -1,5 +1,11 @@
+//! Minimal write abstraction used by encoders.
+
+/// Minimal `Write`‑like trait used by encoders to avoid committing to a
+/// specific I/O model.
 pub trait IoWrite {
+    /// Error type produced by the writer.
     type Error: core::error::Error;
+    /// Write all bytes from `buf`.
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error>;
 }
 
@@ -20,12 +26,14 @@ impl core::fmt::Display for WError {
 
 impl core::error::Error for WError {}
 
+/// Simple writer that writes into a mutable byte slice.
 pub struct SliceWriter<'a> {
     buf: &'a mut [u8],
     cursor: usize,
 }
 
 impl<'a> SliceWriter<'a> {
+    /// Create a new writer over the given buffer.
     pub fn from_slice(buf: &'a mut [u8]) -> Self {
         Self { buf, cursor: 0 }
     }

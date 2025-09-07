@@ -1,12 +1,16 @@
+//! Map encoders.
+
 use core::{cell::RefCell, marker::PhantomData, ops::Deref};
 
 use super::{Encode, Error, Result};
 use crate::{formats::Format, io::IoWrite};
 
+/// A key-value encoder that writes a single `key, value` pair.
 pub trait KVEncode<W>
 where
     W: IoWrite,
 {
+    /// Encode this key‑value pair to the writer and return the number of bytes written.
     fn encode(&self, writer: &mut W) -> Result<usize, W::Error>;
 }
 
@@ -25,8 +29,10 @@ impl<W: IoWrite, K: Encode<W>, V: Encode<W>> KVEncode<W> for (K, V) {
     }
 }
 
+/// Encode only the map header for a map of a given length.
 pub struct MapFormatEncoder(pub usize);
 impl MapFormatEncoder {
+    /// Construct from the number of pairs contained in the map.
     pub fn new(size: usize) -> Self {
         Self(size)
     }
@@ -58,6 +64,7 @@ impl<W: IoWrite> Encode<W> for MapFormatEncoder {
     }
 }
 
+/// Encode a stream of key-value pairs from an iterator.
 pub struct MapDataEncoder<I, J, KV> {
     data: RefCell<J>,
     _phantom: PhantomData<(I, J, KV)>,
@@ -67,6 +74,7 @@ impl<I, KV> MapDataEncoder<I, I::IntoIter, KV>
 where
     I: IntoIterator<Item = KV>,
 {
+    /// Construct from any iterable of key-value pairs.
     pub fn new(data: I) -> Self {
         Self {
             data: RefCell::new(data.into_iter()),
@@ -92,12 +100,14 @@ where
     }
 }
 
+/// Encode a slice of key-value pairs.
 pub struct MapSliceEncoder<'data, KV> {
     data: &'data [KV],
     _phantom: PhantomData<KV>,
 }
 
 impl<'data, KV> MapSliceEncoder<'data, KV> {
+    /// Construct from a slice of key-value pairs.
     pub fn new(data: &'data [KV]) -> Self {
         Self {
             data,
@@ -127,6 +137,7 @@ where
     }
 }
 
+/// Encode a map from an owned iterator, writing items lazily.
 pub struct MapEncoder<W, I, J, KV> {
     map: RefCell<J>,
     _phantom: PhantomData<(W, I, J, KV)>,
@@ -138,6 +149,7 @@ where
     I: IntoIterator<Item = KV>,
     KV: KVEncode<W>,
 {
+    /// Construct from any iterable of key-value pairs.
     pub fn new(map: I) -> Self {
         Self {
             map: RefCell::new(map.into_iter()),

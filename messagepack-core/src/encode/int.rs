@@ -1,3 +1,5 @@
+//! Integer encoders and size‑minimising helpers.
+
 use num_traits::ToPrimitive;
 
 use super::{Encode, Error, Result};

@@ -1,6 +1,9 @@
+//! String decoding helpers.
+
 use super::{Decode, Error, NbyteReader, Result};
 use crate::formats::Format;
 
+/// Decode a MessagePack string and return a borrowed `&str`.
 pub struct StrDecoder;
 
 impl<'a> Decode<'a> for StrDecoder {

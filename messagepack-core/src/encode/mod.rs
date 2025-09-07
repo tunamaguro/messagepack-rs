@@ -1,3 +1,8 @@
+//! Encoding primitives for MessagePack.
+//!
+//! This module exposes the `Encode` trait and a number of small helper
+//! encoders for arrays, maps, strings and binary data.
+
 pub mod array;
 pub mod bin;
 pub mod bool;
@@ -8,16 +13,19 @@ pub mod nil;
 pub mod str;
 mod timestamp;
 
+/// Helper to encode raw binary blobs using `bin8/16/32` formats.
 pub use bin::BinaryEncoder;
+/// Helpers to encode MessagePack maps from various sources.
 pub use map::{MapDataEncoder, MapEncoder, MapFormatEncoder, MapSliceEncoder};
+/// Encode the MessagePack `nil` value.
 pub use nil::NilEncoder;
 
 use crate::{Format, io::IoWrite};
 
-/// Messagepack Encode Error
+/// MessagePack encode error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Error<T> {
-    // io error
+    /// Error produced by the underlying writer.
     Io(T),
     /// Cannot mapped messagepack format
     InvalidFormat,
@@ -42,12 +50,12 @@ impl<T: core::error::Error> core::error::Error for Error<T> {}
 
 type Result<T, E> = ::core::result::Result<T, Error<E>>;
 
-/// A type which can be encoded to MessagePack
+/// A type which can be encoded to MessagePack.
 pub trait Encode<W>
 where
     W: IoWrite,
 {
-    /// encode to MessagePack
+    /// Encode this value to MessagePack and write bytes to `writer`.
     fn encode(&self, writer: &mut W) -> Result<usize, W::Error>;
 }
 

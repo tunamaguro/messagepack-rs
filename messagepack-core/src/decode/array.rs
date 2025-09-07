@@ -1,8 +1,11 @@
+//! Array decoding helpers.
+
 use core::marker::PhantomData;
 
 use super::{Decode, Error, NbyteReader, Result};
 use crate::formats::Format;
 
+/// Decode a MessagePack array of `V` into `Array` collecting iterator.
 pub struct ArrayDecoder<Array, V>(PhantomData<(Array, V)>);
 
 impl<'a, Array, V> Decode<'a> for ArrayDecoder<Array, V>

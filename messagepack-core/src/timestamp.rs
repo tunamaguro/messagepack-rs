@@ -1,3 +1,5 @@
+//! MessagePack timestamp extension values.
+
 pub(crate) const TIMESTAMP_EXTENSION_TYPE: i8 = -1;
 
 /// Represents timestamp 32 extension type.
@@ -8,10 +10,12 @@ pub struct Timestamp32 {
 }
 
 impl Timestamp32 {
+    /// Create a 32‑bit seconds timestamp.
     pub fn new(seconds: u32) -> Self {
         Self { secs: seconds }
     }
 
+    /// Get seconds since the UNIX epoch.
     pub fn seconds(&self) -> u32 {
         self.secs
     }
@@ -37,11 +41,14 @@ pub struct Timestamp64 {
 /// `seconds` or `nanos` cannot be represented
 #[derive(Clone, Debug)]
 pub struct Timestamp64Error {
+    /// Requested seconds that exceeded the 34‑bit range.
     pub seconds: u64,
+    /// Requested nanoseconds that exceeded the 30‑bit range.
     pub nanos: u32,
 }
 
 impl Timestamp64 {
+    /// Create a 64‑bit timestamp storing 34‑bit seconds and 30‑bit nanoseconds.
     pub fn new(seconds: u64, nanos: u32) -> Result<Self, Timestamp64Error> {
         const SECONDS_MAX_LIMIT: u64 = 1 << 34;
 
@@ -64,6 +71,7 @@ impl Timestamp64 {
         Ok(Self::from_buf(buf))
     }
 
+    /// Get the nanoseconds component.
     pub fn nanos(&self) -> u32 {
         let mut buf = [0u8; 4];
         buf.copy_from_slice(&self.data[..4]);
@@ -71,6 +79,7 @@ impl Timestamp64 {
         nanosec >> 2
     }
 
+    /// Get the seconds component.
     pub fn seconds(&self) -> u64 {
         // 34bit mask
         const MASK: u64 = (1 << 34) - 1;
@@ -99,6 +108,7 @@ pub struct Timestamp96 {
 }
 
 impl Timestamp96 {
+    /// Create a 96‑bit timestamp storing signed seconds and nanoseconds.
     pub fn new(seconds: i64, nanoseconds: u32) -> Self {
         Self {
             nanos: nanoseconds,
@@ -106,10 +116,12 @@ impl Timestamp96 {
         }
     }
 
+    /// Get the nanoseconds component.
     pub fn nanos(&self) -> u32 {
         self.nanos
     }
 
+    /// Get the seconds component.
     pub fn seconds(&self) -> i64 {
         self.secs
     }

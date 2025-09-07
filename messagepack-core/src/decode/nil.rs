@@ -1,6 +1,9 @@
+//! Nil and `Option` decoding helpers.
+
 use super::{Decode, Error, Result};
 use crate::formats::Format;
 
+/// Decode the MessagePack `nil` value.
 pub struct NilDecoder;
 
 impl<'a> Decode<'a> for NilDecoder {
@@ -8,15 +11,14 @@ impl<'a> Decode<'a> for NilDecoder {
     fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         let (format, buf) = Format::decode(buf)?;
 
+        Self::decode_with_format(format, buf)
+    }
+
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
         match format {
             Format::Nil => Ok(((), buf)),
             _ => Err(Error::UnexpectedFormat),
         }
-    }
-
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let _ = format;
-        Ok(((), buf))
     }
 }
 
