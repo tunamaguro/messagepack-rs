@@ -33,6 +33,10 @@ where
             Ok(None)
         }
     }
+    
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.left)
+    }
 }
 
 impl<'de, 'a> de::MapAccess<'de> for FixLenAccess<'de, 'a>
@@ -61,5 +65,9 @@ where
         V: de::DeserializeSeed<'de>,
     {
         seed.deserialize(self.de.as_mut())
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.left)
     }
 }
