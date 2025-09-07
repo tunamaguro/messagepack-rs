@@ -17,22 +17,11 @@ where
                 Ok(1)
             }
             _ => {
-                writer.write(&Format::Uint8.as_slice())?;
-                writer.write(&self.to_be_bytes())?;
-                Ok(2)
+                let mut buf = [Format::Uint8.as_byte(), 0];
+                let _ = &buf[1..].copy_from_slice(&self.to_be_bytes());
+                writer.write(&buf)?;
+                Ok(buf.len())
             }
-        }
-    }
-}
-
-impl<W> Encode<W> for u128
-where
-    W: IoWrite,
-{
-    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        match u64::try_from(*self) {
-            Ok(u64_uint) => u64_uint.encode(writer),
-            Err(_) => Err(Error::InvalidFormat),
         }
     }
 }
@@ -48,10 +37,11 @@ where
                 Ok(1)
             }
             _ => {
-                writer.write(&Format::Int8.as_slice())?;
-                writer.write(&self.to_be_bytes())?;
+                let mut buf = [Format::Int8.as_byte(), 0];
+                let _ = &buf[1..].copy_from_slice(&self.to_be_bytes());
+                writer.write(&buf)?;
 
-                Ok(2)
+                Ok(buf.len())
             }
         }
     }
@@ -64,9 +54,11 @@ macro_rules! impl_encode_int {
             W: IoWrite,
         {
             fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
-                writer.write(&$format.as_slice())?;
-                writer.write(&self.to_be_bytes())?;
-                Ok($size)
+                let mut buf = [0; $size];
+                buf[0] = $format.as_byte();
+                let _ = &buf[1..].copy_from_slice(&self.to_be_bytes());
+                writer.write(&buf)?;
+                Ok(buf.len())
             }
         }
     };
@@ -77,6 +69,18 @@ impl_encode_int!(u64, Format::Uint64, 9);
 impl_encode_int!(i16, Format::Int16, 3);
 impl_encode_int!(i32, Format::Int32, 5);
 impl_encode_int!(i64, Format::Int64, 9);
+
+impl<W> Encode<W> for u128
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        match u64::try_from(*self) {
+            Ok(u64_uint) => u64_uint.encode(writer),
+            Err(_) => Err(Error::InvalidFormat),
+        }
+    }
+}
 
 impl<W> Encode<W> for i128
 where

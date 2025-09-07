@@ -8,9 +8,11 @@ where
     W: IoWrite,
 {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        writer.write(&Format::Float32.as_slice())?;
-        writer.write(&self.to_be_bytes())?;
-        Ok(5)
+        let mut buf = [0; 5];
+        buf[0] = Format::Float32.as_byte();
+        let _ = &buf[1..].copy_from_slice(&self.to_be_bytes());
+        writer.write(&buf)?;
+        Ok(buf.len())
     }
 }
 
@@ -19,9 +21,11 @@ where
     W: IoWrite,
 {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        writer.write(&Format::Float64.as_slice())?;
-        writer.write(&self.to_be_bytes())?;
-        Ok(9)
+        let mut buf = [0; 9];
+        buf[0] = Format::Float32.as_byte();
+        let _ = &buf[1..].copy_from_slice(&self.to_be_bytes());
+        writer.write(&buf)?;
+        Ok(buf.len())
     }
 }
 
