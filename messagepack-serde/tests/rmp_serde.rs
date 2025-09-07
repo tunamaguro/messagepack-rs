@@ -129,11 +129,15 @@ fn maps_btreemap_order_and_sizes() {
     assert_same_lossless(&m1);
 
     let mut m15 = BTreeMap::new();
-    for i in 0..15u32 { m15.insert(i, i+100); }
+    for i in 0..15u32 {
+        m15.insert(i, i + 100);
+    }
     assert_same_lossless(&m15);
 
     let mut m16 = BTreeMap::new();
-    for i in 0..16u32 { m16.insert(i, i+100); }
+    for i in 0..16u32 {
+        m16.insert(i, i + 100);
+    }
     assert_same_lossless(&m16);
 }
 
@@ -154,10 +158,16 @@ fn structs_as_maps() {
         message: &'static str,
     }
 
-    assert_same_lossless(&Named { a: 7, b: Some("hi") });
+    assert_same_lossless(&Named {
+        a: 7,
+        b: Some("hi"),
+    });
     assert_same_lossless(&Named { a: 7, b: None });
     assert_same_lossless(&Tuple(1, -2));
-    assert_same_lossless(&WithRename { ident: 1, message: "ok" });
+    assert_same_lossless(&WithRename {
+        ident: 1,
+        message: "ok",
+    });
 }
 
 #[test]

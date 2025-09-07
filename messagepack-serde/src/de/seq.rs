@@ -33,7 +33,7 @@ where
             Ok(None)
         }
     }
-    
+
     fn size_hint(&self) -> Option<usize> {
         Some(self.left)
     }
