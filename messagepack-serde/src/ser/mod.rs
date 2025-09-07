@@ -534,9 +534,9 @@ mod tests {
             buf[..len],
             [
                 0x93, // fixarr len = 3
-                0xd1, 0x00, 0x01, // int16
-                0xce, 0x00, 0x00, 0x00, 0x02, // uint32
-                0xd2, 0x00, 0x00, 0x00, 0x03, // uint32
+                0x01, // positive fixint 1
+                0x02, // positive fixint 2
+                0x03, // positive fixint 3
             ]
         );
     }
