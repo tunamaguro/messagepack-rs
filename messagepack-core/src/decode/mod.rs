@@ -1,3 +1,8 @@
+//! Decoding primitives for MessagePack.
+//!
+//! This module provides low-level decoders that operate on byte slices and
+//! return decoded values along with the remaining tail.
+
 use crate::Format;
 
 mod array;
@@ -15,7 +20,7 @@ mod str;
 pub use str::StrDecoder;
 mod timestamp;
 
-/// Messagepack Encode Error
+/// MessagePack decode error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Error {
     /// Invalid data
@@ -41,14 +46,20 @@ impl core::fmt::Display for Error {
 
 impl core::error::Error for Error {}
 
+/// Result alias used by the decoders in this module.
 type Result<T> = ::core::result::Result<T, Error>;
 
+/// A type that can be decoded from a MessagePack byte slice.
 pub trait Decode<'a> {
+    /// The materialised value type.
     type Value: Sized;
-    // decode from buf and return (value,rest)
+    /// Decode a value from the front of `buf`, returning the value and the
+    /// remaining slice.
     fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])>;
 
-    // decode with format
+    /// Decode a value assuming the leading MessagePack format has already been
+    /// read by the caller. Implementations must validate that `format` is
+    /// appropriate for the type and return an error otherwise.
     fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])>;
 }
 
@@ -66,10 +77,13 @@ impl<'a> Decode<'a> for Format {
     }
 }
 
+/// Helper to read a fixed number of big‑endian bytes and return them as `usize`.
 pub struct NbyteReader<const NBYTE: usize>;
 
 macro_rules! impl_read {
     ($ty:ty) => {
+        /// Read the next big‑endian integer of type `$ty` and return it as
+        /// `usize` together with the remaining slice.
         pub fn read(buf: &[u8]) -> Result<(usize, &[u8])> {
             const SIZE: usize = core::mem::size_of::<$ty>();
             let (data, rest) = buf.split_at_checked(SIZE).ok_or(Error::EofData)?;

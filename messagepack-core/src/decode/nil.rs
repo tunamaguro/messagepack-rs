@@ -1,6 +1,9 @@
+//! Nil and `Option` decoding helpers.
+
 use super::{Decode, Error, Result};
 use crate::formats::Format;
 
+/// Decode the MessagePack `nil` value.
 pub struct NilDecoder;
 
 impl<'a> Decode<'a> for NilDecoder {

@@ -1,3 +1,5 @@
+//! MessagePack extension helpers.
+
 use crate::decode::{self, NbyteReader};
 use crate::encode;
 use crate::{Decode, Encode, formats::Format, io::IoWrite};
@@ -8,17 +10,28 @@ const U32_MAX: usize = u32::MAX as usize;
 const U8_MAX_PLUS_ONE: usize = U8_MAX + 1;
 const U16_MAX_PLUS_ONE: usize = U16_MAX + 1;
 
+/// A borrowed view of a MessagePack extension value.
+///
+/// Note that the MessagePack header (FixExt vs Ext8/16/32) is determined by the
+/// payload length when encoding. See [`ExtensionRef::to_format`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ExtensionRef<'a> {
+    /// Application‑defined extension type code.
     pub r#type: i8,
+    /// Borrowed payload bytes.
     pub data: &'a [u8],
 }
 
 impl<'a> ExtensionRef<'a> {
+    /// Create a borrowed reference to extension data with the given type code.
     pub fn new(r#type: i8, data: &'a [u8]) -> Self {
         Self { r#type, data }
     }
 
+    /// Decide the MessagePack format to use given the payload length.
+    ///
+    /// - If `data.len()` is exactly 1, 2, 4, 8 or 16, `FixExtN` is selected.
+    /// - Otherwise, `Ext8`/`Ext16`/`Ext32` is selected based on the byte length.
     pub fn to_format<E>(&self) -> core::result::Result<Format, encode::Error<E>> {
         let format = match self.data.len() {
             1 => Format::FixExt1,
@@ -139,14 +152,26 @@ impl<'a> Decode<'a> for ExtensionRef<'a> {
     }
 }
 
+/// A fixed-capacity container for extension payloads of up to `N` bytes.
+///
+/// This type name refers to the fixed-size backing buffer, not the MessagePack
+/// header kind. The actual header used at encode-time depends on the current
+/// payload length:
+/// - `len == 1, 2, 4, 8, 16` → `FixExtN`
+/// - otherwise (0..=255, 256..=65535, 65536..=u32::MAX) → `Ext8/16/32`
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FixedExtension<const N: usize> {
+    /// Application‑defined extension type code.
     pub r#type: i8,
     len: usize,
     data: [u8; N],
 }
 
 impl<const N: usize> FixedExtension<N> {
+    /// Construct from a slice whose length must be `<= N`.
+    ///
+    /// The chosen MessagePack format when encoding still follows the rules
+    /// described in the type-level documentation above.
     pub fn new(r#type: i8, data: &[u8]) -> Option<Self> {
         if data.len() > N {
             return None;
@@ -160,6 +185,11 @@ impl<const N: usize> FixedExtension<N> {
         })
     }
 
+    /// Construct with an exact `N`-byte payload.
+    ///
+    /// Note: Even when constructed with a fixed-size buffer, the encoder will
+    /// emit `FixExtN` only if `N` is one of {1, 2, 4, 8, 16}. For any other
+    /// `N`, the encoder uses `Ext8/16/32` as appropriate.
     pub fn new_fixed(r#type: i8, data: [u8; N]) -> Self {
         Self {
             r#type,
@@ -168,6 +198,7 @@ impl<const N: usize> FixedExtension<N> {
         }
     }
 
+    /// Borrow as [`ExtensionRef`] for encoding.
     pub fn as_ref(&self) -> ExtensionRef<'_> {
         ExtensionRef {
             r#type: self.r#type,
@@ -175,14 +206,17 @@ impl<const N: usize> FixedExtension<N> {
         }
     }
 
+    /// Current payload length in bytes.
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Returns `true` if the payload is empty.
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    /// Borrow the payload slice.
     pub fn data(&self) -> &[u8] {
         &self.data[..self.len]
     }

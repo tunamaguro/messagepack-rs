@@ -1,3 +1,5 @@
+//! Floating‑point encoders.
+
 use super::{Encode, Result};
 use crate::{formats::Format, io::IoWrite};
 
@@ -30,7 +32,9 @@ fn is_exactly_representable(x: f64) -> bool {
 /// encode minimum byte size
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub enum EncodeMinimizeFloat {
+    /// Encode as `float32` if exact, otherwise upcast to `float64`.
     F32(f32),
+    /// Always encode as `float64`.
     F64(f64),
 }
 

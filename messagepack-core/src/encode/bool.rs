@@ -1,3 +1,5 @@
+//! Boolean encoders.
+
 use super::{Encode, Result};
 use crate::{formats::Format, io::IoWrite};
 

@@ -1,6 +1,9 @@
+//! Binary (bin8/16/32) decoding helpers.
+
 use super::{Decode, Error, NbyteReader, Result};
 use crate::formats::Format;
 
+/// Decode a MessagePack binary blob and return a borrowed byte slice.
 pub struct BinDecoder;
 
 impl<'a> Decode<'a> for BinDecoder {

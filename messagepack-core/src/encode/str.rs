@@ -1,8 +1,11 @@
+//! String encoders.
+
 use core::ops::Deref;
 
 use super::{Encode, Error, Result};
 use crate::{formats::Format, io::IoWrite};
 
+/// Encode only the string header for a string of a given byte length.
 pub struct StrFormatEncoder(pub usize);
 impl<W: IoWrite> Encode<W> for StrFormatEncoder {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
@@ -35,6 +38,7 @@ impl<W: IoWrite> Encode<W> for StrFormatEncoder {
     }
 }
 
+/// Encode only the string bytes without a header.
 pub struct StrDataEncoder<'a>(pub &'a str);
 impl<W: IoWrite> Encode<W> for StrDataEncoder<'_> {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
@@ -43,6 +47,7 @@ impl<W: IoWrite> Encode<W> for StrDataEncoder<'_> {
         Ok(self.0.len())
     }
 }
+/// Encode a `&str` including its appropriate header.
 pub struct StrEncoder<'s>(pub &'s str);
 
 impl<'s> Deref for StrEncoder<'s> {

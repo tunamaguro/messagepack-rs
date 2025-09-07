@@ -1,6 +1,9 @@
+//! Nil encoder.
+
 use super::{Encode, Result};
 use crate::{formats::Format, io::IoWrite};
 
+/// Encode the MessagePack `nil` value.
 pub struct NilEncoder;
 
 impl<W: IoWrite> Encode<W> for NilEncoder {

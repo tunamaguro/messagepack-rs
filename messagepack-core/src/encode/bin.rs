@@ -1,6 +1,9 @@
+//! Binary encoders.
+
 use super::{Encode, Error, Result};
 use crate::{formats::Format, io::IoWrite};
 
+/// Encoder for MessagePack binary values (`bin8/16/32`).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BinaryEncoder<'blob>(pub &'blob [u8]);
 

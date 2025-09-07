@@ -1,8 +1,11 @@
+//! Map decoding helpers.
+
 use core::marker::PhantomData;
 
 use super::{Decode, Error, NbyteReader, Result};
 use crate::formats::Format;
 
+/// Decode a MessagePack map of `K -> V` into `Map` collecting iterator.
 pub struct MapDecoder<Map, K, V>(PhantomData<(Map, K, V)>);
 
 fn decode_kv<'a, K, V>(buf: &'a [u8]) -> Result<(K::Value, V::Value, &'a [u8])>
