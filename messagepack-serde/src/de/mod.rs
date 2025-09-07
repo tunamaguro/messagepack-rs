@@ -1,3 +1,5 @@
+//! Deserialize support for messagepack
+
 mod enum_;
 mod error;
 mod seq;

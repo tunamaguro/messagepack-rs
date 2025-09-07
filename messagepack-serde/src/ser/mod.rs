@@ -1,3 +1,37 @@
+//!  Serialize support for messagepack
+//!
+//! ## Limitation
+//!
+//! MessagePack requires the length header of arrays and maps to be written
+//! before any elements are encoded. Therefore this serializer needs serde
+//! to provide the exact length up front. If serde calls
+//! `serialize_seq(None)` or `serialize_map(None)`, this serializer returns
+//! `Error::SeqLenNone`.
+//!
+//! Examples with `serde(flatten)`:
+//!
+//! ```rust
+//! use serde::Serialize;
+//! use std::collections::HashMap;
+//!
+//! // Fails
+//! #[derive(Serialize)]
+//! struct Inner { b: u8, c: u8 }
+//!
+//! #[derive(Serialize)]
+//! struct Outer {
+//!     a: u8,
+//!     #[serde(flatten)]
+//!     extra: Inner,
+//! }
+//!
+//! let mut buf = [0u8; 32];
+//! let v = Outer { a: 1, extra: Inner { b: 2, c: 3 } };
+//! let err = messagepack_serde::ser::to_slice(&v, &mut buf).unwrap_err();
+//! assert_eq!(err, messagepack_serde::ser::Error::SeqLenNone);
+//! ```
+//!
+
 mod error;
 mod map;
 mod num;
@@ -48,7 +82,7 @@ pub fn to_slice<T>(value: &T, buf: &mut [u8]) -> Result<usize, Error<WError>>
 where
     T: ser::Serialize + ?Sized,
 {
-    to_slice_with_config(value, buf, num::Exact)
+    to_slice_with_config(value, buf, num::LosslessMinimize)
 }
 
 /// Serialize value as messagepack with config.
@@ -74,7 +108,7 @@ where
     T: ser::Serialize + ?Sized,
     W: std::io::Write,
 {
-    to_writer_with_config(value, writer, num::Exact)
+    to_writer_with_config(value, writer, num::LosslessMinimize)
 }
 
 #[cfg(feature = "std")]
@@ -534,9 +568,9 @@ mod tests {
             buf[..len],
             [
                 0x93, // fixarr len = 3
-                0xd1, 0x00, 0x01, // int16
-                0xce, 0x00, 0x00, 0x00, 0x02, // uint32
-                0xd2, 0x00, 0x00, 0x00, 0x03, // uint32
+                0x01, // positive fixint 1
+                0x02, // positive fixint 2
+                0x03, // positive fixint 3
             ]
         );
     }
@@ -569,9 +603,9 @@ mod tests {
             buf[..len],
             [
                 0x93, // fixarr len = 3
-                0xd1, 0x00, 0x01, // int16
-                0xce, 0x00, 0x00, 0x00, 0x02, // uint32
-                0xd2, 0x00, 0x00, 0x00, 0x03, // uint32
+                0x01, // positive fixint 1
+                0x02, // positive fixint 2
+                0x03  // positive fixint 3
             ]
         );
     }

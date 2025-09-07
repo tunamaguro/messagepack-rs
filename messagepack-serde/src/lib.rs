@@ -7,9 +7,7 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-/// Deserialize support for messagepack
 pub mod de;
-/// Serialize support for messagepack
 pub mod ser;
 mod value;
 
