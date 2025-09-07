@@ -311,6 +311,7 @@ version = "0.1.2"
 dependencies = [
  "messagepack-core",
  "num-traits",
+ "rmp-serde",
  "rstest",
  "serde",
  "serde_bytes",
