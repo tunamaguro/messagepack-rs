@@ -22,7 +22,7 @@ where
 {
     fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let mut buf = [0; 9];
-        buf[0] = Format::Float32.as_byte();
+        buf[0] = Format::Float64.as_byte();
         let _ = &buf[1..].copy_from_slice(&self.to_be_bytes());
         writer.write(&buf)?;
         Ok(buf.len())
