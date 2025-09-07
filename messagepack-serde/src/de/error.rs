@@ -7,6 +7,8 @@ pub(crate) type CoreError = messagepack_core::decode::Error;
 pub enum Error {
     /// Core error
     Decode(CoreError),
+    /// Recursion limit (nesting depth) exceeded
+    RecursionLimitExceeded,
     #[cfg(not(feature = "std"))]
     /// Parse error
     Custom,
@@ -19,6 +21,7 @@ impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Error::Decode(e) => e.fmt(f),
+            Error::RecursionLimitExceeded => write!(f, "recursion limit exceeded"),
             #[cfg(not(feature = "std"))]
             Error::Custom => write!(f, "Cannot deserialize format"),
             #[cfg(feature = "std")]

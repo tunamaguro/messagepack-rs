@@ -34,14 +34,30 @@ where
     T::deserialize(&mut deserializer).map_err(std::io::Error::other)
 }
 
+const MAX_RECURSION_DEPTH: usize = 256;
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 struct Deserializer<'de> {
     input: &'de [u8],
+    depth: usize,
 }
 
 impl<'de> Deserializer<'de> {
     pub fn from_slice(input: &'de [u8]) -> Self {
-        Deserializer { input }
+        Deserializer { input, depth: 0 }
+    }
+
+    fn recurse<F, V>(&mut self, f: F) -> Result<V, Error>
+    where
+        F: FnOnce(&mut Self) -> V,
+    {
+        if self.depth == MAX_RECURSION_DEPTH {
+            return Err(Error::RecursionLimitExceeded);
+        }
+        self.depth += 1;
+        let result = f(self);
+        self.depth -= 1;
+        Ok(result)
     }
 
     fn decode<V: Decode<'de>>(&mut self) -> Result<V::Value, Error> {
@@ -74,7 +90,7 @@ impl<'de> Deserializer<'de> {
             }
             _ => return Err(CoreError::UnexpectedFormat.into()),
         };
-        visitor.visit_seq(seq::FixLenAccess::new(self, n))
+        self.recurse(move |des| visitor.visit_seq(seq::FixLenAccess::new(des, n)))?
     }
 
     fn decode_map_with_format<V>(&mut self, format: Format, visitor: V) -> Result<V::Value, Error>
@@ -95,7 +111,7 @@ impl<'de> Deserializer<'de> {
             }
             _ => return Err(CoreError::UnexpectedFormat.into()),
         };
-        visitor.visit_map(seq::FixLenAccess::new(self, n))
+        self.recurse(move |des| visitor.visit_map(seq::FixLenAccess::new(des, n)))?
     }
 }
 
@@ -224,18 +240,20 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
             Ok(ident) => visitor.visit_enum(ident.into_deserializer()),
             _ => {
                 let (format, rest) = Format::decode(self.input)?;
-
                 let mut des = Deserializer::from_slice(rest);
+                // inherit depth
+                des.depth = self.depth;
                 let val = match format {
                     Format::FixMap(_)
                     | Format::Map16
                     | Format::Map32
                     | Format::FixArray(_)
                     | Format::Array16
-                    | Format::Array32 => visitor.visit_enum(enum_::Enum::new(&mut des)),
+                    | Format::Array32 => {
+                        des.recurse(|d| visitor.visit_enum(enum_::Enum::new(d)))?
+                    }
                     _ => Err(CoreError::UnexpectedFormat.into()),
                 }?;
-
                 self.input = des.input;
 
                 Ok(val)
@@ -259,6 +277,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use serde::de::IgnoredAny;
 
     #[rstest]
     #[case([0xc3],true)]
@@ -358,5 +377,24 @@ mod tests {
     fn decode_enum<Buf: AsRef<[u8]>>(#[case] buf: Buf, #[case] expected: E) {
         let decoded = from_slice::<E>(buf.as_ref()).unwrap();
         assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn recursion_limit_ok_at_256() {
+        // [[[[...]]]] 256 nested array
+        let mut buf = vec![0x91u8; 256];
+        buf.push(0xc0);
+
+        let _ = from_slice::<IgnoredAny>(&buf).unwrap();
+    }
+
+    #[test]
+    fn recursion_limit_err_over_256() {
+        // [[[[...]]]] 257 nested array
+        let mut buf = vec![0x91u8; 257];
+        buf.push(0xc0);
+
+        let err = from_slice::<IgnoredAny>(&buf).unwrap_err();
+        assert!(matches!(err, Error::RecursionLimitExceeded));
     }
 }
