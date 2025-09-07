@@ -48,7 +48,7 @@ pub fn to_slice<T>(value: &T, buf: &mut [u8]) -> Result<usize, Error<WError>>
 where
     T: ser::Serialize + ?Sized,
 {
-    to_slice_with_config(value, buf, num::Exact)
+    to_slice_with_config(value, buf, num::LosslessMinimize)
 }
 
 /// Serialize value as messagepack with config.
@@ -74,7 +74,7 @@ where
     T: ser::Serialize + ?Sized,
     W: std::io::Write,
 {
-    to_writer_with_config(value, writer, num::Exact)
+    to_writer_with_config(value, writer, num::LosslessMinimize)
 }
 
 #[cfg(feature = "std")]
