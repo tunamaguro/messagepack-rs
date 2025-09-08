@@ -146,4 +146,14 @@ mod tests {
         assert_eq!(&buf, &expected);
         assert_eq!(n, expected.len());
     }
+
+    #[rstest]
+    #[case((1u8,), &[0x91,0x01])]
+    #[case((1u8,2u8), &[0x92,0x01,0x02])]
+    #[case((1u8,2u8,3u8), &[0x93,0x01,0x02,0x03])]
+    fn encode_tuple<V: Encode<Vec<u8>>>(#[case] v: V, #[case] expected: &[u8]) {
+        let mut buf = Vec::new();
+        let _ = v.encode(&mut buf).unwrap();
+        assert_eq!(buf, expected);
+    }
 }
