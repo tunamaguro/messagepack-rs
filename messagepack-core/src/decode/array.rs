@@ -149,14 +149,89 @@ tuple_decode_impls! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
-    #[test]
-    fn decode_int_array() {
-        let buf: &[u8] = &[0x95, 0x01, 0x02, 0x03, 0x04, 0x05];
+    #[rstest]
+    #[case(&[0x92, 0x01, 0x02, 0x01], vec![1u8, 2], &[0x01])]
+    #[case(&[0xdc, 0x00, 0x02, 0x2a, 0x2b], vec![42u8, 43], &[])]
+    fn array_decode_success(
+        #[case] buf: &[u8],
+        #[case] expect: Vec<u8>,
+        #[case] rest_expect: &[u8],
+    ) {
         let (decoded, rest) = ArrayDecoder::<Vec<u8>, u8>::decode(buf).unwrap();
-
-        let expect: &[u8] = &[1, 2, 3, 4, 5];
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(rest, rest_expect);
+    }
+
+    #[rstest]
+    fn array_decoder_unexpected_format() {
+        let buf = &[0x81, 0x01, 0x02]; // map(1)
+        let err = ArrayDecoder::<Vec<u8>, u8>::decode(buf).unwrap_err();
+        assert!(matches!(err, Error::UnexpectedFormat));
+    }
+
+    #[rstest]
+    fn fixed_array_len0_success() {
+        let buf = &[0x90]; // array(0)
+        let (arr, rest) = <[u8; 0] as Decode>::decode(buf).unwrap();
+        assert_eq!(arr, []);
+        assert!(rest.is_empty());
+    }
+
+    #[rstest]
+    fn fixed_array_len3_success() {
+        let buf = &[0x93, 0x0a, 0x0b, 0x0c];
+        let (arr, rest) = <[u8; 3] as Decode>::decode(buf).unwrap();
+        assert_eq!(arr, [10u8, 11, 12]);
+        assert!(rest.is_empty());
+    }
+
+    #[rstest]
+    #[case(&[0x92, 0x01, 0x02])] // len=2
+    #[case(&[0x94, 0x01, 0x02, 0x03, 0x04])] // len=4 
+    fn fixed_array_len_mismatch(#[case] buf: &[u8]) {
+        let err = <[u8; 3] as Decode>::decode(buf).unwrap_err();
+        assert!(matches!(err, Error::InvalidData));
+    }
+
+    #[rstest]
+    fn tuple1_success() {
+        let buf = &[0x91, 0x2a]; // [42]
+        let ((v0,), rest) = <(u8,) as Decode>::decode(buf).unwrap();
+        assert_eq!(v0, 42);
+        assert!(rest.is_empty());
+    }
+
+    #[rstest]
+    #[case(&[0x92, 0x2a, 0x2b])] // fixarray
+    #[case(&[0xdc, 0x00, 0x02, 0x2a, 0x2b])] // array16(2)
+    fn tuple2_success(#[case] buf: &[u8]) {
+        let ((a, b), rest) = <(u8, u8) as Decode>::decode(buf).unwrap();
+        assert_eq!((a, b), (42, 43));
+        assert!(rest.is_empty());
+    }
+
+    #[rstest]
+    fn tuple3_success() {
+        let buf = &[0x93, 0x01, 0x02, 0x03];
+        let ((a, b, c), rest) = <(u8, u8, u8) as Decode>::decode(buf).unwrap();
+        assert_eq!((a, b, c), (1, 2, 3));
+        assert!(rest.is_empty());
+    }
+
+    #[rstest]
+    #[case(&[0x92, 0x01, 0x02])] // len 2
+    #[case(&[0xdc, 0x00, 0x04, 1, 2, 3, 4])] // len 4
+    fn tuple_len_mismatch(#[case] buf: &[u8]) {
+        let err = <(u8, u8, u8) as Decode>::decode(buf).unwrap_err();
+        assert!(matches!(err, Error::InvalidData));
+    }
+
+    #[rstest]
+    fn tuple_unexpected_format() {
+        let buf = &[0x81, 0x01, 0x02]; // map(1)
+        let err = <(u8,) as Decode>::decode(buf).unwrap_err();
+        assert!(matches!(err, Error::UnexpectedFormat));
     }
 }
