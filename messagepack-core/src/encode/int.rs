@@ -37,6 +37,18 @@ where
     }
 }
 
+impl<W> Encode<W> for usize
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        match u64::try_from(*self) {
+            Ok(u64_uint) => u64_uint.encode(writer),
+            Err(_) => Err(Error::InvalidFormat),
+        }
+    }
+}
+
 impl<W> Encode<W> for i8
 where
     W: IoWrite,
@@ -71,12 +83,18 @@ macro_rules! impl_encode_int {
         }
     };
 }
-impl_encode_int!(u16, Format::Uint16, 3);
-impl_encode_int!(u32, Format::Uint32, 5);
-impl_encode_int!(u64, Format::Uint64, 9);
-impl_encode_int!(i16, Format::Int16, 3);
-impl_encode_int!(i32, Format::Int32, 5);
-impl_encode_int!(i64, Format::Int64, 9);
+
+impl<W> Encode<W> for isize
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+        match i64::try_from(*self) {
+            Ok(i64_int) => i64_int.encode(writer),
+            Err(_) => Err(Error::InvalidFormat),
+        }
+    }
+}
 
 impl<W> Encode<W> for i128
 where
@@ -89,6 +107,13 @@ where
         }
     }
 }
+
+impl_encode_int!(u16, Format::Uint16, 3);
+impl_encode_int!(u32, Format::Uint32, 5);
+impl_encode_int!(u64, Format::Uint64, 9);
+impl_encode_int!(i16, Format::Int16, 3);
+impl_encode_int!(i32, Format::Int32, 5);
+impl_encode_int!(i64, Format::Int64, 9);
 
 /// encode minimum byte size
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
