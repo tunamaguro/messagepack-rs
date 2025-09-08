@@ -72,9 +72,9 @@ where
 
         let mut tmp: [Option<V::Value>; N] = core::array::from_fn(|_| None);
         let mut buf_ptr = buf;
-        for i in 0..N {
+        for item in tmp.iter_mut() {
             let (val, next) = V::decode(buf_ptr)?;
-            tmp[i] = Some(val);
+            *item = Some(val);
             buf_ptr = next
         }
         let out = core::array::from_fn(|i| tmp[i].take().expect("initialized"));
