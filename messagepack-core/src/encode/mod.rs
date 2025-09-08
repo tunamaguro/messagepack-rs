@@ -59,24 +59,33 @@ where
     fn encode(&self, writer: &mut W) -> Result<usize, W::Error>;
 }
 
-impl<V, W> Encode<W> for &V
-where
-    V: Encode<W>,
-    W: IoWrite,
-{
-    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        Encode::encode(*self, writer)
-    }
+macro_rules! deref_impl {
+    (
+        $(#[$attr:meta])*
+        <$($desc:tt)+
+    ) => {
+        $(#[$attr])*
+        impl<$($desc)+
+        {
+            fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+                (**self).encode(writer)
+            }
+        }
+    };
 }
 
-impl<V, W> Encode<W> for &mut V
-where
-    V: Encode<W>,
-    W: IoWrite,
-{
-    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        Encode::encode(*self, writer)
-    }
+deref_impl! {
+    <V, W> Encode<W> for &V
+    where
+        V: Encode<W>,
+        W: IoWrite,
+}
+
+deref_impl! {
+    <V, W> Encode<W> for &mut V
+    where
+        V: Encode<W>,
+        W: IoWrite,
 }
 
 impl<W> Encode<W> for Format
