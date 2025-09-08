@@ -299,7 +299,7 @@ dependencies = [
 
 [[package]]
 name = "messagepack-core"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "num-traits",
  "rstest",
@@ -307,7 +307,7 @@ dependencies = [
 
 [[package]]
 name = "messagepack-serde"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "messagepack-core",
  "num-traits",
