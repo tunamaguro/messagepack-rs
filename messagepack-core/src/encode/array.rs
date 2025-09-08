@@ -52,6 +52,59 @@ where
     }
 }
 
+impl<const N: usize, W, V> Encode<W> for [V; N]
+where
+    W: IoWrite,
+    V: Encode<W>,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        self.as_slice().encode(writer)
+    }
+}
+
+macro_rules! tuple_impls {
+    ($($len:expr => ($($n:tt $name:ident)+))+ $(,)?) => {
+        $(
+            tuple_impls!(@impl $len; $($n $name)+);
+        )+
+    };
+    (@impl $len:expr; $($n:tt $name:ident)+) => {
+        impl<W, $($name),+> Encode<W> for ($($name,)+)
+        where
+            W: IoWrite,
+            $($name: Encode<W>,)+
+        {
+            fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+                let format_len = ArrayFormatEncoder($len).encode(writer)?;
+                let mut array_len = 0;
+                $(
+                    array_len += self.$n.encode(writer)?;
+                )+
+                Ok(format_len + array_len)
+            }
+        }
+    };
+}
+
+tuple_impls! {
+    1  => (0 V0)
+    2  => (0 V0 1 V1)
+    3  => (0 V0 1 V1 2 V2)
+    4  => (0 V0 1 V1 2 V2 3 V3)
+    5  => (0 V0 1 V1 2 V2 3 V3 4 V4)
+    6  => (0 V0 1 V1 2 V2 3 V3 4 V4 5 V5)
+    7  => (0 V0 1 V1 2 V2 3 V3 4 V4 5 V5 6 V6)
+    8  => (0 V0 1 V1 2 V2 3 V3 4 V4 5 V5 6 V6 7 V7)
+    9  => (0 V0 1 V1 2 V2 3 V3 4 V4 5 V5 6 V6 7 V7 8 V8)
+    10 => (0 V0 1 V1 2 V2 3 V3 4 V4 5 V5 6 V6 7 V7 8 V8 9 V9)
+    11 => (0 V0 1 V1 2 V2 3 V3 4 V4 5 V5 6 V6 7 V7 8 V8 9 V9 10 V10)
+    12 => (0 V0 1 V1 2 V2 3 V3 4 V4 5 V5 6 V6 7 V7 8 V8 9 V9 10 V10 11 V11)
+    13 => (0 V0 1 V1 2 V2 3 V3 4 V4 5 V5 6 V6 7 V7 8 V8 9 V9 10 V10 11 V11 12 V12)
+    14 => (0 V0 1 V1 2 V2 3 V3 4 V4 5 V5 6 V6 7 V7 8 V8 9 V9 10 V10 11 V11 12 V12 13 V13)
+    15 => (0 V0 1 V1 2 V2 3 V3 4 V4 5 V5 6 V6 7 V7 8 V8 9 V9 10 V10 11 V11 12 V12 13 V13 14 V14)
+    16 => (0 V0 1 V1 2 V2 3 V3 4 V4 5 V5 6 V6 7 V7 8 V8 9 V9 10 V10 11 V11 12 V12 13 V13 14 V14 15 V15)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
