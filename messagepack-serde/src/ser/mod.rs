@@ -372,6 +372,14 @@ where
         self.serialize_struct(name, len)
     }
 
+    #[cfg(not(any(feature = "alloc", feature = "std")))]
+    fn collect_str<T>(self, _value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + core::fmt::Display,
+    {
+        Err(ser::Error::custom("`collect_str` is not supported"))
+    }
+
     fn is_human_readable(&self) -> bool {
         false
     }

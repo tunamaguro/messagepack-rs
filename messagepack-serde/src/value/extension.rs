@@ -218,6 +218,13 @@ where
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
         Err(self.unexpected())
     }
+
+    fn collect_str<T>(self, _value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + core::fmt::Display,
+    {
+        Err(self.unexpected())
+    }
 }
 
 pub struct SerializeExtSeq<'a, 'b, W> {
