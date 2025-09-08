@@ -40,6 +40,8 @@ jobs:
         with:
           components: rustfmt
           cache-base: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run format
         run: |
           cargo fmt --all --check
@@ -54,6 +56,8 @@ jobs:
         with:
           components: clippy
           cache-base: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run lint
         run: |
            RUSTFLAGS="--deny warnings" cargo clippy --workspace --all-targets --all-features
@@ -70,6 +74,8 @@ jobs:
         uses: moonrepo/setup-rust@ede6de059f8046a5e236c94046823e2af11ca670 # v1.2.2
         with:
           cache-base: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run test
         run: |
           cargo test --all-features --workspace
