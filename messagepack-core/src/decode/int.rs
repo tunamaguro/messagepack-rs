@@ -74,6 +74,74 @@ impl_decode_int!(i16, Format::Int16);
 impl_decode_int!(i32, Format::Int32);
 impl_decode_int!(i64, Format::Int64);
 
+impl<'a> Decode<'a> for u128 {
+    type Value = Self;
+
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
+        let (val, buf) = u64::decode(buf)?;
+        Ok((Self::from(val), buf))
+    }
+
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
+        let (val, buf) = u64::decode_with_format(format, buf)?;
+        Ok((Self::from(val), buf))
+    }
+}
+
+impl<'a> Decode<'a> for i128 {
+    type Value = Self;
+
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
+        let (val, buf) = i64::decode(buf)?;
+        Ok((Self::from(val), buf))
+    }
+
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
+        let (val, buf) = i64::decode_with_format(format, buf)?;
+        Ok((Self::from(val), buf))
+    }
+}
+
+impl<'a> Decode<'a> for usize {
+    type Value = Self;
+
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
+        let (val, buf) = u64::decode(buf)?;
+        match usize::try_from(val) {
+            Ok(usize_val) => Ok((usize_val, buf)),
+            Err(_) => Err(Error::InvalidData),
+        }
+    }
+
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
+        let (val, buf) = u64::decode_with_format(format, buf)?;
+        match usize::try_from(val) {
+            Ok(usize_val) => Ok((usize_val, buf)),
+            Err(_) => Err(Error::InvalidData),
+        }
+    }
+}
+
+impl<'a> Decode<'a> for isize {
+    type Value = Self;
+
+    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
+        let (val, buf) = i64::decode(buf)?;
+        match isize::try_from(val) {
+            Ok(isize_val) => Ok((isize_val, buf)),
+            Err(_) => Err(Error::InvalidData),
+        }
+    }
+
+    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
+        let (val, buf) = i64::decode_with_format(format, buf)?;
+        match isize::try_from(val) {
+            Ok(isize_val) => Ok((isize_val, buf)),
+            Err(_) => Err(Error::InvalidData),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
