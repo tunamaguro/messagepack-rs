@@ -95,7 +95,7 @@ impl serde::Serialize for ValueRef<'_> {
         match self {
             ValueRef::Nil => serializer.serialize_none(),
             ValueRef::Bool(v) => serializer.serialize_bool(*v),
-            ValueRef::Bin(items) => (*items).serialize(serializer),
+            ValueRef::Bin(items) => serializer.serialize_bytes(*items),
             ValueRef::Extension(extension_ref) => {
                 super::ext_ref::serialize(extension_ref, serializer)
             }
@@ -132,6 +132,30 @@ impl<'de> serde::Deserialize<'de> for ValueRef<'de> {
                 Ok(ValueRef::Bool(v))
             }
 
+            fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let n = Number::UnsignedInt(v.into());
+                Ok(ValueRef::Number(n))
+            }
+
+            fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let n = Number::UnsignedInt(v.into());
+                Ok(ValueRef::Number(n))
+            }
+
+            fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let n = Number::UnsignedInt(v.into());
+                Ok(ValueRef::Number(n))
+            }
+
             fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
@@ -140,11 +164,43 @@ impl<'de> serde::Deserialize<'de> for ValueRef<'de> {
                 Ok(ValueRef::Number(n))
             }
 
+            fn visit_i8<E>(self, v: i8) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let n = Number::SignedInt(v.into());
+                Ok(ValueRef::Number(n))
+            }
+
+            fn visit_i16<E>(self, v: i16) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let n = Number::SignedInt(v.into());
+                Ok(ValueRef::Number(n))
+            }
+
+            fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let n = Number::SignedInt(v.into());
+                Ok(ValueRef::Number(n))
+            }
+
             fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
                 let n = Number::SignedInt(v);
+                Ok(ValueRef::Number(n))
+            }
+
+            fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let n = Number::Float(v.into());
                 Ok(ValueRef::Number(n))
             }
 
@@ -164,6 +220,13 @@ impl<'de> serde::Deserialize<'de> for ValueRef<'de> {
             }
 
             fn visit_none<E>(self) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(ValueRef::Nil)
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
