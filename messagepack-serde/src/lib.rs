@@ -25,5 +25,5 @@ pub use ser::{to_writer, to_writer_with_config};
 
 pub use value::Number;
 #[cfg(feature = "alloc")]
-pub use value::ValueRef;
+pub use value::{Value, ValueRef};
 pub use value::{ext_fixed, ext_ref};
