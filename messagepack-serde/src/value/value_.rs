@@ -136,7 +136,7 @@ impl<'de> serde::Deserialize<'de> for ValueRef<'de> {
             where
                 E: serde::de::Error,
             {
-                let n = Number::UnsignedInt(v);
+                let n = Number::from(v);
                 Ok(ValueRef::Number(n))
             }
 
@@ -144,7 +144,7 @@ impl<'de> serde::Deserialize<'de> for ValueRef<'de> {
             where
                 E: serde::de::Error,
             {
-                let n = Number::SignedInt(v);
+                let n = Number::from(v);
                 Ok(ValueRef::Number(n))
             }
 
@@ -244,61 +244,61 @@ impl From<bool> for ValueRef<'_> {
 
 impl From<u8> for ValueRef<'_> {
     fn from(v: u8) -> Self {
-        ValueRef::Number(Number::UnsignedInt(v.into()))
+        ValueRef::Number(Number::from(v))
     }
 }
 
 impl From<u16> for ValueRef<'_> {
     fn from(v: u16) -> Self {
-        ValueRef::Number(Number::UnsignedInt(v.into()))
+        ValueRef::Number(Number::from(v))
     }
 }
 
 impl From<u32> for ValueRef<'_> {
     fn from(v: u32) -> Self {
-        ValueRef::Number(Number::UnsignedInt(v.into()))
+        ValueRef::Number(Number::from(v))
     }
 }
 
 impl From<u64> for ValueRef<'_> {
     fn from(v: u64) -> Self {
-        ValueRef::Number(Number::UnsignedInt(v))
+        ValueRef::Number(Number::from(v))
     }
 }
 
 impl From<i8> for ValueRef<'_> {
     fn from(v: i8) -> Self {
-        ValueRef::Number(Number::SignedInt(v.into()))
+        ValueRef::Number(Number::from(v))
     }
 }
 
 impl From<i16> for ValueRef<'_> {
     fn from(v: i16) -> Self {
-        ValueRef::Number(Number::SignedInt(v.into()))
+        ValueRef::Number(Number::from(v))
     }
 }
 
 impl From<i32> for ValueRef<'_> {
     fn from(v: i32) -> Self {
-        ValueRef::Number(Number::SignedInt(v.into()))
+        ValueRef::Number(Number::from(v))
     }
 }
 
 impl From<i64> for ValueRef<'_> {
     fn from(v: i64) -> Self {
-        ValueRef::Number(Number::SignedInt(v))
+        ValueRef::Number(Number::from(v))
     }
 }
 
 impl From<f32> for ValueRef<'_> {
     fn from(v: f32) -> Self {
-        ValueRef::Number(Number::Float(v.into()))
+        ValueRef::Number(Number::from(v))
     }
 }
 
 impl From<f64> for ValueRef<'_> {
     fn from(v: f64) -> Self {
-        ValueRef::Number(Number::Float(v))
+        ValueRef::Number(Number::from(v))
     }
 }
 
@@ -336,9 +336,9 @@ mod tests {
     #[rstest]
     #[case(ValueRef::Nil, vec![0xc0])]
     #[case(ValueRef::Bool(true), vec![0xc3])]
-    #[case(ValueRef::Number(Number::UnsignedInt(5)), vec![0x05])]
+    #[case(ValueRef::Number(Number::PositiveInt(5)), vec![0x05])]
     // -33 encoded as int8: 0xd0, 0xdf
-    #[case(ValueRef::Number(Number::SignedInt(-33)), vec![0xd0, 0xdf])]
+    #[case(ValueRef::Number(Number::NegativeInt(-33)), vec![0xd0, 0xdf])]
     // 1.5 can be represented as f32 => 0xca 3f c0 00 00
     #[case(ValueRef::Number(Number::Float(1.5)), vec![0xca, 0x3f, 0xc0, 0x00, 0x00])]
     #[case(ValueRef::String("a"), vec![0xa1, b'a'])]
@@ -350,7 +350,7 @@ mod tests {
     )]
     #[case(
         ValueRef::Map(vec![
-            (ValueRef::String("a"), ValueRef::Number(Number::SignedInt(-1)))
+            (ValueRef::String("a"), ValueRef::Number(Number::NegativeInt(-1)))
         ]),
         vec![0x81, 0xa1, b'a', 0xff]
     )]
@@ -364,8 +364,8 @@ mod tests {
     #[rstest]
     #[case(&[0xc0], ValueRef::Nil)]
     #[case(&[0xc3], ValueRef::Bool(true))]
-    #[case(&[0x05], ValueRef::Number(Number::UnsignedInt(5)))]
-    #[case(&[0xd0, 0xdf], ValueRef::Number(Number::SignedInt(-33)))]
+    #[case(&[0x05], ValueRef::Number(Number::PositiveInt(5)))]
+    #[case(&[0xd0, 0xdf], ValueRef::Number(Number::NegativeInt(-33)))]
     #[case(&[0xca, 0x3f, 0xc0, 0x00, 0x00], ValueRef::Number(Number::Float(1.5)))]
     #[case(&[0xa1, b'a'], ValueRef::String("a"))]
     #[case(&[0xc4, 0x02, 0x01, 0x02], ValueRef::Bin(&[0x01, 0x02]))]
@@ -373,7 +373,7 @@ mod tests {
     #[case(
         &[0x81, 0xa1, b'a', 0xff],
         ValueRef::Map(vec![
-            (ValueRef::String("a"), ValueRef::Number(Number::SignedInt(-1)))
+            (ValueRef::String("a"), ValueRef::Number(Number::NegativeInt(-1)))
         ])
     )]
     fn decode_value_ref_cases(#[case] input: &[u8], #[case] expected: ValueRef<'_>) {
@@ -409,5 +409,145 @@ mod tests {
             }
             _ => panic!("expected extension"),
         }
+    }
+
+    // {
+    //   "meta": {
+    //     "id": 1001,
+    //     "tags": ["sample", null, 42, {"extra": "yes"}]
+    //   },
+    //   "users": [
+    //     {
+    //       "name": "Alice",
+    //       "attributes": {
+    //         "age": 29,
+    //         "preferences": [
+    //           "coffee",
+    //           null,
+    //           {"music": ["jazz", "rock", {"genres": ["classical", 123]}]}
+    //         ]
+    //       }
+    //     },
+    //     {
+    //       "name": "Bob",
+    //       "attributes": {
+    //         "age": null,
+    //         "preferences": [
+    //           {"food": ["pizza", "sushi", null]},
+    //           [true, false, {"nested": [0, {"inner": "value"}]}]
+    //         ]
+    //       }
+    //     }
+    //   ]
+    // }
+    const COMPLEX: &[u8] = &[
+        0x82, 0xa4, 0x6d, 0x65, 0x74, 0x61, 0x82, 0xa2, 0x69, 0x64, 0xcd, 0x03, 0xe9, 0xa4, 0x74,
+        0x61, 0x67, 0x73, 0x94, 0xa6, 0x73, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0xc0, 0x2a, 0x81, 0xa5,
+        0x65, 0x78, 0x74, 0x72, 0x61, 0xa3, 0x79, 0x65, 0x73, 0xa5, 0x75, 0x73, 0x65, 0x72, 0x73,
+        0x92, 0x82, 0xa4, 0x6e, 0x61, 0x6d, 0x65, 0xa5, 0x41, 0x6c, 0x69, 0x63, 0x65, 0xaa, 0x61,
+        0x74, 0x74, 0x72, 0x69, 0x62, 0x75, 0x74, 0x65, 0x73, 0x82, 0xa3, 0x61, 0x67, 0x65, 0x1d,
+        0xab, 0x70, 0x72, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x73, 0x93, 0xa6, 0x63,
+        0x6f, 0x66, 0x66, 0x65, 0x65, 0xc0, 0x81, 0xa5, 0x6d, 0x75, 0x73, 0x69, 0x63, 0x93, 0xa4,
+        0x6a, 0x61, 0x7a, 0x7a, 0xa4, 0x72, 0x6f, 0x63, 0x6b, 0x81, 0xa6, 0x67, 0x65, 0x6e, 0x72,
+        0x65, 0x73, 0x92, 0xa9, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x69, 0x63, 0x61, 0x6c, 0x7b, 0x82,
+        0xa4, 0x6e, 0x61, 0x6d, 0x65, 0xa3, 0x42, 0x6f, 0x62, 0xaa, 0x61, 0x74, 0x74, 0x72, 0x69,
+        0x62, 0x75, 0x74, 0x65, 0x73, 0x82, 0xa3, 0x61, 0x67, 0x65, 0xc0, 0xab, 0x70, 0x72, 0x65,
+        0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x73, 0x92, 0x81, 0xa4, 0x66, 0x6f, 0x6f, 0x64,
+        0x93, 0xa5, 0x70, 0x69, 0x7a, 0x7a, 0x61, 0xa5, 0x73, 0x75, 0x73, 0x68, 0x69, 0xc0, 0x93,
+        0xc3, 0xc2, 0x81, 0xa6, 0x6e, 0x65, 0x73, 0x74, 0x65, 0x64, 0x92, 0x00, 0x81, 0xa5, 0x69,
+        0x6e, 0x6e, 0x65, 0x72, 0xa5, 0x76, 0x61, 0x6c, 0x75, 0x65,
+    ];
+    #[test]
+    fn roundtrip_complex() {
+        let meta = ValueRef::Map(vec![
+            (ValueRef::String("id"), ValueRef::from(1001)),
+            (
+                ValueRef::String("tags"),
+                ValueRef::Array(vec![
+                    ValueRef::String("sample"),
+                    ValueRef::Nil,
+                    ValueRef::from(42),
+                    ValueRef::Map(vec![(ValueRef::String("extra"), ValueRef::String("yes"))]),
+                ]),
+            ),
+        ]);
+        let alice = ValueRef::Map(vec![
+            (ValueRef::String("name"), ValueRef::String("Alice")),
+            (
+                ValueRef::String("attributes"),
+                ValueRef::Map(vec![
+                    (ValueRef::String("age"), ValueRef::from(29)),
+                    (
+                        ValueRef::String("preferences"),
+                        ValueRef::Array(vec![
+                            ValueRef::String("coffee"),
+                            ValueRef::Nil,
+                            ValueRef::Map(vec![(
+                                ValueRef::String("music"),
+                                ValueRef::Array(vec![
+                                    ValueRef::String("jazz"),
+                                    ValueRef::String("rock"),
+                                    ValueRef::Map(vec![(
+                                        ValueRef::String("genres"),
+                                        ValueRef::Array(vec![
+                                            ValueRef::String("classical"),
+                                            ValueRef::from(123),
+                                        ]),
+                                    )]),
+                                ]),
+                            )]),
+                        ]),
+                    ),
+                ]),
+            ),
+        ]);
+        let bob = ValueRef::Map(vec![
+            (ValueRef::String("name"), ValueRef::String("Bob")),
+            (
+                ValueRef::String("attributes"),
+                ValueRef::Map(vec![
+                    (ValueRef::String("age"), ValueRef::Nil),
+                    (
+                        ValueRef::String("preferences"),
+                        ValueRef::Array(vec![
+                            ValueRef::Map(vec![(
+                                ValueRef::String("food"),
+                                ValueRef::Array(vec![
+                                    ValueRef::String("pizza"),
+                                    ValueRef::String("sushi"),
+                                    ValueRef::Nil,
+                                ]),
+                            )]),
+                            ValueRef::Array(vec![
+                                ValueRef::Bool(true),
+                                ValueRef::Bool(false),
+                                ValueRef::Map(vec![(
+                                    ValueRef::String("nested"),
+                                    ValueRef::Array(vec![
+                                        ValueRef::from(0),
+                                        ValueRef::Map(vec![(
+                                            ValueRef::String("inner"),
+                                            ValueRef::String("value"),
+                                        )]),
+                                    ]),
+                                )]),
+                            ]),
+                        ]),
+                    ),
+                ]),
+            ),
+        ]);
+        let v = ValueRef::Map(vec![
+            (ValueRef::String("meta"), meta),
+            (ValueRef::String("users"), ValueRef::Array(vec![alice, bob])),
+        ]);
+
+        let deserialized = from_slice::<ValueRef<'_>>(COMPLEX).unwrap();
+        assert_eq!(deserialized, v);
+
+        let mut buf = [0u8; COMPLEX.len()];
+        let len = to_slice(&v, &mut buf).unwrap();
+        assert_eq!(len, COMPLEX.len());
+        assert_eq!(&buf, COMPLEX);
     }
 }
