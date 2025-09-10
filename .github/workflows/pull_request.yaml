@@ -46,8 +46,11 @@ jobs:
         run: |
           cargo fmt --all --check
   lint:
-    name: Lint
+    name: Lint (${matrix.features})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features: ["--no-default-features", "--features alloc", "--features std"]
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -59,15 +62,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run lint
+        env:
+          RUSTFLAGS: "-D warnings"
         run: |
-           RUSTFLAGS="--deny warnings" cargo clippy --workspace 
-           RUSTFLAGS="--deny warnings" cargo clippy --workspace --all-targets --all-features
+          cargo clippy --workspace --tests --no-default-features -- --D clippy::all
+          cargo clippy --workspace --tests --features alloc -- --D clippy::all
+          cargo clippy --workspace --tests --features std -- --D clippy::all
   test:
-    name: Test on ${{matrix.os}}
-    runs-on: ${{matrix.os}}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    name: Test
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -79,4 +82,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run test
         run: |
-          cargo test --all-features --workspace
+          cargo test --workspace --no-default-features
+          cargo test --workspace --features alloc
+          cargo test --workspace --features std
