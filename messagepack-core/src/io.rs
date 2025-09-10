@@ -58,6 +58,32 @@ impl IoWrite for SliceWriter<'_> {
     }
 }
 
+#[cfg(not(feature = "std"))]
+impl<'a> IoWrite for &'a mut [u8] {
+    type Error = WError;
+
+    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        if self.len() >= buf.len() {
+            let (to, rest) = core::mem::take(self).split_at_mut(buf.len());
+            to.copy_from_slice(buf);
+            *self = rest;
+            Ok(())
+        } else {
+            Err(WError::BufferFull)
+        }
+    }
+}
+
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+impl IoWrite for alloc::vec::Vec<u8> {
+    type Error = core::convert::Infallible;
+
+    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        self.extend_from_slice(buf);
+        Ok(())
+    }
+}
+
 #[cfg(any(test, feature = "std"))]
 impl<W> IoWrite for W
 where
