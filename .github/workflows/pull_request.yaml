@@ -46,11 +46,8 @@ jobs:
         run: |
           cargo fmt --all --check
   lint:
-    name: Lint (${matrix.features})
+    name: Lint
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        features: ["--no-default-features", "--features alloc", "--features std"]
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
