@@ -152,16 +152,16 @@ impl<'de> serde::Deserialize<'de> for ValueRef<'de> {
             where
                 E: serde::de::Error,
             {
-                let n = Number::Float(v.into());
-                Ok(ValueRef::Number(n))
+                let n = Number::from(v);
+                Ok(ValueRef::from(n))
             }
 
             fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                let n = Number::Float(v);
-                Ok(ValueRef::Number(n))
+                let n = Number::from(v);
+                Ok(ValueRef::from(n))
             }
 
             fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>

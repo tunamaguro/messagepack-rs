@@ -143,27 +143,27 @@ impl<'de> serde::Deserialize<'de> for Value {
             where
                 E: serde::de::Error,
             {
-                Ok(Value::Number(Number::from(v)))
+                Ok(Value::from(Number::from(v)))
             }
 
             fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(Value::Number(Number::from(v)))
+                Ok(Value::from(Number::from(v)))
             }
 
             fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(Value::Number(Number::Float(v.into())))
+                Ok(Value::from(Number::from(v)))
             }
             fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(Value::Number(Number::Float(v)))
+                Ok(Value::from(Number::from(v)))
             }
 
             fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
