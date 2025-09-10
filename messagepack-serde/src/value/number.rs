@@ -35,6 +35,16 @@ pub enum Number {
 
 impl Number {
     /// If the `Number` is unsigned int, returns `u64`.
+    ///
+    /// ```rust
+    /// # use messagepack_serde::Number;
+    ///
+    /// let n = Number::from(1);
+    /// assert_eq!(n.as_unsigned_int(),Some(1));
+    ///
+    /// let n = Number::from(-1);
+    /// assert_eq!(n.as_unsigned_int(),None);
+    /// ```
     pub fn as_unsigned_int(&self) -> Option<u64> {
         match self {
             Number::PositiveInt(v) => Some(*v),
@@ -44,15 +54,32 @@ impl Number {
     }
 
     /// If the `Number` is signed int, returns `i64`.
+    /// 
+    /// ```rust
+    /// # use messagepack_serde::Number;
+    /// let n = Number::from(-1);
+    /// assert_eq!(n.as_signed_int(),Some(-1));
+    /// 
+    /// let n = Number::from(1);
+    /// assert_eq!(n.as_signed_int(),None);
+    /// ```
     pub fn as_signed_int(&self) -> Option<i64> {
         match self {
-            Number::PositiveInt(v) => (*v).try_into().ok(),
             Number::NegativeInt(v) => Some(*v),
             _ => None,
         }
     }
 
     /// If the `Number` is floating number, returns `f64`.
+    /// 
+    /// ```rust
+    /// # use messagepack_serde::Number;
+    /// let n = Number::from(1.5);
+    /// assert_eq!(n.as_float(),Some(1.5));
+    /// 
+    /// let n = Number::from(1);
+    /// assert_eq!(n.as_float(),None);
+    /// ```
     pub fn as_float(&self) -> Option<f64> {
         match self {
             Number::Float(v) => Some(*v),
