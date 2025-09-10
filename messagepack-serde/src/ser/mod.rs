@@ -113,7 +113,7 @@ where
 
 /// Serialize value as messagepack byte vector with config
 #[cfg(feature = "alloc")]
-pub fn to_vec_with_config<'a, T, C>(
+pub fn to_vec_with_config<T, C>(
     value: &T,
     config: C,
 ) -> Result<alloc::vec::Vec<u8>, Error<core::convert::Infallible>>

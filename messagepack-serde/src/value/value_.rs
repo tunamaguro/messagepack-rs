@@ -95,7 +95,7 @@ impl serde::Serialize for ValueRef<'_> {
         match self {
             ValueRef::Nil => serializer.serialize_none(),
             ValueRef::Bool(v) => serializer.serialize_bool(*v),
-            ValueRef::Bin(items) => serializer.serialize_bytes(*items),
+            ValueRef::Bin(items) => serializer.serialize_bytes(items),
             ValueRef::Extension(extension_ref) => {
                 super::ext_ref::serialize(extension_ref, serializer)
             }

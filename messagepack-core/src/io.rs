@@ -121,6 +121,13 @@ impl VecWriter {
 }
 
 #[cfg(feature = "alloc")]
+impl Default for VecWriter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(feature = "alloc")]
 impl IoWrite for VecWriter {
     type Error = core::convert::Infallible;
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
