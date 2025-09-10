@@ -59,7 +59,7 @@ impl IoWrite for SliceWriter<'_> {
 }
 
 #[cfg(not(any(test, feature = "std")))]
-impl<'a> IoWrite for &'a mut [u8] {
+impl IoWrite for &mut [u8] {
     type Error = WError;
 
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
