@@ -342,7 +342,13 @@ mod tests {
         let buf: &[u8] = &[0x92, 0xc3, 0x00];
 
         let decoded = from_slice::<S>(buf).unwrap();
-        assert_eq!(decoded, S { compact: true, schema: 0 });
+        assert_eq!(
+            decoded,
+            S {
+                compact: true,
+                schema: 0
+            }
+        );
     }
 
     #[test]
