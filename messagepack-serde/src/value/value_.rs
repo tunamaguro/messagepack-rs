@@ -314,6 +314,20 @@ impl From<Number> for ValueRef<'_> {
     }
 }
 
+impl TryFrom<usize> for ValueRef<'_> {
+    type Error = core::num::TryFromIntError;
+    fn try_from(v: usize) -> Result<Self, Self::Error> {
+        Number::try_from(v).map(Self::from)
+    }
+}
+
+impl TryFrom<isize> for ValueRef<'_> {
+    type Error = core::num::TryFromIntError;
+    fn try_from(v: isize) -> Result<Self, Self::Error> {
+        Number::try_from(v).map(Self::from)
+    }
+}
+
 impl<'a> From<&'a str> for ValueRef<'a> {
     fn from(v: &'a str) -> Self {
         ValueRef::String(v)

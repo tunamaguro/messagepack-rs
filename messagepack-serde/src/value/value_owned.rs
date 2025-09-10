@@ -309,6 +309,20 @@ impl From<Number> for Value {
     }
 }
 
+impl TryFrom<usize> for Value {
+    type Error = core::num::TryFromIntError;
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        Number::try_from(value).map(Self::from)
+    }
+}
+
+impl TryFrom<isize> for Value {
+    type Error = core::num::TryFromIntError;
+    fn try_from(value: isize) -> Result<Self, Self::Error> {
+        Number::try_from(value).map(Self::from)
+    }
+}
+
 impl From<&str> for Value {
     fn from(v: &str) -> Self {
         Value::String(v.to_string())

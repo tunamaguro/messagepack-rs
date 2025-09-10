@@ -42,6 +42,9 @@ impl Number {
     /// let n = Number::from(1);
     /// assert_eq!(n.as_unsigned_int(),Some(1));
     ///
+    /// let n = Number::try_from(1isize).unwrap();
+    /// assert_eq!(n.as_unsigned_int(),Some(1));
+    ///
     /// let n = Number::from(-1);
     /// assert_eq!(n.as_unsigned_int(),None);
     /// ```
@@ -54,29 +57,30 @@ impl Number {
     }
 
     /// If the `Number` is signed int, returns `i64`.
-    /// 
+    ///
     /// ```rust
     /// # use messagepack_serde::value::Number;
     /// let n = Number::from(-1);
     /// assert_eq!(n.as_signed_int(),Some(-1));
-    /// 
+    ///
     /// let n = Number::from(1);
-    /// assert_eq!(n.as_signed_int(),None);
+    /// assert_eq!(n.as_signed_int(),Some(1));
     /// ```
     pub fn as_signed_int(&self) -> Option<i64> {
         match self {
+            Number::PositiveInt(v) => i64::try_from(*v).ok(),
             Number::NegativeInt(v) => Some(*v),
             _ => None,
         }
     }
 
     /// If the `Number` is floating number, returns `f64`.
-    /// 
+    ///
     /// ```rust
     /// # use messagepack_serde::value::Number;
     /// let n = Number::from(1.5);
     /// assert_eq!(n.as_float(),Some(1.5));
-    /// 
+    ///
     /// let n = Number::from(1);
     /// assert_eq!(n.as_float(),None);
     /// ```
@@ -118,6 +122,25 @@ impl_from_num!(u32, u64);
 impl_from_num!(i8, i64);
 impl_from_num!(i16, i64);
 impl_from_num!(i32, i64);
+
+impl TryFrom<usize> for Number {
+    type Error = core::num::TryFromIntError;
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        u64::try_from(value).map(Number::PositiveInt)
+    }
+}
+
+impl TryFrom<isize> for Number {
+    type Error = core::num::TryFromIntError;
+    fn try_from(value: isize) -> Result<Self, Self::Error> {
+        match i64::try_from(value) {
+            Ok(v) => return Ok(Number::from(v)),
+            _ => {}
+        }
+
+        u64::try_from(value).map(Self::from)
+    }
+}
 
 impl From<f32> for Number {
     fn from(value: f32) -> Self {
