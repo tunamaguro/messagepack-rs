@@ -52,24 +52,24 @@ messagepack-serde = { version = "0.1" }
   If you want to use `std::io::Read` or `std::io::Write`, enable the `std` feature and use `messagepack_serde::from_reader` or `messagepack_serde::to_writer`.
 
 - Flexible numeric serialization
-  - Provides multiple encoding strategies:
-    - `Exact`: Encodes numeric types exactly as provided.
+  - Provides multiple serialization strategies:
+    - `Exact`: Serializes numeric types exactly as provided.
     - `LosslessMinimize`: Minimizes size without losing information (default).
-    - `AggressiveMinimize`: Aggressively minimizes values, including encoding floats with integral values as integers.
+    - `AggressiveMinimize`: Aggressively minimizes values, including serializing floats with integral values as integers.
   - To deserialize arbitrary numeric values, use `messagepack_serde::value::Number`.
 
 - `ext` format support
 
 ## Design Decisions
 
-### Struct encoding format
+### Struct serialization format
 
 This crate serializes Rust structs as MessagePack maps by default to preserve field names and allow flexible field ordering. Some other implementations (e.g., [rmp-serde](https://github.com/3Hren/msgpack-rust) and [MessagePack for C#](https://github.com/MessagePack-CSharp/MessagePack-CSharp)) serialize structs as arrays by default.
 
-To maximize interoperability, the deserializer accepts both map- and array-encoded structs. When an array is encountered, fields are read in the declaration order of the Rust struct.
+To maximize interoperability, the deserializer accepts both map- and array-serialized structs. When an array is encountered, fields are read in the declaration order of the Rust struct.
 
 ```rust
-// Example: decoding a struct from an array and a map
+// Example: deserializing a struct from an array and a map
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, PartialEq)]
@@ -78,12 +78,12 @@ struct S {
     schema: u8,
 }
 
-// [true, 0] encoded as a MessagePack array of length 2
+// [true, 0] serialized as a MessagePack array of length 2
 let buf: &[u8] = &[0x92, 0xc3, 0x00];
 let s = messagepack_serde::from_slice::<S>(buf).unwrap();
 assert_eq!(s, S { compact: true, schema: 0 });
 
-// {"compact": true, "schema": 0} encoded as a MessagePack map
+// {"compact": true, "schema": 0} serialized as a MessagePack map
 let buf: &[u8] = &[
     0x82, 0xa7, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x63, 0x74, 0xc3, 0xa6, 0x73, 0x63, 0x68,
     0x65, 0x6d, 0x61, 0x00
@@ -111,7 +111,7 @@ struct FutureS {
 // Older payload: [true, 0]
 let buf: &[u8] = &[0x92, 0xc3, 0x00];
 let s = messagepack_serde::from_slice::<FutureS>(buf);
-assert!(s.is_err()); // cannot decode the array
+assert!(s.is_err()); // cannot deserialize the array
 
 // Older payload: {"compact": true, "schema": 0}
 let buf: &[u8] = &[
@@ -138,7 +138,7 @@ let val = S { compact: true, schema: 0 };
 let mut buf = [0u8; 3];
 let len = messagepack_serde::to_slice(&(&val.compact, &val.schema), &mut buf).unwrap();
 
-// [true, 0] encoded as a MessagePack array of length 2
+// [true, 0] serialized as a MessagePack array of length 2
 let expected: &[u8] = &[0x92, 0xc3, 0x00];
 assert_eq!(buf, expected);
 ```
