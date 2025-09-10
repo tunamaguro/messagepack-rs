@@ -58,7 +58,7 @@ impl IoWrite for SliceWriter<'_> {
     }
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(not(any(test, feature = "std")))]
 impl<'a> IoWrite for &'a mut [u8] {
     type Error = WError;
 
@@ -67,14 +67,14 @@ impl<'a> IoWrite for &'a mut [u8] {
     }
 }
 
-/// Simple writer that writes into a `Vec<u8>`.
+/// Simple writer that writes into a `&mut Vec<u8>`.
 #[cfg(feature = "alloc")]
-pub struct VecWriter<'a> {
+pub struct VecRefWriter<'a> {
     vec: &'a mut alloc::vec::Vec<u8>,
 }
 
 #[cfg(feature = "alloc")]
-impl<'a> VecWriter<'a> {
+impl<'a> VecRefWriter<'a> {
     /// Create a new writer
     pub fn new(vec: &'a mut alloc::vec::Vec<u8>) -> Self {
         Self { vec }
@@ -82,7 +82,7 @@ impl<'a> VecWriter<'a> {
 }
 
 #[cfg(feature = "alloc")]
-impl IoWrite for VecWriter<'_> {
+impl IoWrite for VecRefWriter<'_> {
     type Error = core::convert::Infallible;
 
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
@@ -91,12 +91,41 @@ impl IoWrite for VecWriter<'_> {
     }
 }
 
-#[cfg(all(feature = "alloc", not(feature = "std")))]
+#[cfg(all(not(test), feature = "alloc", not(feature = "std")))]
 impl IoWrite for alloc::vec::Vec<u8> {
     type Error = core::convert::Infallible;
 
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        VecWriter::new(self).write(buf)
+        VecRefWriter::new(self).write(buf)
+    }
+}
+
+/// Simple writer that writes into a `Vec<u8>`.
+#[cfg(feature = "alloc")]
+pub struct VecWriter {
+    vec: alloc::vec::Vec<u8>,
+}
+
+#[cfg(feature = "alloc")]
+impl VecWriter {
+    /// Create a new writer
+    pub fn new() -> Self {
+        Self {
+            vec: alloc::vec::Vec::new(),
+        }
+    }
+    /// Get the inner vector
+    pub fn into_vec(self) -> alloc::vec::Vec<u8> {
+        self.vec
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl IoWrite for VecWriter {
+    type Error = core::convert::Infallible;
+    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        self.vec.extend_from_slice(buf);
+        Ok(())
     }
 }
 

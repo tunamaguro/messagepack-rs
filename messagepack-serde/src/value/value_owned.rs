@@ -1,5 +1,5 @@
 use super::number::Number;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use messagepack_core::extension::ExtensionRef;
 use serde::{de::Visitor, ser::SerializeMap};

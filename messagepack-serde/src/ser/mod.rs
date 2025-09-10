@@ -42,6 +42,7 @@ use core::marker::PhantomData;
 
 use crate::value::extension::{EXTENSION_STRUCT_NAME, SerializeExt};
 pub use error::Error;
+
 use messagepack_core::{
     Encode, SliceWriter,
     encode::{BinaryEncoder, MapFormatEncoder, NilEncoder, array::ArrayFormatEncoder},
@@ -101,6 +102,32 @@ where
     Ok(ser.current_length)
 }
 
+/// Serialize value as messagepack byte vector
+#[cfg(feature = "alloc")]
+pub fn to_vec<T>(value: &T) -> Result<alloc::vec::Vec<u8>, Error<core::convert::Infallible>>
+where
+    T: ser::Serialize + ?Sized,
+{
+    to_vec_with_config(value, num::LosslessMinimize)
+}
+
+/// Serialize value as messagepack byte vector with config
+#[cfg(feature = "alloc")]
+pub fn to_vec_with_config<'a, T, C>(
+    value: &T,
+    config: C,
+) -> Result<alloc::vec::Vec<u8>, Error<core::convert::Infallible>>
+where
+    T: ser::Serialize + ?Sized,
+    C: NumEncoder<messagepack_core::io::VecWriter>,
+{
+    let mut writer = messagepack_core::io::VecWriter::new();
+    let mut ser = Serializer::new(&mut writer, config);
+    value.serialize(&mut ser)?;
+    let buf = writer.into_vec();
+    Ok(buf)
+}
+
 #[cfg(feature = "std")]
 /// Serialize value as messagepack
 pub fn to_writer<T, W>(value: &T, writer: &mut W) -> Result<usize, Error<std::io::Error>>
@@ -126,31 +153,6 @@ where
     let mut ser = Serializer::new(writer, config);
     value.serialize(&mut ser)?;
     Ok(ser.current_length)
-}
-
-#[cfg(feature = "alloc")]
-/// Serialize value as messagepack byte vector
-pub fn to_vec<T>(value: &T) -> Result<Vec<u8>, Error<std::io::Error>>
-where
-    T: ser::Serialize + ?Sized,
-{
-    let mut buf = Vec::new();
-
-    to_writer(value, &mut buf)?;
-    Ok(buf)
-}
-
-#[cfg(feature = "alloc")]
-/// Serialize value as messagepack byte vector with config
-pub fn to_vec_with_config<T, C>(value: &T, config: C) -> Result<Vec<u8>, Error<std::io::Error>>
-where
-    T: ser::Serialize + ?Sized,
-    C: NumEncoder<Vec<u8>>,
-{
-    let mut buf = Vec::new();
-
-    to_writer_with_config(value, &mut buf, config)?;
-    Ok(buf)
 }
 
 impl<'a, 'b: 'a, W, Num> ser::Serializer for &'a mut Serializer<'b, W, Num>
