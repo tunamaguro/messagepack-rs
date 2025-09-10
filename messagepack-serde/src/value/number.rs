@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
 ///
 /// ```rust
 /// use serde::{Deserialize, Serialize};
-/// use messagepack_serde::{from_slice,Number};
+/// use messagepack_serde::{from_slice,value::Number};
 /// #[derive(Debug, Serialize, Deserialize, PartialEq)]
 /// struct Data{
 ///     num: Number
@@ -37,7 +37,7 @@ impl Number {
     /// If the `Number` is unsigned int, returns `u64`.
     ///
     /// ```rust
-    /// # use messagepack_serde::Number;
+    /// # use messagepack_serde::value::Number;
     ///
     /// let n = Number::from(1);
     /// assert_eq!(n.as_unsigned_int(),Some(1));
@@ -56,7 +56,7 @@ impl Number {
     /// If the `Number` is signed int, returns `i64`.
     /// 
     /// ```rust
-    /// # use messagepack_serde::Number;
+    /// # use messagepack_serde::value::Number;
     /// let n = Number::from(-1);
     /// assert_eq!(n.as_signed_int(),Some(-1));
     /// 
@@ -73,7 +73,7 @@ impl Number {
     /// If the `Number` is floating number, returns `f64`.
     /// 
     /// ```rust
-    /// # use messagepack_serde::Number;
+    /// # use messagepack_serde::value::Number;
     /// let n = Number::from(1.5);
     /// assert_eq!(n.as_float(),Some(1.5));
     /// 
