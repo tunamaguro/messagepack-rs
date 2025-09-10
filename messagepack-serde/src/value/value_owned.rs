@@ -1,4 +1,5 @@
 use super::number::Number;
+use super::value_ref::ValueRef;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use messagepack_core::extension::ExtensionRef;
@@ -344,22 +345,20 @@ impl From<Vec<u8>> for Value {
     }
 }
 
-impl From<super::value_::ValueRef<'_>> for Value {
-    fn from(v: super::value_::ValueRef<'_>) -> Self {
+impl From<ValueRef<'_>> for Value {
+    fn from(v: ValueRef<'_>) -> Self {
         match v {
-            super::value_::ValueRef::Nil => Value::Nil,
-            super::value_::ValueRef::Bool(b) => Value::Bool(b),
-            super::value_::ValueRef::Bin(b) => Value::Bin(b.to_vec()),
-            super::value_::ValueRef::Extension(ext) => Value::Extension {
+            ValueRef::Nil => Value::Nil,
+            ValueRef::Bool(b) => Value::Bool(b),
+            ValueRef::Bin(b) => Value::Bin(b.to_vec()),
+            ValueRef::Extension(ext) => Value::Extension {
                 r#type: ext.r#type,
                 data: ext.data.to_vec(),
             },
-            super::value_::ValueRef::Number(n) => Value::Number(n),
-            super::value_::ValueRef::String(s) => Value::String(s.to_string()),
-            super::value_::ValueRef::Array(items) => {
-                Value::Array(items.into_iter().map(Value::from).collect())
-            }
-            super::value_::ValueRef::Map(items) => Value::Map(
+            ValueRef::Number(n) => Value::Number(n),
+            ValueRef::String(s) => Value::String(s.to_string()),
+            ValueRef::Array(items) => Value::Array(items.into_iter().map(Value::from).collect()),
+            ValueRef::Map(items) => Value::Map(
                 items
                     .into_iter()
                     .map(|(k, v)| (Value::from(k), Value::from(v)))

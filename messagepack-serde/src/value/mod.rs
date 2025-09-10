@@ -4,12 +4,12 @@
 //! utility adapters for extension types.
 
 #[cfg(feature = "alloc")]
-pub(crate) mod value_;
+mod value_ref;
 #[cfg(feature = "alloc")]
-pub use value_::ValueRef;
+pub use value_ref::ValueRef;
 
 #[cfg(feature = "alloc")]
-pub(crate) mod value_owned;
+mod value_owned;
 #[cfg(feature = "alloc")]
 pub use value_owned::Value;
 
