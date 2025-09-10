@@ -133,7 +133,9 @@ impl TryFrom<usize> for Number {
 impl TryFrom<isize> for Number {
     type Error = core::num::TryFromIntError;
     fn try_from(value: isize) -> Result<Self, Self::Error> {
-        if let Ok(v) = i64::try_from(value) { return Ok(Number::from(v)) }
+        if let Ok(v) = i64::try_from(value) {
+            return Ok(Number::from(v));
+        }
 
         u64::try_from(value).map(Self::from)
     }
