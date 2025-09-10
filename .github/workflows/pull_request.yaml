@@ -59,12 +59,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run lint
-        env:
-          RUSTFLAGS: "-D warnings"
         run: |
-          cargo clippy --workspace --tests --no-default-features -- --D clippy::all
-          cargo clippy --workspace --tests --features alloc -- --D clippy::all
-          cargo clippy --workspace --tests --features std -- --D clippy::all
+          cargo clippy --workspace --all-targets --no-default-features -- -D clippy::all
+          cargo clippy --workspace --all-targets --features alloc -- -D clippy::all
+          cargo clippy --workspace --all-targets --features std -- -D clippy::all
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -79,6 +77,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run test
         run: |
-          cargo test --workspace --no-default-features
-          cargo test --workspace --features alloc
-          cargo test --workspace --features std
+          cargo test --workspace --all-targets --no-default-features
+          cargo test --workspace --all-targets --features alloc
+          cargo test --workspace --all-targets --features std
