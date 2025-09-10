@@ -1,10 +1,20 @@
 //! MessagePack timestamp extension values.
 
+use crate::extension::{ExtensionRef, FixedExtension};
+
 pub(crate) const TIMESTAMP_EXTENSION_TYPE: i8 = -1;
+
+/// The error type returned when a checked extension conversion fails
+pub enum TryFromTimeStampError {
+    /// The format is not a valid timestamp type
+    InvalidType,
+    /// The data length is not valid for timestamp format
+    InvalidDataLength,
+}
 
 /// Represents timestamp 32 extension type.
 /// This stores 32bit unsigned seconds
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Timestamp32 {
     secs: u32,
 }
@@ -31,15 +41,48 @@ impl Timestamp32 {
     }
 }
 
+impl TryFrom<ExtensionRef<'_>> for Timestamp32 {
+    type Error = TryFromTimeStampError;
+
+    fn try_from(value: ExtensionRef<'_>) -> Result<Self, Self::Error> {
+        if value.r#type != TIMESTAMP_EXTENSION_TYPE {
+            return Err(TryFromTimeStampError::InvalidType);
+        }
+
+        let data = value.data;
+        let mut buf = [0u8; 4];
+        if data.len() != buf.len() {
+            return Err(TryFromTimeStampError::InvalidDataLength);
+        }
+
+        buf.copy_from_slice(data);
+        Ok(Self::from_buf(buf))
+    }
+}
+
+impl TryFrom<FixedExtension<4>> for Timestamp32 {
+    type Error = TryFromTimeStampError;
+
+    fn try_from(value: FixedExtension<4>) -> Result<Self, Self::Error> {
+        value.as_ref().try_into()
+    }
+}
+
+impl From<Timestamp32> for FixedExtension<4> {
+    fn from(value: Timestamp32) -> Self {
+        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, value.to_buf())
+    }
+}
+
 /// Represents timestamp 64 extension type.
 /// This stores 34bit unsigned seconds and 30bit nanoseconds
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Timestamp64 {
     data: [u8; 8],
 }
 
 /// `seconds` or `nanos` cannot be represented
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Timestamp64Error {
     /// Requested seconds that exceeded the 34‑bit range.
     pub seconds: u64,
@@ -99,9 +142,42 @@ impl Timestamp64 {
     }
 }
 
+impl TryFrom<ExtensionRef<'_>> for Timestamp64 {
+    type Error = TryFromTimeStampError;
+
+    fn try_from(value: ExtensionRef<'_>) -> Result<Self, Self::Error> {
+        if value.r#type != TIMESTAMP_EXTENSION_TYPE {
+            return Err(TryFromTimeStampError::InvalidType);
+        }
+
+        let data = value.data;
+        let mut buf = [0u8; 8];
+        if data.len() != buf.len() {
+            return Err(TryFromTimeStampError::InvalidDataLength);
+        }
+
+        buf.copy_from_slice(data);
+        Ok(Self::from_buf(buf))
+    }
+}
+
+impl TryFrom<FixedExtension<8>> for Timestamp64 {
+    type Error = TryFromTimeStampError;
+
+    fn try_from(value: FixedExtension<8>) -> Result<Self, Self::Error> {
+        value.as_ref().try_into()
+    }
+}
+
+impl From<Timestamp64> for FixedExtension<8> {
+    fn from(value: Timestamp64) -> Self {
+        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, value.to_buf())
+    }
+}
+
 /// Represents timestamp 96 extension type.
 /// This stores 64bit signed seconds and 32bit nanoseconds
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Timestamp96 {
     nanos: u32,
     secs: i64,
@@ -145,5 +221,38 @@ impl Timestamp96 {
             nanos: u32::from_be_bytes(nano),
             secs: i64::from_be_bytes(second),
         }
+    }
+}
+
+impl TryFrom<ExtensionRef<'_>> for Timestamp96 {
+    type Error = TryFromTimeStampError;
+
+    fn try_from(value: ExtensionRef<'_>) -> Result<Self, Self::Error> {
+        if value.r#type != TIMESTAMP_EXTENSION_TYPE {
+            return Err(TryFromTimeStampError::InvalidType);
+        }
+
+        let data = value.data;
+        let mut buf = [0u8; 12];
+        if data.len() != buf.len() {
+            return Err(TryFromTimeStampError::InvalidDataLength);
+        }
+
+        buf.copy_from_slice(data);
+        Ok(Self::from_buf(buf))
+    }
+}
+
+impl TryFrom<FixedExtension<12>> for Timestamp96 {
+    type Error = TryFromTimeStampError;
+
+    fn try_from(value: FixedExtension<12>) -> Result<Self, Self::Error> {
+        value.as_ref().try_into()
+    }
+}
+
+impl From<Timestamp96> for FixedExtension<12> {
+    fn from(value: Timestamp96) -> Self {
+        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, value.to_buf())
     }
 }

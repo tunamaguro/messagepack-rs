@@ -58,6 +58,84 @@ impl IoWrite for SliceWriter<'_> {
     }
 }
 
+#[cfg(not(any(test, feature = "std")))]
+impl IoWrite for &mut [u8] {
+    type Error = WError;
+
+    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        SliceWriter::from_slice(self).write(buf)
+    }
+}
+
+/// Simple writer that writes into a `&mut Vec<u8>`.
+#[cfg(feature = "alloc")]
+pub struct VecRefWriter<'a> {
+    vec: &'a mut alloc::vec::Vec<u8>,
+}
+
+#[cfg(feature = "alloc")]
+impl<'a> VecRefWriter<'a> {
+    /// Create a new writer
+    pub fn new(vec: &'a mut alloc::vec::Vec<u8>) -> Self {
+        Self { vec }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl IoWrite for VecRefWriter<'_> {
+    type Error = core::convert::Infallible;
+
+    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        self.vec.extend_from_slice(buf);
+        Ok(())
+    }
+}
+
+#[cfg(all(not(test), feature = "alloc", not(feature = "std")))]
+impl IoWrite for alloc::vec::Vec<u8> {
+    type Error = core::convert::Infallible;
+
+    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        VecRefWriter::new(self).write(buf)
+    }
+}
+
+/// Simple writer that writes into a `Vec<u8>`.
+#[cfg(feature = "alloc")]
+pub struct VecWriter {
+    vec: alloc::vec::Vec<u8>,
+}
+
+#[cfg(feature = "alloc")]
+impl VecWriter {
+    /// Create a new writer
+    pub fn new() -> Self {
+        Self {
+            vec: alloc::vec::Vec::new(),
+        }
+    }
+    /// Get the inner vector
+    pub fn into_vec(self) -> alloc::vec::Vec<u8> {
+        self.vec
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl Default for VecWriter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl IoWrite for VecWriter {
+    type Error = core::convert::Infallible;
+    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        self.vec.extend_from_slice(buf);
+        Ok(())
+    }
+}
+
 #[cfg(any(test, feature = "std"))]
 impl<W> IoWrite for W
 where

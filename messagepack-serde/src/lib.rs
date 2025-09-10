@@ -9,7 +9,7 @@ extern crate alloc;
 
 pub mod de;
 pub mod ser;
-mod value;
+pub mod value;
 
 pub use de::from_slice;
 pub use ser::{to_slice, to_slice_with_config};
@@ -23,7 +23,5 @@ pub use ser::to_vec;
 #[cfg(feature = "std")]
 pub use ser::{to_writer, to_writer_with_config};
 
-pub use value::Number;
 #[cfg(feature = "alloc")]
-pub use value::ValueRef;
-pub use value::{ext_fixed, ext_ref};
+pub use value::{Value, ValueRef};
