@@ -5,8 +5,7 @@
 [![codecov](https://codecov.io/gh/tunamaguro/messagepack-rs/graph/badge.svg?token=1UJNSKR2C1)](https://codecov.io/gh/tunamaguro/messagepack-rs)
 [![CodSpeed Badge](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/tunamaguro/messagepack-rs)
 
-messagepack for `no_std` with `serde`
-
+MessagePack for `no_std` with `serde`.
 
 ## Examples
 
@@ -41,7 +40,7 @@ assert_eq!(&serialized[..len], buf);
 
 ## Installation
 
-Add this crate for `Cargo.toml`. Default support `no_std`.
+Add this crate to `Cargo.toml`. `no_std` is supported by default.
 
 ```toml
 messagepack-serde = { version = "0.1" }
@@ -49,18 +48,100 @@ messagepack-serde = { version = "0.1" }
 
 ## Features
 
-- `no_std` support
+- `no_std` support  
+  If you want to use `std::io::Read` or `std::io::Write`, enable the `std` feature and use `messagepack_serde::from_reader` or `messagepack_serde::to_writer`.
 
-    If you want this crate with `std::io::Read` or `std::io::Write`, please add feature `std` and use `messagepack_serde::from_reader` or `messagepack_serde::to_writer`.
-
-- Flexible Numeric Serialization
-    - Provides multiple numeric encoding strategies:
-        - `Exact`: Encodes numeric types exactly as provided without minimization. This is default.
-        - `Lossless Minimization`: Minimizes numeric type size during serialization without any loss of information (e.g., encoding 1_u16 as positive fixint).
-        - `Aggressive Minimization`: Aggressively minimizes numeric values, including converting floats with integer values into integers for the most compact representation.
-    - If you want deserialize any numeric value, please use `messagepack_serde::value::Number`.
+- Flexible numeric serialization
+  - Provides multiple serialization strategies:
+    - `Exact`: Serializes numeric types exactly as provided.
+    - `LosslessMinimize`: Minimizes size without losing information (default).
+    - `AggressiveMinimize`: Aggressively minimizes values, including serializing floats with integral values as integers.
+  - To deserialize arbitrary numeric values, use `messagepack_serde::value::Number`.
 
 - `ext` format support
+
+## Design Decisions
+
+### Struct serialization format
+
+This crate serializes Rust structs as MessagePack maps by default to preserve field names and allow flexible field ordering. Some other implementations (e.g., [rmp-serde](https://github.com/3Hren/msgpack-rust) and [MessagePack for C#](https://github.com/MessagePack-CSharp/MessagePack-CSharp)) serialize structs as arrays by default.
+
+To maximize interoperability, the deserializer accepts both map- and array-serialized structs. When an array is encountered, fields are read in the declaration order of the Rust struct.
+
+```rust
+// Example: deserializing a struct from an array and a map
+use serde::Deserialize;
+
+#[derive(Deserialize, Debug, PartialEq)]
+struct S {
+    compact: bool,
+    schema: u8,
+}
+
+// [true, 0] serialized as a MessagePack array of length 2
+let buf: &[u8] = &[0x92, 0xc3, 0x00];
+let s = messagepack_serde::from_slice::<S>(buf).unwrap();
+assert_eq!(s, S { compact: true, schema: 0 });
+
+// {"compact": true, "schema": 0} serialized as a MessagePack map
+let buf: &[u8] = &[
+    0x82, 0xa7, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x63, 0x74, 0xc3, 0xa6, 0x73, 0x63, 0x68,
+    0x65, 0x6d, 0x61, 0x00
+];
+let s = messagepack_serde::from_slice::<S>(buf).unwrap();
+assert_eq!(s, S { compact: true, schema: 0 });
+```
+
+A major advantage of serializing structs as arrays is reduced output size. Smaller output sizes positively impact processing speed. Additionally, since you no longer need to search for properties within strings during deserialization, you can expect faster deserialization times as well.
+On the downside, this eliminates the self-describing nature of maps, making binary compatibility more fragile.
+
+```rust
+// Example: field was added and cannot be deserialized
+use serde::Deserialize;
+
+// A future version of the struct
+#[derive(Deserialize, Debug, PartialEq)]
+struct FutureS {
+    compact: bool,
+    // Strongly depends on field order; adding this may break old data
+    awesome: Option<bool>,
+    schema: u8,
+}
+
+// Older payload: [true, 0]
+let buf: &[u8] = &[0x92, 0xc3, 0x00];
+let s = messagepack_serde::from_slice::<FutureS>(buf);
+assert!(s.is_err()); // cannot deserialize the array
+
+// Older payload: {"compact": true, "schema": 0}
+let buf: &[u8] = &[
+    0x82, 0xa7, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x63, 0x74, 0xc3, 0xa6, 0x73, 0x63, 0x68,
+    0x65, 0x6d, 0x61, 0x00
+];
+let s = messagepack_serde::from_slice::<FutureS>(buf).unwrap();
+assert_eq!(s, FutureS { compact: true, awesome: None, schema: 0 });
+```
+
+This crate prioritizes robustness and binary compatibility, so structures are serialized in map format. For array-based serialization, consider representing the data as tuples or manually implementing `Serialize` implementations for each type.
+
+```rust
+// Example: serialize a struct as an array
+use serde::Deserialize;
+
+#[derive(Deserialize, Debug, PartialEq)]
+struct S {
+    compact: bool,
+    schema: u8,
+}
+
+let val = S { compact: true, schema: 0 };
+let mut buf = [0u8; 3];
+let len = messagepack_serde::to_slice(&(&val.compact, &val.schema), &mut buf).unwrap();
+
+// [true, 0] serialized as a MessagePack array of length 2
+let expected: &[u8] = &[0x92, 0xc3, 0x00];
+assert_eq!(buf, expected);
+```
 
 ## License
 
