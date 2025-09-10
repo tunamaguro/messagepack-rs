@@ -331,6 +331,21 @@ mod tests {
     }
 
     #[test]
+    fn decode_struct_from_array() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S {
+            compact: bool,
+            schema: u8,
+        }
+
+        // [true, 0] where fields are in declaration order
+        let buf: &[u8] = &[0x92, 0xc3, 0x00];
+
+        let decoded = from_slice::<S>(buf).unwrap();
+        assert_eq!(decoded, S { compact: true, schema: 0 });
+    }
+
+    #[test]
     fn option_consumes_nil_in_sequence() {
         // [None, 5] as an array of two elements
         let buf: &[u8] = &[0x92, 0xc0, 0x05];
