@@ -77,6 +77,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run test
         run: |
-          cargo test --workspace --all-targets --no-default-features
-          cargo test --workspace --all-targets --features alloc
-          cargo test --workspace --all-targets --features std
+          cargo test --workspace --no-default-features
+          cargo test --workspace --features alloc
+          cargo test --workspace --features std
