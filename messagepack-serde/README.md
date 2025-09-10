@@ -68,9 +68,8 @@ This crate serializes Rust structs as MessagePack maps by default to preserve fi
 
 To maximize interoperability, the deserializer accepts both map- and array-encoded structs. When an array is encountered, fields are read in the declaration order of the Rust struct.
 
-Example: decoding a struct from an array and a map
-
 ```rust
+// Example: decoding a struct from an array and a map
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, PartialEq)]
@@ -97,6 +96,7 @@ A major advantage of serializing structs as arrays is reduced output size. Small
 On the downside, this eliminates the self-describing nature of maps, making binary compatibility more fragile.
 
 ```rust
+// Example: field was added and cannot be deserialized
 use serde::Deserialize;
 
 // A future version of the struct
@@ -122,9 +122,10 @@ let s = messagepack_serde::from_slice::<FutureS>(buf).unwrap();
 assert_eq!(s, FutureS { compact: true, awesome: None, schema: 0 });
 ```
 
-This crate prioritizes robustness and binary compatibility; therefore, it encodes structs as maps. If you need array encoding, consider representing your data as tuples or implementing a `Serialize` manually for your types.
+This crate prioritizes robustness and binary compatibility, so structures are serialized in map format. For array-based serialization, consider representing the data as tuples or manually implementing `Serialize` implementations for each type.
 
 ```rust
+// Example: serialize a struct as an array
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, PartialEq)]
