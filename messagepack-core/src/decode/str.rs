@@ -1,46 +1,50 @@
 //! String decoding helpers.
 
-use super::{Decode, Error, NbyteReader, Result};
-use crate::formats::Format;
+use super::{Decode, Error, NbyteReader};
+use crate::{formats::Format, io::IoRead};
 
 /// Decode a MessagePack string and return a borrowed `&str`.
 pub struct StrDecoder;
 
-impl<'a> Decode<'a> for StrDecoder {
-    type Value = &'a str;
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (format, buf) = Format::decode(buf)?;
-        match format {
-            Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
-                Self::decode_with_format(format, buf)
-            }
-            _ => Err(Error::UnexpectedFormat),
-        }
-    }
+impl<'de> Decode<'de> for StrDecoder {
+    type Value = &'de str;
 
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (len, buf) = match format {
-            Format::FixStr(n) => (n.into(), buf),
-            Format::Str8 => NbyteReader::<1>::read(buf)?,
-            Format::Str16 => NbyteReader::<2>::read(buf)?,
-            Format::Str32 => NbyteReader::<4>::read(buf)?,
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let len = match format {
+            Format::FixStr(n) => n.into(),
+            Format::Str8 => NbyteReader::<1>::read(reader)?,
+            Format::Str16 => NbyteReader::<2>::read(reader)?,
+            Format::Str32 => NbyteReader::<4>::read(reader)?,
             _ => return Err(Error::UnexpectedFormat),
         };
-        let (data, rest) = buf.split_at_checked(len).ok_or(Error::EofData)?;
-        let s = core::str::from_utf8(data).map_err(|_| Error::InvalidData)?;
-        Ok((s, rest))
+        let data = reader.read_slice(len).map_err(Error::Io)?;
+        // Lifetime-sensitive: return only if Borrowed
+        let bytes = match data {
+            crate::io::Reference::Borrowed(b) => b,
+            crate::io::Reference::Copied(_) => return Err(Error::InvalidData),
+        };
+        let s = core::str::from_utf8(bytes).map_err(|_| Error::InvalidData)?;
+        Ok(s)
     }
 }
 
-impl<'a> Decode<'a> for &'a str {
-    type Value = &'a str;
+impl<'de> Decode<'de> for &'de str {
+    type Value = &'de str;
 
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        StrDecoder::decode(buf)
-    }
-
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        StrDecoder::decode_with_format(format, buf)
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        StrDecoder::decode_with_format(format, reader)
     }
 }
 
@@ -54,20 +58,23 @@ mod tests {
             0xab, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64,
         ];
 
-        let (decoded, rest) = StrDecoder::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = StrDecoder::decode(&mut r).unwrap();
         let expect = "Hello World";
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 
     #[test]
     fn decode_invalid_str() {
         let buf: &[u8] = &[0xa2, 0xc3, 0x28];
-        let err = StrDecoder::decode(buf).unwrap_err();
+        let mut r = crate::io::SliceReader::new(buf);
+        let err = StrDecoder::decode(&mut r).unwrap_err();
         assert_eq!(err, Error::InvalidData);
 
         let buf: &[u8] = &[0xa1, 0x80];
-        let err = StrDecoder::decode(buf).unwrap_err();
+        let mut r = crate::io::SliceReader::new(buf);
+        let err = StrDecoder::decode(&mut r).unwrap_err();
         assert_eq!(err, Error::InvalidData);
     }
 }

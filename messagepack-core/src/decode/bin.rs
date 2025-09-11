@@ -1,39 +1,46 @@
 //! Binary (bin8/16/32) decoding helpers.
 
-use super::{Decode, Error, NbyteReader, Result};
-use crate::formats::Format;
+use super::{Decode, Error, NbyteReader};
+use crate::{formats::Format, io::IoRead};
 
 /// Decode a MessagePack binary blob and return a borrowed byte slice.
 pub struct BinDecoder;
 
-impl<'a> Decode<'a> for BinDecoder {
-    type Value = &'a [u8];
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (format, buf) = Format::decode(buf)?;
-        match format {
-            Format::Bin8 | Format::Bin16 | Format::Bin32 => Self::decode_with_format(format, buf),
-            _ => Err(Error::UnexpectedFormat),
-        }
-    }
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (len, buf) = match format {
-            Format::Bin8 => NbyteReader::<1>::read(buf)?,
-            Format::Bin16 => NbyteReader::<2>::read(buf)?,
-            Format::Bin32 => NbyteReader::<4>::read(buf)?,
+impl<'de> Decode<'de> for BinDecoder {
+    type Value = &'de [u8];
+
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let len = match format {
+            Format::Bin8 => NbyteReader::<1>::read(reader)?,
+            Format::Bin16 => NbyteReader::<2>::read(reader)?,
+            Format::Bin32 => NbyteReader::<4>::read(reader)?,
             _ => return Err(Error::UnexpectedFormat),
         };
-        let (data, rest) = buf.split_at_checked(len).ok_or(Error::EofData)?;
-        Ok((data, rest))
+        let data = reader.read_slice(len).map_err(Error::Io)?;
+        match data {
+            crate::io::Reference::Borrowed(b) => Ok(b),
+            crate::io::Reference::Copied(_) => Err(Error::InvalidData),
+        }
     }
 }
 
-impl<'a> Decode<'a> for &'a [u8] {
-    type Value = &'a [u8];
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        BinDecoder::decode(buf)
-    }
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        BinDecoder::decode_with_format(format, buf)
+impl<'de> Decode<'de> for &'de [u8] {
+    type Value = &'de [u8];
+
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        BinDecoder::decode_with_format(format, reader)
     }
 }
 
@@ -53,9 +60,10 @@ MessagePack
             .chain(expect.iter().cloned())
             .collect::<Vec<_>>();
 
-        let (decoded, rest) = BinDecoder::decode(&buf).unwrap();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let decoded = BinDecoder::decode(&mut r).unwrap();
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 
     #[test]
@@ -76,9 +84,10 @@ Deserialization is conversion from MessagePack formats into application objects 
             .chain(expect.iter().cloned())
             .collect::<Vec<_>>();
 
-        let (decoded, rest) = BinDecoder::decode(&buf).unwrap();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let decoded = BinDecoder::decode(&mut r).unwrap();
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 
     #[test]
@@ -91,8 +100,9 @@ Deserialization is conversion from MessagePack formats into application objects 
             .chain(expect.iter().cloned())
             .collect::<Vec<_>>();
 
-        let (decoded, rest) = BinDecoder::decode(&buf).unwrap();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let decoded = BinDecoder::decode(&mut r).unwrap();
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 }

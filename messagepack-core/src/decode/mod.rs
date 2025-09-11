@@ -1,9 +1,6 @@
 //! Decoding primitives for MessagePack.
-//!
-//! This module provides low-level decoders that operate on byte slices and
-//! return decoded values along with the remaining tail.
 
-use crate::Format;
+use crate::{Format, io::IoRead};
 
 mod array;
 pub use array::ArrayDecoder;
@@ -22,58 +19,89 @@ mod timestamp;
 
 /// MessagePack decode error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub enum Error {
+pub enum Error<E> {
     /// Invalid data
     InvalidData,
     /// Unexpected format
     UnexpectedFormat,
-    /// Eof while decode format
-    EofFormat,
-    /// Eof while decode data
-    EofData,
+    /// Unexpected end of data
+    UnexpectedEof,
+    /// Io error while decode format
+    Io(E),
 }
 
-impl core::fmt::Display for Error {
+impl<E> core::fmt::Display for Error<E>
+where
+    E: core::fmt::Display,
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Error::InvalidData => write!(f, "Cannot decode invalid data"),
             Error::UnexpectedFormat => write!(f, "Unexpected format found"),
-            Error::EofFormat => write!(f, "EOF while parse format"),
-            Error::EofData => write!(f, "EOF while parse data"),
+            Error::UnexpectedEof => write!(f, "Unexpected end of data"),
+            Error::Io(e) => e.fmt(f),
         }
     }
 }
 
-impl core::error::Error for Error {}
+impl<E> core::error::Error for Error<E>
+where
+    E: core::error::Error + 'static,
+{
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Error::Io(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
-/// Result alias used by the decoders in this module.
-type Result<T> = ::core::result::Result<T, Error>;
-
-/// A type that can be decoded from a MessagePack byte slice.
-pub trait Decode<'a> {
+/// A type that can be decoded using an `IoRead` input.
+pub trait Decode<'de> {
     /// The materialised value type.
     type Value: Sized;
-    /// Decode a value from the front of `buf`, returning the value and the
-    /// remaining slice.
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])>;
+    /// Decode a value from `reader`.
+    fn decode<R>(reader: &mut R) -> Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let format = Format::decode(reader)?;
+        Self::decode_with_format(format, reader)
+    }
 
     /// Decode a value assuming the leading MessagePack format has already been
     /// read by the caller. Implementations must validate that `format` is
     /// appropriate for the type and return an error otherwise.
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])>;
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>;
 }
 
-impl<'a> Decode<'a> for Format {
+impl<'de> Decode<'de> for Format {
     type Value = Self;
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (first, rest) = buf.split_first().ok_or(Error::EofFormat)?;
-
-        Ok((Self::from_byte(*first), rest))
+    fn decode<R>(reader: &mut R) -> Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let b = reader.read_slice(1).map_err(Error::Io)?;
+        let byte = match b {
+            crate::io::Reference::Borrowed(b) => b[0],
+            crate::io::Reference::Copied(b) => b[0],
+        };
+        Ok(Self::from_byte(byte))
     }
 
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let _ = (format, buf);
-        unreachable!()
+    fn decode_with_format<R>(
+        format: Format,
+        _reader: &mut R,
+    ) -> Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        Ok(format)
     }
 }
 
@@ -83,14 +111,18 @@ pub struct NbyteReader<const NBYTE: usize>;
 macro_rules! impl_read {
     ($ty:ty) => {
         /// Read the next big‑endian integer of type `$ty` and return it as
-        /// `usize` together with the remaining slice.
-        pub fn read(buf: &[u8]) -> Result<(usize, &[u8])> {
+        /// `usize` from `reader`.
+        pub fn read<'de, R>(reader: &mut R) -> core::result::Result<usize, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
             const SIZE: usize = core::mem::size_of::<$ty>();
-            let (data, rest) = buf.split_at_checked(SIZE).ok_or(Error::EofData)?;
-            let data: [u8; SIZE] = data.try_into().map_err(|_| Error::EofData)?;
+            let bytes = reader.read_slice(SIZE).map_err(Error::Io)?;
+            let slice = bytes.as_bytes();
+            let data: [u8; SIZE] = slice.try_into().map_err(|_| Error::UnexpectedEof)?;
             let val =
                 usize::try_from(<$ty>::from_be_bytes(data)).map_err(|_| Error::InvalidData)?;
-            Ok((val, rest))
+            Ok(val)
         }
     };
 }

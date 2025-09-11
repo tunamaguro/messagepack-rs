@@ -157,7 +157,8 @@ pub enum Reference<'de, 'a> {
 }
 
 impl Reference<'_, '_> {
-    fn as_bytes(&self) -> &[u8] {
+    /// Borrow the underlying bytes regardless of `Borrowed` or `Copied`.
+    pub fn as_bytes(&self) -> &[u8] {
         match self {
             Reference::Borrowed(b) => b,
             Reference::Copied(b) => b,
@@ -166,7 +167,8 @@ impl Reference<'_, '_> {
 }
 
 /// decode input source
-trait IoRead<'de> {
+pub trait IoRead<'de> {
+    /// Error type produced by the reader.
     type Error: core::error::Error + 'static;
     /// read exactly `len` bytes and consume
     fn read_slice<'a>(&'a mut self, len: usize) -> Result<Reference<'de, 'a>, Self::Error>;
@@ -180,20 +182,24 @@ trait IoRead<'de> {
 
 /// Simple reader that reads from a byte slice.
 pub struct SliceReader<'de> {
-    buf: &'de [u8],
-    /// current read position
-    cursor: usize,
-    /// number of peeked bytes
-    peeked: usize,
+    /// current buffer
+    cursor: &'de [u8],
+    /// peeked buffer
+    peeked: &'de [u8],
 }
 impl<'de> SliceReader<'de> {
     /// create a new reader
     pub fn new(buf: &'de [u8]) -> Self {
         Self {
-            buf,
-            cursor: 0,
-            peeked: 0,
+            cursor: buf,
+            peeked: buf,
         }
+    }
+
+    /// Get the remaining, committed bytes (peeked bytes are not subtracted
+    /// until `consume()` is called).
+    pub fn rest(&self) -> &'de [u8] {
+        self.cursor
     }
 }
 
@@ -219,35 +225,30 @@ impl<'de> IoRead<'de> for SliceReader<'de> {
 
     fn read_slice<'a>(&'a mut self, len: usize) -> Result<Reference<'de, 'a>, Self::Error> {
         self.consume();
-        let cursor_max = self.cursor + len;
-        if self.buf.len() > cursor_max {
-            let from = &self.buf[self.cursor..cursor_max];
-            self.cursor += len;
-            Ok(Reference::Borrowed(from))
-        } else {
-            Err(RError::BufferEmpty)
-        }
+        let (read, rest) = self
+            .cursor
+            .split_at_checked(len)
+            .ok_or(RError::BufferEmpty)?;
+        self.cursor = rest;
+        self.peeked = rest;
+        Ok(Reference::Borrowed(read))
     }
 
     fn peek_slice<'a>(&'a mut self, len: usize) -> Result<Reference<'de, 'a>, Self::Error> {
-        let peeked_cursor = self.cursor + self.peeked;
-        let peek_max = peeked_cursor + len;
-        if self.buf.len() > peek_max {
-            let from: &[u8] = &self.buf[peeked_cursor..peek_max];
-            self.peeked += len;
-            Ok(Reference::Borrowed(from))
-        } else {
-            Err(RError::BufferEmpty)
-        }
+        let (peek, rest) = self
+            .peeked
+            .split_at_checked(len)
+            .ok_or(RError::BufferEmpty)?;
+        self.peeked = rest;
+        Ok(Reference::Borrowed(peek))
     }
 
     fn consume(&mut self) {
-        self.cursor += self.peeked;
-        self.peeked = 0;
+        self.cursor = self.peeked;
     }
 
     fn discard(&mut self) {
-        self.peeked = 0;
+        self.peeked = self.cursor;
     }
 }
 
@@ -261,11 +262,11 @@ mod std_reader {
         buf: alloc::vec::Vec<u8>,
         cursor: usize,
     }
-    
+
     impl<R> StdReader<R>
     where
         R: std::io::Read,
-    {   
+    {
         /// create a new reader
         pub fn new(reader: R) -> Self {
             Self {

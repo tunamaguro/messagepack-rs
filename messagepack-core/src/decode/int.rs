@@ -1,38 +1,45 @@
-use super::{Decode, Error, Result};
-use crate::formats::Format;
+use super::{Decode, Error};
+use crate::{formats::Format, io::IoRead};
 
-impl<'a> Decode<'a> for u8 {
+impl<'de> Decode<'de> for u8 {
     type Value = Self;
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (format, buf) = Format::decode(buf)?;
-        Self::decode_with_format(format, buf)
-    }
 
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
         match format {
-            Format::PositiveFixInt(v) => Ok((v, buf)),
+            Format::PositiveFixInt(v) => Ok(v),
             Format::Uint8 => {
-                let (first, rest) = buf.split_first().ok_or(Error::EofData)?;
-                Ok((*first, rest))
+                let b = reader.read_slice(1).map_err(Error::Io)?;
+                let v: [u8; 1] = b.as_bytes().try_into().map_err(|_| Error::UnexpectedEof)?;
+                Ok(v[0])
             }
             _ => Err(Error::UnexpectedFormat),
         }
     }
 }
 
-impl<'a> Decode<'a> for i8 {
+impl<'de> Decode<'de> for i8 {
     type Value = Self;
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (format, buf) = Format::decode(buf)?;
-        Self::decode_with_format(format, buf)
-    }
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
+
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
         match format {
             Format::Int8 => {
-                let (first, rest) = buf.split_first().ok_or(Error::EofData)?;
-                Ok((*first as i8, rest))
+                let b = reader.read_slice(1).map_err(Error::Io)?;
+                let v: [u8; 1] = b.as_bytes().try_into().map_err(|_| Error::UnexpectedEof)?;
+                Ok(v[0] as i8)
             }
-            Format::NegativeFixInt(v) => Ok((v, buf)),
+            Format::NegativeFixInt(v) => Ok(v),
             _ => Err(Error::UnexpectedFormat),
         }
     }
@@ -40,25 +47,25 @@ impl<'a> Decode<'a> for i8 {
 
 macro_rules! impl_decode_int {
     ($ty:ty,$format:path) => {
-        impl<'a> Decode<'a> for $ty {
+        impl<'de> Decode<'de> for $ty {
             type Value = Self;
 
-            fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-                let (format, buf) = Format::decode(buf)?;
-                Self::decode_with_format(format, buf)
-            }
-            fn decode_with_format(
+            fn decode_with_format<R>(
                 format: Format,
-                buf: &'a [u8],
-            ) -> Result<(Self::Value, &'a [u8])> {
+                reader: &mut R,
+            ) -> core::result::Result<Self::Value, Error<R::Error>>
+            where
+                R: IoRead<'de>,
+            {
                 match format {
                     $format => {
                         const SIZE: usize = core::mem::size_of::<$ty>();
-
-                        let (data, rest) = buf.split_at_checked(SIZE).ok_or(Error::EofData)?;
-                        let data: [u8; SIZE] = data.try_into().map_err(|_| Error::EofData)?;
+                        let bytes = reader.read_slice(SIZE).map_err(Error::Io)?;
+                        let slice = bytes.as_bytes();
+                        let data: [u8; SIZE] =
+                            slice.try_into().map_err(|_| Error::UnexpectedEof)?;
                         let val = <$ty>::from_be_bytes(data);
-                        Ok((val, rest))
+                        Ok(val)
                     }
                     _ => Err(Error::UnexpectedFormat),
                 }
@@ -74,71 +81,63 @@ impl_decode_int!(i16, Format::Int16);
 impl_decode_int!(i32, Format::Int32);
 impl_decode_int!(i64, Format::Int64);
 
-impl<'a> Decode<'a> for u128 {
+impl<'de> Decode<'de> for u128 {
     type Value = Self;
 
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (val, buf) = u64::decode(buf)?;
-        Ok((Self::from(val), buf))
-    }
-
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (val, buf) = u64::decode_with_format(format, buf)?;
-        Ok((Self::from(val), buf))
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let val = u64::decode_with_format(format, reader)?;
+        Ok(Self::from(val))
     }
 }
 
-impl<'a> Decode<'a> for i128 {
+impl<'de> Decode<'de> for i128 {
     type Value = Self;
 
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (val, buf) = i64::decode(buf)?;
-        Ok((Self::from(val), buf))
-    }
-
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (val, buf) = i64::decode_with_format(format, buf)?;
-        Ok((Self::from(val), buf))
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let val = i64::decode_with_format(format, reader)?;
+        Ok(Self::from(val))
     }
 }
 
-impl<'a> Decode<'a> for usize {
+impl<'de> Decode<'de> for usize {
     type Value = Self;
 
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (val, buf) = u64::decode(buf)?;
-        match usize::try_from(val) {
-            Ok(usize_val) => Ok((usize_val, buf)),
-            Err(_) => Err(Error::InvalidData),
-        }
-    }
-
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (val, buf) = u64::decode_with_format(format, buf)?;
-        match usize::try_from(val) {
-            Ok(usize_val) => Ok((usize_val, buf)),
-            Err(_) => Err(Error::InvalidData),
-        }
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let val = u64::decode_with_format(format, reader)?;
+        usize::try_from(val).map_err(|_| Error::InvalidData)
     }
 }
 
-impl<'a> Decode<'a> for isize {
+impl<'de> Decode<'de> for isize {
     type Value = Self;
 
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (val, buf) = i64::decode(buf)?;
-        match isize::try_from(val) {
-            Ok(isize_val) => Ok((isize_val, buf)),
-            Err(_) => Err(Error::InvalidData),
-        }
-    }
-
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (val, buf) = i64::decode_with_format(format, buf)?;
-        match isize::try_from(val) {
-            Ok(isize_val) => Ok((isize_val, buf)),
-            Err(_) => Err(Error::InvalidData),
-        }
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let val = i64::decode_with_format(format, reader)?;
+        isize::try_from(val).map_err(|_| Error::InvalidData)
     }
 }
 
@@ -150,177 +149,200 @@ mod tests {
     fn decode_u8_fix_pos_int() {
         // FixPosInt
         let buf: &[u8] = &[0x00];
-        let (decoded, rest) = u8::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = u8::decode(&mut r).unwrap();
         let expect = u8::MIN;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0x7f];
-        let (decoded, rest) = u8::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = u8::decode(&mut r).unwrap();
         let expect = 0x7f;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 
     #[test]
     fn decode_u8() {
         // Uint8
         let buf: &[u8] = &[0xcc, 0x00];
-        let (decoded, rest) = u8::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = u8::decode(&mut r).unwrap();
         let expect = u8::MIN;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0xcc, 0xff];
-        let (decoded, rest) = u8::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = u8::decode(&mut r).unwrap();
         let expect = u8::MAX;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 
     #[test]
     fn decode_u16() {
         // Uint16
         let buf: &[u8] = &[0xcd, 0x00, 0x00];
-        let (decoded, rest) = u16::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = u16::decode(&mut r).unwrap();
         let expect = u16::MIN;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0xcd, 0x12, 0x34];
-        let (decoded, rest) = u16::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = u16::decode(&mut r).unwrap();
         let expect = 0x1234;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0xcd, 0xff, 0xff];
-        let (decoded, rest) = u16::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = u16::decode(&mut r).unwrap();
         let expect = u16::MAX;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 
     #[test]
     fn decode_u32() {
         // Uint32
         let buf: &[u8] = &[0xce, 0x00, 0x00, 0x00, 0x00];
-        let (decoded, rest) = u32::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = u32::decode(&mut r).unwrap();
         let expect = u32::MIN;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0xce, 0x12, 0x34, 0x56, 0x78];
-        let (decoded, rest) = u32::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = u32::decode(&mut r).unwrap();
         let expect = 0x12345678;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0xce, 0xff, 0xff, 0xff, 0xff];
-        let (decoded, rest) = u32::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = u32::decode(&mut r).unwrap();
         let expect = u32::MAX;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 
     #[test]
     fn decode_u64() {
         // Uint64
         let buf: &[u8] = &[0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-        let (decoded, rest) = u64::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = u64::decode(&mut r).unwrap();
         let expect = u64::MIN;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0xcf, 0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78];
-        let (decoded, rest) = u64::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = u64::decode(&mut r).unwrap();
         let expect = 0x1234567812345678;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0xcf, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
-        let (decoded, rest) = u64::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = u64::decode(&mut r).unwrap();
         let expect = u64::MAX;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 
     #[test]
     fn decode_i8_fix_neg_int() {
         // FixNegInt
         let buf: &[u8] = &[0xff];
-        let (decoded, rest) = i8::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = i8::decode(&mut r).unwrap();
         let expect = -1;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0xe0];
-        let (decoded, rest) = i8::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = i8::decode(&mut r).unwrap();
         let expect = -32;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 
     #[test]
     fn decode_i8() {
         // Int8
         let buf: &[u8] = &[0xd0, 0x80];
-        let (decoded, rest) = i8::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = i8::decode(&mut r).unwrap();
         let expect = i8::MIN;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0xd0, 0x7f];
-        let (decoded, rest) = i8::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = i8::decode(&mut r).unwrap();
         let expect = i8::MAX;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 
     #[test]
     fn decode_i16() {
         // Int16
         let buf: &[u8] = &[0xd1, 0x80, 0x00];
-        let (decoded, rest) = i16::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = i16::decode(&mut r).unwrap();
         let expect = i16::MIN;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0xd1, 0x7f, 0xff];
-        let (decoded, rest) = i16::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = i16::decode(&mut r).unwrap();
         let expect = i16::MAX;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 
     #[test]
     fn decode_i32() {
         // Int16
         let buf: &[u8] = &[0xd2, 0x80, 0x00, 0x00, 0x00];
-        let (decoded, rest) = i32::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = i32::decode(&mut r).unwrap();
         let expect = i32::MIN;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0xd2, 0x7f, 0xff, 0xff, 0xff];
-        let (decoded, rest) = i32::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = i32::decode(&mut r).unwrap();
         let expect = i32::MAX;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 
     #[test]
     fn decode_i64() {
         // Int16
         let buf: &[u8] = &[0xd3, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-        let (decoded, rest) = i64::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = i64::decode(&mut r).unwrap();
         let expect = i64::MIN;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0xd3, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
-        let (decoded, rest) = i64::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = i64::decode(&mut r).unwrap();
         let expect = i64::MAX;
         assert_eq!(decoded, expect);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 }

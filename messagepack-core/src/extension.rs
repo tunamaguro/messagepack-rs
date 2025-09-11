@@ -2,7 +2,11 @@
 
 use crate::decode::{self, NbyteReader};
 use crate::encode;
-use crate::{Decode, Encode, formats::Format, io::IoWrite};
+use crate::{
+    Decode, Encode,
+    formats::Format,
+    io::{IoRead, IoWrite},
+};
 
 const U8_MAX: usize = u8::MAX as usize;
 const U16_MAX: usize = u16::MAX as usize;
@@ -109,46 +113,44 @@ impl<'a, W: IoWrite> Encode<W> for ExtensionRef<'a> {
     }
 }
 
-impl<'a> Decode<'a> for ExtensionRef<'a> {
-    type Value = ExtensionRef<'a>;
+impl<'de> Decode<'de> for ExtensionRef<'de> {
+    type Value = ExtensionRef<'de>;
 
-    fn decode(buf: &'a [u8]) -> core::result::Result<(Self::Value, &'a [u8]), decode::Error> {
-        let (format, buf) = Format::decode(buf)?;
-        match format {
-            Format::FixExt1
-            | Format::FixExt2
-            | Format::FixExt4
-            | Format::FixExt8
-            | Format::FixExt16
-            | Format::Ext8
-            | Format::Ext16
-            | Format::Ext32 => Self::decode_with_format(format, buf),
-            _ => Err(decode::Error::UnexpectedFormat),
-        }
-    }
-
-    fn decode_with_format(
+    fn decode_with_format<R>(
         format: Format,
-        buf: &'a [u8],
-    ) -> core::result::Result<(Self::Value, &'a [u8]), decode::Error> {
-        let (len, buf) = match format {
-            Format::FixExt1 => (1, buf),
-            Format::FixExt2 => (2, buf),
-            Format::FixExt4 => (4, buf),
-            Format::FixExt8 => (8, buf),
-            Format::FixExt16 => (16, buf),
-            Format::Ext8 => NbyteReader::<1>::read(buf)?,
-            Format::Ext16 => NbyteReader::<2>::read(buf)?,
-            Format::Ext32 => NbyteReader::<4>::read(buf)?,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, decode::Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let len = match format {
+            Format::FixExt1 => 1,
+            Format::FixExt2 => 2,
+            Format::FixExt4 => 4,
+            Format::FixExt8 => 8,
+            Format::FixExt16 => 16,
+            Format::Ext8 => NbyteReader::<1>::read(reader)?,
+            Format::Ext16 => NbyteReader::<2>::read(reader)?,
+            Format::Ext32 => NbyteReader::<4>::read(reader)?,
             _ => return Err(decode::Error::UnexpectedFormat),
         };
-        let (ext_type, buf) = buf.split_first().ok_or(decode::Error::EofData)?;
-        let (data, rest) = buf.split_at_checked(len).ok_or(decode::Error::EofData)?;
-        let ext = ExtensionRef {
-            r#type: (*ext_type) as i8,
-            data,
+        let ext_type: [u8; 1] = reader
+            .read_slice(1)
+            .map_err(decode::Error::Io)?
+            .as_bytes()
+            .try_into()
+            .map_err(|_| decode::Error::UnexpectedEof)?;
+        let ext_type = ext_type[0] as i8;
+
+        let data_ref = reader.read_slice(len).map_err(decode::Error::Io)?;
+        let data = match data_ref {
+            crate::io::Reference::Borrowed(b) => b,
+            crate::io::Reference::Copied(_) => return Err(decode::Error::InvalidData),
         };
-        Ok((ext, rest))
+        Ok(ExtensionRef {
+            r#type: ext_type,
+            data,
+        })
     }
 }
 
@@ -262,44 +264,27 @@ impl<const N: usize, W: IoWrite> Encode<W> for FixedExtension<N> {
     }
 }
 
-impl<'a, const N: usize> Decode<'a> for FixedExtension<N> {
+impl<'de, const N: usize> Decode<'de> for FixedExtension<N> {
     type Value = FixedExtension<N>;
 
-    fn decode(buf: &'a [u8]) -> core::result::Result<(Self::Value, &'a [u8]), decode::Error> {
-        let (ext, rest) = ExtensionRef::decode(buf)?;
-        if ext.data.len() > N {
-            return Err(decode::Error::InvalidData);
-        }
-        let mut buf_arr = [0u8; N];
-        buf_arr[..ext.data.len()].copy_from_slice(ext.data);
-        Ok((
-            FixedExtension {
-                r#type: ext.r#type,
-                len: ext.data.len(),
-                data: buf_arr,
-            },
-            rest,
-        ))
-    }
-
-    fn decode_with_format(
+    fn decode_with_format<R>(
         format: Format,
-        buf: &'a [u8],
-    ) -> core::result::Result<(Self::Value, &'a [u8]), decode::Error> {
-        let (ext, rest) = ExtensionRef::decode_with_format(format, buf)?;
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, decode::Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let ext = ExtensionRef::decode_with_format(format, reader)?;
         if ext.data.len() > N {
             return Err(decode::Error::InvalidData);
         }
         let mut buf_arr = [0u8; N];
         buf_arr[..ext.data.len()].copy_from_slice(ext.data);
-        Ok((
-            FixedExtension {
-                r#type: ext.r#type,
-                len: ext.data.len(),
-                data: buf_arr,
-            },
-            rest,
-        ))
+        Ok(FixedExtension {
+            r#type: ext.r#type,
+            len: ext.data.len(),
+            data: buf_arr,
+        })
     }
 }
 
@@ -355,30 +340,21 @@ mod owned {
         }
     }
 
-    impl<'a> Decode<'a> for ExtensionOwned {
+    impl<'de> Decode<'de> for ExtensionOwned {
         type Value = ExtensionOwned;
-        fn decode(buf: &'a [u8]) -> core::result::Result<(Self::Value, &'a [u8]), decode::Error> {
-            let (ext, rest) = ExtensionRef::decode(buf)?;
-            Ok((
-                ExtensionOwned {
-                    r#type: ext.r#type,
-                    data: ext.data.to_vec(),
-                },
-                rest,
-            ))
-        }
-        fn decode_with_format(
+
+        fn decode_with_format<R>(
             format: Format,
-            buf: &'a [u8],
-        ) -> core::result::Result<(Self::Value, &'a [u8]), decode::Error> {
-            let (ext, rest) = ExtensionRef::decode_with_format(format, buf)?;
-            Ok((
-                ExtensionOwned {
-                    r#type: ext.r#type,
-                    data: ext.data.to_vec(),
-                },
-                rest,
-            ))
+            reader: &mut R,
+        ) -> core::result::Result<Self::Value, decode::Error<R::Error>>
+        where
+            R: crate::io::IoRead<'de>,
+        {
+            let ext = ExtensionRef::decode_with_format(format, reader)?;
+            Ok(ExtensionOwned {
+                r#type: ext.r#type,
+                data: ext.data.to_vec(),
+            })
         }
     }
 }
@@ -456,10 +432,11 @@ mod tests {
             .chain(data.as_ref().iter().cloned())
             .collect::<Vec<u8>>();
 
-        let (ext, rest) = ExtensionRef::decode(&buf).unwrap();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let ext = ExtensionRef::decode(&mut r).unwrap();
         assert_eq!(ext.r#type, ty);
         assert_eq!(ext.data, data.as_ref());
-        assert!(rest.is_empty());
+        assert!(r.rest().is_empty());
     }
 
     #[rstest]
@@ -482,10 +459,11 @@ mod tests {
             .cloned()
             .collect::<Vec<_>>();
 
-        let (ext, rest) = ExtensionRef::decode(&buf).unwrap();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let ext = ExtensionRef::decode(&mut r).unwrap();
         assert_eq!(ext.r#type, ty);
         assert_eq!(ext.data, data.as_ref());
-        assert!(rest.is_empty());
+        assert!(r.rest().is_empty());
     }
 
     #[rstest]
@@ -494,9 +472,10 @@ mod tests {
         let ext = FixedExtension::<8>::new(5, &data).unwrap();
         let mut buf = vec![];
         ext.encode(&mut buf).unwrap();
-        let (decoded, rest) = FixedExtension::<8>::decode(&buf).unwrap();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let decoded = FixedExtension::<8>::decode(&mut r).unwrap();
         assert_eq!(decoded.r#type, 5);
         assert_eq!(decoded.as_slice(), &data);
-        assert!(rest.is_empty());
+        assert!(r.rest().is_empty());
     }
 }
