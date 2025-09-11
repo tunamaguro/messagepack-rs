@@ -269,6 +269,67 @@ impl<'a, const N: usize> Decode<'a> for FixedExtension<N> {
     }
 }
 
+/// An owned container for extension payloads.
+#[cfg(feature = "alloc")]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ExtensionOwned {
+    /// Application‑defined extension type code.
+    pub r#type: i8,
+    /// payload bytes.
+    pub data: alloc::vec::Vec<u8>,
+}
+
+#[cfg(feature = "alloc")]
+impl ExtensionOwned {
+    /// Create an owned extension value with the given type code and payload.
+    pub fn new(r#type: i8, data: alloc::vec::Vec<u8>) -> Self {
+        Self { r#type, data }
+    }
+
+    /// Borrow as [`ExtensionRef`] for encoding.
+    pub fn as_ref(&self) -> ExtensionRef<'_> {
+        ExtensionRef {
+            r#type: self.r#type,
+            data: &self.data,
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<W: IoWrite> Encode<W> for ExtensionOwned {
+    fn encode(&self, writer: &mut W) -> core::result::Result<usize, encode::Error<W::Error>> {
+        self.as_ref().encode(writer)
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<'a> Decode<'a> for ExtensionOwned {
+    type Value = ExtensionOwned;
+    fn decode(buf: &'a [u8]) -> core::result::Result<(Self::Value, &'a [u8]), decode::Error> {
+        let (ext, rest) = ExtensionRef::decode(buf)?;
+        Ok((
+            ExtensionOwned {
+                r#type: ext.r#type,
+                data: ext.data.to_vec(),
+            },
+            rest,
+        ))
+    }
+    fn decode_with_format(
+        format: Format,
+        buf: &'a [u8],
+    ) -> core::result::Result<(Self::Value, &'a [u8]), decode::Error> {
+        let (ext, rest) = ExtensionRef::decode_with_format(format, buf)?;
+        Ok((
+            ExtensionOwned {
+                r#type: ext.r#type,
+                data: ext.data.to_vec(),
+            },
+            rest,
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
