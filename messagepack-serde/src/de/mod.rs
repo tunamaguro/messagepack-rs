@@ -400,6 +400,27 @@ mod tests {
         assert_eq!(decoded, expected);
     }
 
+    #[derive(Deserialize, PartialEq, Debug)]
+    #[serde(untagged)]
+    enum Untagged {
+        Bool(bool),
+        U8(u8),
+        Pair(u8, bool),
+        Struct { a: bool },
+        Nested(E),
+    }
+
+    #[rstest]
+    #[case([0xc3],Untagged::Bool(true))]
+    #[case([0x05],Untagged::U8(5))]
+    #[case([0x92, 0x02, 0xc3],Untagged::Pair(2,true))]
+    #[case([0x81, 0xa1, 0x61, 0xc2],Untagged::Struct { a: false })]
+    #[case([0xa4,0x55,0x6e,0x69,0x74],Untagged::Nested(E::Unit))] // "Unit"
+    fn decode_untagged_enum<Buf: AsRef<[u8]>>(#[case] buf: Buf, #[case] expected: Untagged) {
+        let decoded = from_slice::<Untagged>(buf.as_ref()).unwrap();
+        assert_eq!(decoded, expected);
+    }
+
     #[test]
     fn recursion_limit_ok_at_256() {
         // [[[[...]]]] 256 nested array
