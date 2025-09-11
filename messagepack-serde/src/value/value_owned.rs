@@ -2,7 +2,7 @@ use super::number::Number;
 use super::value_ref::ValueRef;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use messagepack_core::extension::ExtensionRef;
+use messagepack_core::extension::{ExtensionOwned, ExtensionRef};
 use serde::{de::Visitor, ser::SerializeMap};
 
 /// Owned representation of any MessagePack value.
@@ -15,12 +15,7 @@ pub enum Value {
     /// Represents `bin 8`, `bin 16` and `bin 32`.
     Bin(Vec<u8>),
     /// Represents ext format family as owned bytes.
-    Extension {
-        /// Application-defined extension type code.
-        r#type: i8,
-        /// Owned payload bytes.
-        data: Vec<u8>,
-    },
+    Extension(ExtensionOwned),
     /// Represents int format family and float format family.
     Number(Number),
     /// Represents str format family.
@@ -54,9 +49,9 @@ impl Value {
     }
 
     /// If the `Value` is ext, returns `(type, data)` as tuple.
-    pub fn as_extension(&self) -> Option<(i8, &[u8])> {
+    pub fn as_extension(&self) -> Option<ExtensionRef<'_>> {
         match self {
-            Value::Extension { r#type, data } => Some((*r#type, data.as_slice())),
+            Value::Extension(ext) => Some(ext.as_ref()),
             _ => None,
         }
     }
@@ -103,10 +98,7 @@ impl serde::Serialize for Value {
             Value::Nil => serializer.serialize_none(),
             Value::Bool(v) => serializer.serialize_bool(*v),
             Value::Bin(b) => serializer.serialize_bytes(b),
-            Value::Extension { r#type, data } => {
-                // Encode using the same newtype layout as `ext_ref`.
-                super::ext_ref::serialize(&ExtensionRef::new(*r#type, data.as_slice()), serializer)
-            }
+            Value::Extension(ext) => super::ext_ref::serialize(&ext.as_ref(), serializer),
             Value::Number(n) => n.serialize(serializer),
             Value::String(s) => serializer.serialize_str(s),
             Value::Array(vs) => vs.serialize(serializer),
@@ -199,10 +191,7 @@ impl<'de> serde::Deserialize<'de> for Value {
                 D: serde::Deserializer<'de>,
             {
                 let ext = super::ext_ref::deserialize(deserializer)?;
-                Ok(Value::Extension {
-                    r#type: ext.r#type,
-                    data: ext.data.to_vec(),
-                })
+                Ok(Value::Extension(ext.into()))
             }
 
             fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
@@ -345,16 +334,19 @@ impl From<Vec<u8>> for Value {
     }
 }
 
+impl From<ExtensionOwned> for Value {
+    fn from(v: ExtensionOwned) -> Self {
+        Value::Extension(v)
+    }
+}
+
 impl From<ValueRef<'_>> for Value {
     fn from(v: ValueRef<'_>) -> Self {
         match v {
             ValueRef::Nil => Value::Nil,
             ValueRef::Bool(b) => Value::Bool(b),
             ValueRef::Bin(b) => Value::Bin(b.to_vec()),
-            ValueRef::Extension(ext) => Value::Extension {
-                r#type: ext.r#type,
-                data: ext.data.to_vec(),
-            },
+            ValueRef::Extension(ext) => Value::Extension(ext.into()),
             ValueRef::Number(n) => Value::Number(n),
             ValueRef::String(s) => Value::String(s.to_string()),
             ValueRef::Array(items) => Value::Array(items.into_iter().map(Value::from).collect()),
@@ -399,10 +391,10 @@ mod tests {
                 (Value::String("k".into()), Value::Bool(false)),
                 (Value::Number(1u64.into()), Value::String("v".into())),
             ]),
-            Value::Extension {
+            Value::Extension(ExtensionOwned {
                 r#type: 1,
                 data: vec![0x12, 0x34],
-            },
+            }),
         ]);
         let mut buf = [0u8; 128];
         let len = to_slice(&v, &mut buf).unwrap();

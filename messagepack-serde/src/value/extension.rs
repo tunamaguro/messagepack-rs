@@ -790,7 +790,7 @@ mod tests {
     fn decode_ext_fixed_bigger_will_success() {
         let ext = crate::from_slice::<WrapFixed<6>>(TIMESTAMP32).unwrap().0;
         assert_eq!(ext.r#type, -1);
-        assert_eq!(ext.data(), &TIMESTAMP32[2..])
+        assert_eq!(ext.as_slice(), &TIMESTAMP32[2..])
     }
 
     #[rstest]
