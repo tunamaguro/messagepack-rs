@@ -26,7 +26,10 @@ impl<'de> Decode<'de> for NilDecoder {
 impl<'de> Decode<'de> for () {
     type Value = ();
 
-    fn decode_with_format<R>(format: Format, reader: &mut R) -> core::result::Result<Self::Value, Error<R::Error>>
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -40,7 +43,10 @@ where
 {
     type Value = Option<V::Value>;
 
-    fn decode_with_format<R>(format: Format, reader: &mut R) -> core::result::Result<Self::Value, Error<R::Error>>
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -62,7 +68,7 @@ mod tests {
     fn decode_nil() {
         let buf: &[u8] = &[0xc0];
         let mut r = crate::io::SliceReader::new(buf);
-        let _ = NilDecoder::decode(&mut r).unwrap();
+        NilDecoder::decode(&mut r).unwrap();
         assert_eq!(r.rest().len(), 0);
     }
 

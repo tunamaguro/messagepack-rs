@@ -8,9 +8,8 @@ use crate::{formats::Format, io::IoRead};
 /// Decode a MessagePack map of `K -> V` into `Map` collecting iterator.
 pub struct MapDecoder<Map, K, V>(PhantomData<(Map, K, V)>);
 
-fn decode_kv<'de, R, K, V>(
-    reader: &mut R,
-) -> core::result::Result<(K::Value, V::Value), Error<R::Error>>
+#[allow(clippy::type_complexity)]
+fn decode_kv<'de, R, K, V>(reader: &mut R) -> Result<(K::Value, V::Value), Error<R::Error>>
 where
     R: IoRead<'de>,
     K: Decode<'de>,
@@ -29,10 +28,7 @@ where
 {
     type Value = Map;
 
-    fn decode_with_format<R>(
-        format: Format,
-        reader: &mut R,
-    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    fn decode_with_format<R>(format: Format, reader: &mut R) -> Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
