@@ -1,3 +1,4 @@
+use messagepack_core::io::RError;
 use serde::de;
 
 use super::{Deserializer, Error};
@@ -17,7 +18,7 @@ impl<'de, 'a> de::SeqAccess<'de> for FixLenAccess<'de, 'a>
 where
     'de: 'a,
 {
-    type Error = Error;
+    type Error = Error<RError>;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
@@ -43,7 +44,7 @@ impl<'de, 'a> de::MapAccess<'de> for FixLenAccess<'de, 'a>
 where
     'de: 'a,
 {
-    type Error = Error;
+    type Error = Error<RError>;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
     where

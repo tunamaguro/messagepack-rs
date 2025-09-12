@@ -7,7 +7,11 @@ use error::CoreError;
 pub use error::Error;
 
 use crate::value::extension::DeserializeExt;
-use messagepack_core::{Decode, Format, decode::NbyteReader};
+use messagepack_core::{
+    Decode, Format,
+    decode::NbyteReader,
+    io::{IoRead, RError, SliceReader},
+};
 use serde::{
     Deserialize,
     de::{self, IntoDeserializer},
@@ -15,7 +19,7 @@ use serde::{
 };
 
 /// Deserialize from slice
-pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
+pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error<RError>> {
     let mut deserializer = Deserializer::from_slice(input);
     T::deserialize(&mut deserializer)
 }
@@ -36,18 +40,20 @@ where
 
 const MAX_RECURSION_DEPTH: usize = 256;
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 struct Deserializer<'de> {
-    input: &'de [u8],
+    reader: SliceReader<'de>,
     depth: usize,
 }
 
 impl<'de> Deserializer<'de> {
     pub fn from_slice(input: &'de [u8]) -> Self {
-        Deserializer { input, depth: 0 }
+        Deserializer {
+            reader: SliceReader::new(input),
+            depth: 0,
+        }
     }
 
-    fn recurse<F, V>(&mut self, f: F) -> Result<V, Error>
+    fn recurse<F, V>(&mut self, f: F) -> Result<V, Error<RError>>
     where
         F: FnOnce(&mut Self) -> V,
     {
@@ -60,55 +66,48 @@ impl<'de> Deserializer<'de> {
         Ok(result)
     }
 
-    fn decode<V: Decode<'de>>(&mut self) -> Result<V::Value, Error> {
-        let (decoded, rest) = V::decode(self.input)?;
-        self.input = rest;
+    fn decode<V: Decode<'de>>(&mut self) -> Result<V::Value, Error<RError>> {
+        let decoded = V::decode(&mut self.reader)?;
         Ok(decoded)
     }
 
-    fn decode_with_format<V: Decode<'de>>(&mut self, format: Format) -> Result<V::Value, Error> {
-        let (decoded, rest) = V::decode_with_format(format, self.input)?;
-        self.input = rest;
+    fn decode_with_format<V: Decode<'de>>(
+        &mut self,
+        format: Format,
+    ) -> Result<V::Value, Error<RError>> {
+        let decoded = V::decode_with_format(format, &mut self.reader)?;
         Ok(decoded)
     }
 
-    fn decode_seq_with_format<V>(&mut self, format: Format, visitor: V) -> Result<V::Value, Error>
+    fn decode_seq_with_format<V>(
+        &mut self,
+        format: Format,
+        visitor: V,
+    ) -> Result<V::Value, Error<RError>>
     where
         V: de::Visitor<'de>,
     {
         let n = match format {
             Format::FixArray(n) => n.into(),
-            Format::Array16 => {
-                let (n, buf) = NbyteReader::<2>::read(self.input)?;
-                self.input = buf;
-                n
-            }
-            Format::Array32 => {
-                let (n, buf) = NbyteReader::<4>::read(self.input)?;
-                self.input = buf;
-                n
-            }
+            Format::Array16 => NbyteReader::<2>::read(&mut self.reader)?,
+            Format::Array32 => NbyteReader::<4>::read(&mut self.reader)?,
             _ => return Err(CoreError::UnexpectedFormat.into()),
         };
         self.recurse(move |des| visitor.visit_seq(seq::FixLenAccess::new(des, n)))?
     }
 
-    fn decode_map_with_format<V>(&mut self, format: Format, visitor: V) -> Result<V::Value, Error>
+    fn decode_map_with_format<V>(
+        &mut self,
+        format: Format,
+        visitor: V,
+    ) -> Result<V::Value, Error<RError>>
     where
         V: de::Visitor<'de>,
     {
         let n = match format {
             Format::FixMap(n) => n.into(),
-            Format::Map16 => {
-                let (n, buf) = NbyteReader::<2>::read(self.input)?;
-                self.input = buf;
-                n
-            }
-            Format::Map32 => {
-                let (n, buf) = NbyteReader::<4>::read(self.input)?;
-                self.input = buf;
-                n
-            }
+            Format::Map16 => NbyteReader::<2>::read(&mut self.reader)?,
+            Format::Map32 => NbyteReader::<4>::read(&mut self.reader)?,
             _ => return Err(CoreError::UnexpectedFormat.into()),
         };
         self.recurse(move |des| visitor.visit_map(seq::FixLenAccess::new(des, n)))?
@@ -122,7 +121,7 @@ impl AsMut<Self> for Deserializer<'_> {
 }
 
 impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
-    type Error = Error;
+    type Error = Error<RError>;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
@@ -197,12 +196,16 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
             | Format::FixExt4
             | Format::FixExt8
             | Format::FixExt16 => {
-                let mut de_ext = DeserializeExt::new(format, self.input)?;
+                // Snapshot the slice at current reader position
+                let start = self.reader.rest();
+                let mut de_ext = DeserializeExt::new(format, start)?;
                 let val = (&mut de_ext).deserialize_newtype_struct(
                     crate::value::extension::EXTENSION_STRUCT_NAME,
                     visitor,
                 )?;
-                self.input = de_ext.input;
+                // Advance main reader by consumed bytes
+                let consumed = start.len() - de_ext.input.len();
+                let _ = self.reader.read_slice(consumed).map_err(CoreError::Io)?;
 
                 Ok(val)
             }
@@ -214,15 +217,18 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let (first, rest) = self.input.split_first().ok_or(CoreError::EofFormat)?;
-
-        let format = Format::from_byte(*first);
+        let b = self.reader.peek_slice(1).map_err(CoreError::Io)?.as_bytes()[0];
+        let format = Format::from_byte(b);
         match format {
             Format::Nil => {
-                self.input = rest;
+                self.reader.consume();
                 visitor.visit_none()
             }
-            _ => visitor.visit_some(self),
+            _ => {
+                // Do not consume the peeked byte; clear peek state only.
+                self.reader.discard();
+                visitor.visit_some(self)
+            }
         }
     }
 
@@ -235,12 +241,24 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let ident = self.decode::<&str>();
-        match ident {
-            Ok(ident) => visitor.visit_enum(ident.into_deserializer()),
+        // Peek next format to decide enum form without consuming
+        let next = self.reader.peek_slice(1).map_err(CoreError::Io)?.as_bytes()[0];
+        let next_format = Format::from_byte(next);
+        match next_format {
+            Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
+                // Clear peek state and parse identifier as &str
+                self.reader.discard();
+                let ident = self.decode::<&str>()?;
+                visitor.visit_enum(ident.into_deserializer())
+            }
             _ => {
-                let (format, rest) = Format::decode(self.input)?;
-                let mut des = Deserializer::from_slice(rest);
+                // Map/Array‑based enum: consume the collection header
+                self.reader.discard();
+                let format = Format::decode(&mut self.reader)?;
+                let mut des = Deserializer {
+                    reader: SliceReader::new(self.reader.rest()),
+                    depth: 0,
+                };
                 // inherit depth
                 des.depth = self.depth;
                 let val = match format {
@@ -254,7 +272,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
                     }
                     _ => Err(CoreError::UnexpectedFormat.into()),
                 }?;
-                self.input = des.input;
+                self.reader = des.reader;
 
                 Ok(val)
             }

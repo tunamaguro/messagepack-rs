@@ -1,4 +1,8 @@
-use messagepack_core::{Format, extension::ExtensionRef as CoreExtensionRef, io::IoWrite};
+use messagepack_core::{
+    Format,
+    extension::ExtensionRef as CoreExtensionRef,
+    io::{IoWrite, RError},
+};
 use serde::{
     Serialize, Serializer,
     de::Visitor,
@@ -324,36 +328,43 @@ impl AsMut<Self> for DeserializeExt<'_> {
 }
 
 impl<'de> DeserializeExt<'de> {
-    pub(crate) fn new(format: Format, input: &'de [u8]) -> Result<Self, crate::de::Error> {
-        let (data_len, rest) = match format {
-            Format::FixExt1 => (1, input),
-            Format::FixExt2 => (2, input),
-            Format::FixExt4 => (4, input),
-            Format::FixExt8 => (8, input),
-            Format::FixExt16 => (16, input),
-            Format::Ext8 => {
-                let (first, rest) = input
-                    .split_first_chunk::<1>()
-                    .ok_or(messagepack_core::decode::Error::EofData)?;
-                let val = u8::from_be_bytes(*first);
-                (val.into(), rest)
-            }
-            Format::Ext16 => {
-                let (first, rest) = input
-                    .split_first_chunk::<2>()
-                    .ok_or(messagepack_core::decode::Error::EofData)?;
-                let val = u16::from_be_bytes(*first);
-                (val.into(), rest)
-            }
-            Format::Ext32 => {
-                let (first, rest) = input
-                    .split_first_chunk::<4>()
-                    .ok_or(messagepack_core::decode::Error::EofData)?;
-                let val = u32::from_be_bytes(*first);
-                (val as usize, rest)
-            }
-            _ => return Err(messagepack_core::decode::Error::UnexpectedFormat.into()),
-        };
+    pub(crate) fn new(format: Format, input: &'de [u8]) -> Result<Self, crate::de::Error<RError>> {
+        let (data_len, rest) =
+            match format {
+                Format::FixExt1 => (1, input),
+                Format::FixExt2 => (2, input),
+                Format::FixExt4 => (4, input),
+                Format::FixExt8 => (8, input),
+                Format::FixExt16 => (16, input),
+                Format::Ext8 => {
+                    let (first, rest) = input.split_first_chunk::<1>().ok_or(
+                        messagepack_core::decode::Error::Io(
+                            messagepack_core::io::RError::BufferEmpty,
+                        ),
+                    )?;
+                    let val = u8::from_be_bytes(*first);
+                    (val.into(), rest)
+                }
+                Format::Ext16 => {
+                    let (first, rest) = input.split_first_chunk::<2>().ok_or(
+                        messagepack_core::decode::Error::Io(
+                            messagepack_core::io::RError::BufferEmpty,
+                        ),
+                    )?;
+                    let val = u16::from_be_bytes(*first);
+                    (val.into(), rest)
+                }
+                Format::Ext32 => {
+                    let (first, rest) = input.split_first_chunk::<4>().ok_or(
+                        messagepack_core::decode::Error::Io(
+                            messagepack_core::io::RError::BufferEmpty,
+                        ),
+                    )?;
+                    let val = u32::from_be_bytes(*first);
+                    (val as usize, rest)
+                }
+                _ => return Err(messagepack_core::decode::Error::UnexpectedFormat.into()),
+            };
         Ok(DeserializeExt {
             data_len,
             input: rest,
@@ -362,7 +373,7 @@ impl<'de> DeserializeExt<'de> {
 }
 
 impl<'de> serde::Deserializer<'de> for &mut DeserializeExt<'de> {
-    type Error = crate::de::Error;
+    type Error = crate::de::Error<RError>;
 
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
@@ -377,10 +388,12 @@ impl<'de> serde::Deserializer<'de> for &mut DeserializeExt<'de> {
     where
         V: Visitor<'de>,
     {
-        let (first, rest) = self
-            .input
-            .split_first_chunk::<1>()
-            .ok_or(messagepack_core::decode::Error::EofData)?;
+        let (first, rest) =
+            self.input
+                .split_first_chunk::<1>()
+                .ok_or(messagepack_core::decode::Error::Io(
+                    messagepack_core::io::RError::BufferEmpty,
+                ))?;
 
         let val = i8::from_be_bytes(*first);
         self.input = rest;
@@ -391,10 +404,9 @@ impl<'de> serde::Deserializer<'de> for &mut DeserializeExt<'de> {
     where
         V: Visitor<'de>,
     {
-        let (data, rest) = self
-            .input
-            .split_at_checked(self.data_len)
-            .ok_or(messagepack_core::decode::Error::EofData)?;
+        let (data, rest) = self.input.split_at_checked(self.data_len).ok_or(
+            messagepack_core::decode::Error::Io(messagepack_core::io::RError::BufferEmpty),
+        )?;
         self.input = rest;
         visitor.visit_borrowed_bytes(data)
     }
@@ -425,7 +437,7 @@ impl<'de> serde::Deserializer<'de> for &mut DeserializeExt<'de> {
 }
 
 impl<'de> serde::de::SeqAccess<'de> for &mut DeserializeExt<'de> {
-    type Error = crate::de::Error;
+    type Error = crate::de::Error<RError>;
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
         T: serde::de::DeserializeSeed<'de>,
