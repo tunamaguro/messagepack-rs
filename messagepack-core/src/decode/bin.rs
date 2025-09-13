@@ -4,7 +4,7 @@ use super::{Decode, Error, NbyteReader};
 use crate::{formats::Format, io::IoRead};
 
 /// Decode a MessagePack binary blob and return a borrowed byte slice.
-///
+/// 
 /// This decode a slice that survives at least as long as the `de`
 pub struct BinDecoder;
 
@@ -43,8 +43,8 @@ impl<'de> Decode<'de> for &'de [u8] {
     }
 }
 
-/// Decode a MessagePack binary blob and return a borrowed byte slice.
-///
+/// Decode a MessagePack binary blob and return a borrowed byte slice. 
+/// 
 /// This decoded a slice that may be free soon
 pub struct ReferenceDecoder;
 

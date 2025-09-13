@@ -220,14 +220,8 @@ where
                 self.decode_seq_with_format(format, visitor)
             }
             Format::Bin8 | Format::Bin16 | Format::Bin32 => {
-                use messagepack_core::decode::ReferenceDecoder;
-                let v = self.decode_with_format::<ReferenceDecoder>(format)?;
-                match v {
-                    messagepack_core::io::Reference::Borrowed(items) => {
-                        visitor.visit_borrowed_bytes(items)
-                    }
-                    messagepack_core::io::Reference::Copied(items) => visitor.visit_bytes(items),
-                }
+                let v = self.decode_with_format::<&[u8]>(format)?;
+                visitor.visit_borrowed_bytes(v)
             }
             Format::FixMap(_) | Format::Map16 | Format::Map32 => {
                 self.decode_map_with_format(format, visitor)
