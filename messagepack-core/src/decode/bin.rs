@@ -7,12 +7,12 @@ use crate::{formats::Format, io::IoRead};
 pub struct BinDecoder;
 
 impl<'de> Decode<'de> for BinDecoder {
-    type Value<'a> = &'de [u8];
+    type Value = &'de [u8];
 
-    fn decode_with_format<'a, R>(
+    fn decode_with_format<R>(
         format: Format,
-        reader: &'a mut R,
-    ) -> core::result::Result<Self::Value<'de>, Error<R::Error>>
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -31,15 +31,12 @@ impl<'de> Decode<'de> for BinDecoder {
 }
 
 impl<'de> Decode<'de> for &'de [u8] {
-    type Value<'a>
-        = &'de [u8]
-    where
-        Self: 'a;
+    type Value = &'de [u8];
 
-    fn decode_with_format<'a, R>(
+    fn decode_with_format<R>(
         format: Format,
-        reader: &'a mut R,
-    ) -> core::result::Result<Self::Value<'de>, Error<R::Error>>
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
