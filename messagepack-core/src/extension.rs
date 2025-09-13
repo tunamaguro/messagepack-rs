@@ -193,11 +193,7 @@ impl<const N: usize> FixedExtension<N> {
     /// emit `FixExtN` only if `N` is one of {1, 2, 4, 8, 16}. For any other
     /// `N`, the encoder uses `Ext8/16/32` as appropriate.
     pub fn new_fixed(r#type: i8, len: usize, data: [u8; N]) -> Self {
-        Self {
-            r#type,
-            len,
-            data,
-        }
+        Self { r#type, len, data }
     }
 
     /// Borrow as [`ExtensionRef`] for encoding.
