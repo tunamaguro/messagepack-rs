@@ -342,18 +342,9 @@ where
             Format::FixExt4 => 4,
             Format::FixExt8 => 8,
             Format::FixExt16 => 16,
-            Format::Ext8 => {
-                
-                NbyteReader::<1>::read(reader)?
-            }
-            Format::Ext16 => {
-                
-                NbyteReader::<2>::read(reader)?
-            }
-            Format::Ext32 => {
-                
-                NbyteReader::<4>::read(reader)?
-            }
+            Format::Ext8 => NbyteReader::<1>::read(reader)?,
+            Format::Ext16 => NbyteReader::<2>::read(reader)?,
+            Format::Ext32 => NbyteReader::<4>::read(reader)?,
             _ => return Err(messagepack_core::decode::Error::UnexpectedFormat.into()),
         };
         Ok(DeserializeExt { data_len, reader })
