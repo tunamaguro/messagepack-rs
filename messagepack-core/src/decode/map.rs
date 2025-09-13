@@ -2,67 +2,112 @@
 
 use core::marker::PhantomData;
 
-use super::{Decode, Error, NbyteReader, Result};
-use crate::formats::Format;
+use super::{Decode, Error, NbyteReader};
+use crate::{formats::Format, io::IoRead};
 
 /// Decode a MessagePack map of `K -> V` into `Map` collecting iterator.
 pub struct MapDecoder<Map, K, V>(PhantomData<(Map, K, V)>);
 
-fn decode_kv<'a, K, V>(buf: &'a [u8]) -> Result<(K::Value, V::Value, &'a [u8])>
+#[allow(clippy::type_complexity)]
+fn decode_kv<'de, R, K, V>(reader: &mut R) -> Result<(K::Value, V::Value), Error<R::Error>>
 where
-    K: Decode<'a>,
-    V: Decode<'a>,
+    R: IoRead<'de>,
+    K: Decode<'de>,
+    V: Decode<'de>,
 {
-    let (k, buf) = K::decode(buf)?;
-    let (v, buf) = V::decode(buf)?;
-    Ok((k, v, buf))
+    let k = K::decode(reader)?;
+    let v = V::decode(reader)?;
+    Ok((k, v))
 }
 
-impl<'a, Map, K, V> Decode<'a> for MapDecoder<Map, K, V>
+impl<'de, Map, K, V> Decode<'de> for MapDecoder<Map, K, V>
 where
-    K: Decode<'a>,
-    V: Decode<'a>,
+    K: Decode<'de>,
+    V: Decode<'de>,
     Map: FromIterator<(K::Value, V::Value)>,
 {
     type Value = Map;
 
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (format, buf) = Format::decode(buf)?;
-        match format {
-            Format::FixMap(_) | Format::Map16 | Format::Map32 => {
-                Self::decode_with_format(format, buf)
-            }
-            _ => Err(Error::UnexpectedFormat),
-        }
-    }
-
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (len, buf) = match format {
-            Format::FixMap(len) => (len.into(), buf),
-            Format::Map16 => NbyteReader::<2>::read(buf)?,
-            Format::Map32 => NbyteReader::<4>::read(buf)?,
+    fn decode_with_format<R>(format: Format, reader: &mut R) -> Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let len = match format {
+            Format::FixMap(len) => len.into(),
+            Format::Map16 => NbyteReader::<2>::read(reader)?,
+            Format::Map32 => NbyteReader::<4>::read(reader)?,
             _ => return Err(Error::UnexpectedFormat),
         };
 
-        let mut has_err = None;
-        let mut buf_ptr = buf;
-        let collector =
-            core::iter::repeat_n((), len).map_while(|_| match decode_kv::<K, V>(buf_ptr) {
-                Ok((k, v, b)) => {
-                    buf_ptr = b;
-                    Some((k, v))
-                }
-                Err(e) => {
-                    has_err = Some(e);
-                    None
-                }
-            });
-        let res = Map::from_iter(collector);
-
-        if let Some(e) = has_err {
-            Err(e)
-        } else {
-            Ok((res, buf_ptr))
+        let mut err: Option<Error<R::Error>> = None;
+        let iter = (0..len).map_while(|_| match decode_kv::<R, K, V>(reader) {
+            Ok((k, v)) => Some((k, v)),
+            Err(e) => {
+                err = Some(e);
+                None
+            }
+        });
+        let res = Map::from_iter(iter);
+        match err {
+            Some(e) => Err(e),
+            None => Ok(res),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case(&[0x82, 0x01, 0x0a, 0x02, 0x14], vec![(1u8, 10u8), (2, 20)], &[])]
+    #[case(&[0xde, 0x00, 0x02, 0x01, 0x0a, 0x02, 0x14], vec![(1u8, 10u8), (2, 20)], &[])]
+    fn map_decode_success(
+        #[case] buf: &[u8],
+        #[case] expect: Vec<(u8, u8)>,
+        #[case] rest_expect: &[u8],
+    ) {
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = MapDecoder::<Vec<(u8, u8)>, u8, u8>::decode(&mut r).unwrap();
+        assert_eq!(decoded, expect);
+        assert_eq!(r.rest(), rest_expect);
+    }
+
+    #[test]
+    fn map_decoder_unexpected_format() {
+        // array(1) where a map is expected
+        let buf = &[0x91, 0x00];
+        let mut r = crate::io::SliceReader::new(buf);
+        let err = MapDecoder::<Vec<(u8, u8)>, u8, u8>::decode(&mut r).unwrap_err();
+        assert!(matches!(err, Error::UnexpectedFormat));
+    }
+
+    #[test]
+    fn map_decode_eof_on_key() {
+        // map(1) but missing key/value bytes
+        let buf = &[0x81];
+        let mut r = crate::io::SliceReader::new(buf);
+        let err = MapDecoder::<Vec<(u8, u8)>, u8, u8>::decode(&mut r).unwrap_err();
+        assert!(matches!(err, Error::Io(_)));
+    }
+
+    #[test]
+    fn map_decode_key_unexpected_format() {
+        // map(1) with a string key (invalid for u8 key)
+        let buf = &[0x81, 0xa1, b'a', 0x02];
+        let mut r = crate::io::SliceReader::new(buf);
+        let err = MapDecoder::<Vec<(u8, u8)>, u8, u8>::decode(&mut r).unwrap_err();
+        assert!(matches!(err, Error::UnexpectedFormat));
+    }
+
+    #[test]
+    fn map_decode_value_error_after_first_pair() {
+        // map(2): first pair ok (1->1), second pair truncated (key present, value missing)
+        let buf = &[0x82, 0x01, 0x01, 0x02];
+        let mut r = crate::io::SliceReader::new(buf);
+        let err = MapDecoder::<Vec<(u8, u8)>, u8, u8>::decode(&mut r).unwrap_err();
+        // read_slice should fail while decoding second value
+        assert!(matches!(err, Error::Io(_)));
     }
 }

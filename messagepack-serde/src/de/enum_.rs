@@ -1,22 +1,24 @@
+use messagepack_core::io::IoRead;
 use serde::de;
 
 use super::{Deserializer, Error, error::CoreError};
 
-pub struct Enum<'de, 'a>
-where
-    'de: 'a,
-{
-    de: &'a mut Deserializer<'de>,
+pub struct Enum<'a, R> {
+    de: &'a mut Deserializer<R>,
 }
 
-impl<'de, 'a> Enum<'de, 'a> {
-    pub fn new(de: &'a mut Deserializer<'de>) -> Self {
+impl<'a, R> Enum<'a, R> {
+    pub fn new(de: &'a mut Deserializer<R>) -> Self {
         Enum { de }
     }
 }
 
-impl<'de> de::EnumAccess<'de> for Enum<'de, '_> {
-    type Error = Error;
+impl<'de, 'a, R> de::EnumAccess<'de> for Enum<'a, R>
+where
+    'de: 'a,
+    R: IoRead<'de>,
+{
+    type Error = Error<R::Error>;
 
     type Variant = Self;
 
@@ -30,8 +32,12 @@ impl<'de> de::EnumAccess<'de> for Enum<'de, '_> {
     }
 }
 
-impl<'de> de::VariantAccess<'de> for Enum<'de, '_> {
-    type Error = Error;
+impl<'de, 'a, R> de::VariantAccess<'de> for Enum<'a, R>
+where
+    'de: 'a,
+    R: IoRead<'de>,
+{
+    type Error = Error<R::Error>;
 
     fn unit_variant(self) -> Result<(), Self::Error> {
         // Unit variant should handle before

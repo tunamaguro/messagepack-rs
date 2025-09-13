@@ -1,12 +1,12 @@
 use serde::de;
 
-pub(crate) type CoreError = messagepack_core::decode::Error;
+pub(crate) type CoreError<E> = messagepack_core::decode::Error<E>;
 
 /// Error during deserialization
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub enum Error {
+pub enum Error<E> {
     /// Core error
-    Decode(CoreError),
+    Decode(CoreError<E>),
     /// Recursion limit (nesting depth) exceeded
     RecursionLimitExceeded,
     #[cfg(not(feature = "std"))]
@@ -17,7 +17,10 @@ pub enum Error {
     Message(String),
 }
 
-impl core::fmt::Display for Error {
+impl<E> core::fmt::Display for Error<E>
+where
+    E: core::fmt::Display,
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Error::Decode(e) => e.fmt(f),
@@ -30,14 +33,27 @@ impl core::fmt::Display for Error {
     }
 }
 
-impl From<CoreError> for Error {
-    fn from(err: CoreError) -> Self {
+impl<E> From<CoreError<E>> for Error<E> {
+    fn from(err: CoreError<E>) -> Self {
         Error::Decode(err)
     }
 }
 
-impl de::StdError for Error {}
-impl de::Error for Error {
+impl<E> de::StdError for Error<E>
+where
+    E: core::error::Error + 'static,
+{
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Error::Decode(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+impl<E> de::Error for Error<E>
+where
+    E: core::error::Error + 'static,
+{
     #[allow(unused_variables)]
     fn custom<T>(msg: T) -> Self
     where

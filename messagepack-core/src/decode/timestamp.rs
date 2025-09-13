@@ -1,73 +1,94 @@
-use super::{Decode, Error, NbyteReader, Result};
+use super::{Decode, Error, NbyteReader};
 use crate::{
     Format,
+    io::IoRead,
     timestamp::{TIMESTAMP_EXTENSION_TYPE, Timestamp32, Timestamp64, Timestamp96},
 };
 
-impl<'a> Decode<'a> for Timestamp32 {
+impl<'de> Decode<'de> for Timestamp32 {
     type Value = Timestamp32;
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (format, buf) = Format::decode(buf)?;
+
+    fn decode_with_format<R>(
+        format: crate::Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
         match format {
-            Format::FixExt4 => Self::decode_with_format(format, buf),
-            _ => Err(Error::UnexpectedFormat),
-        }
-    }
-    fn decode_with_format(format: crate::Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (len, buf) = match format {
-            Format::FixExt4 => (4, buf),
+            Format::FixExt4 => {}
             _ => return Err(Error::UnexpectedFormat),
         };
-        let (ext_type, buf) = buf.split_first().ok_or(Error::EofData)?;
-        let ext_type = (*ext_type) as i8;
+        let ext_type: [u8; 1] = reader
+            .read_slice(1)
+            .map_err(Error::Io)?
+            .as_bytes()
+            .try_into()
+            .map_err(|_| Error::UnexpectedEof)?;
+        let ext_type = ext_type[0] as i8;
         if ext_type != TIMESTAMP_EXTENSION_TYPE {
             return Err(Error::InvalidData);
         }
 
-        let (data, rest) = buf.split_at_checked(len).ok_or(Error::EofData)?;
-        let timestamp = Self::from_buf(data.try_into().expect("expect 4 len"));
-        Ok((timestamp, rest))
+        let data = reader.read_slice(4).map_err(Error::Io)?;
+        let buf: [u8; 4] = data
+            .as_bytes()
+            .try_into()
+            .map_err(|_| Error::UnexpectedEof)?;
+        let timestamp = Self::from_buf(buf);
+
+        Ok(timestamp)
     }
 }
 
-impl<'a> Decode<'a> for Timestamp64 {
+impl<'de> Decode<'de> for Timestamp64 {
     type Value = Timestamp64;
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (format, buf) = Format::decode(buf)?;
+
+    fn decode_with_format<R>(
+        format: crate::Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
         match format {
-            Format::FixExt8 => Self::decode_with_format(format, buf),
-            _ => Err(Error::UnexpectedFormat),
-        }
-    }
-    fn decode_with_format(format: crate::Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (len, buf) = match format {
-            Format::FixExt8 => (8, buf),
+            Format::FixExt8 => {}
             _ => return Err(Error::UnexpectedFormat),
         };
-        let (ext_type, buf) = buf.split_first().ok_or(Error::EofData)?;
-        let ext_type = (*ext_type) as i8;
+
+        let ext_type: [u8; 1] = reader
+            .read_slice(1)
+            .map_err(Error::Io)?
+            .as_bytes()
+            .try_into()
+            .map_err(|_| Error::UnexpectedEof)?;
+        let ext_type = ext_type[0] as i8;
         if ext_type != TIMESTAMP_EXTENSION_TYPE {
             return Err(Error::InvalidData);
         }
 
-        let (data, rest) = buf.split_at_checked(len).ok_or(Error::EofData)?;
-        let timestamp = Self::from_buf(data.try_into().expect("expect 8 len"));
-        Ok((timestamp, rest))
+        let data = reader.read_slice(8).map_err(Error::Io)?;
+        let buf: [u8; 8] = data
+            .as_bytes()
+            .try_into()
+            .map_err(|_| Error::UnexpectedEof)?;
+        let timestamp = Self::from_buf(buf);
+        Ok(timestamp)
     }
 }
 
-impl<'a> Decode<'a> for Timestamp96 {
+impl<'de> Decode<'de> for Timestamp96 {
     type Value = Timestamp96;
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (format, buf) = Format::decode(buf)?;
-        match format {
-            Format::Ext8 => Self::decode_with_format(format, buf),
-            _ => Err(Error::UnexpectedFormat),
-        }
-    }
-    fn decode_with_format(format: crate::Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (len, buf) = match format {
-            Format::Ext8 => NbyteReader::<1>::read(buf)?,
+
+    fn decode_with_format<R>(
+        format: crate::Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let len = match format {
+            Format::Ext8 => NbyteReader::<1>::read(reader)?,
             _ => return Err(Error::UnexpectedFormat),
         };
         const TIMESTAMP96_DATA_LENGTH: usize = 12;
@@ -75,15 +96,24 @@ impl<'a> Decode<'a> for Timestamp96 {
             return Err(Error::InvalidData);
         }
 
-        let (ext_type, buf) = buf.split_first().ok_or(Error::EofData)?;
-        let ext_type = (*ext_type) as i8;
+        let ext_type: [u8; 1] = reader
+            .read_slice(1)
+            .map_err(Error::Io)?
+            .as_bytes()
+            .try_into()
+            .map_err(|_| Error::UnexpectedEof)?;
+        let ext_type = ext_type[0] as i8;
         if ext_type != TIMESTAMP_EXTENSION_TYPE {
             return Err(Error::InvalidData);
         }
 
-        let (data, rest) = buf.split_at_checked(len).ok_or(Error::EofData)?;
-        let timestamp = Self::from_buf(data.try_into().expect("expect 12 len"));
-        Ok((timestamp, rest))
+        let data = reader.read_slice(12).map_err(Error::Io)?;
+        let buf: [u8; 12] = data
+            .as_bytes()
+            .try_into()
+            .map_err(|_| Error::UnexpectedEof)?;
+        let timestamp = Self::from_buf(buf);
+        Ok(timestamp)
     }
 }
 
@@ -98,9 +128,10 @@ mod tests {
         let mut buf = vec![0xd6, TIMESTAMP_EXT_TYPE];
         buf.extend_from_slice(&secs.to_be_bytes());
 
-        let (ts, rest) = Timestamp32::decode(&buf).unwrap();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let ts = Timestamp32::decode(&mut r).unwrap();
         assert_eq!(ts.seconds(), secs);
-        assert!(rest.is_empty());
+        assert!(r.rest().is_empty());
     }
 
     #[test]
@@ -109,7 +140,8 @@ mod tests {
         let mut buf = vec![0xd6, 0]; // ext type != -1
         buf.extend_from_slice(&secs.to_be_bytes());
 
-        let err = Timestamp32::decode(&buf).unwrap_err();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let err = Timestamp32::decode(&mut r).unwrap_err();
         assert_eq!(err, Error::InvalidData);
     }
 
@@ -119,8 +151,9 @@ mod tests {
         let mut buf = vec![0xd6, TIMESTAMP_EXT_TYPE];
         buf.extend_from_slice(&secs.to_be_bytes()[..3]); // 1 byte short
 
-        let err = Timestamp32::decode(&buf).unwrap_err();
-        assert_eq!(err, Error::EofData);
+        let mut r = crate::io::SliceReader::new(&buf);
+        let err = Timestamp32::decode(&mut r).unwrap_err();
+        assert!(matches!(err, Error::Io(_)));
     }
 
     #[test]
@@ -132,10 +165,11 @@ mod tests {
         let mut buf = vec![0xd7, TIMESTAMP_EXT_TYPE];
         buf.extend_from_slice(&data.to_be_bytes());
 
-        let (ts, rest) = Timestamp64::decode(&buf).unwrap();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let ts = Timestamp64::decode(&mut r).unwrap();
         assert_eq!(ts.seconds(), secs);
         assert_eq!(ts.nanos(), nanos);
-        assert!(rest.is_empty());
+        assert!(r.rest().is_empty());
     }
 
     #[test]
@@ -143,7 +177,8 @@ mod tests {
         let mut buf = vec![0xd6, TIMESTAMP_EXT_TYPE]; // FixExt4, not FixExt8
         buf.extend_from_slice(&0u64.to_be_bytes());
 
-        let err = Timestamp64::decode(&buf).unwrap_err();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let err = Timestamp64::decode(&mut r).unwrap_err();
         assert_eq!(err, Error::UnexpectedFormat);
     }
 
@@ -152,7 +187,8 @@ mod tests {
         let mut buf = vec![0xd7, 0]; // ext type != -1
         buf.extend_from_slice(&0u64.to_be_bytes());
 
-        let err = Timestamp64::decode(&buf).unwrap_err();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let err = Timestamp64::decode(&mut r).unwrap_err();
         assert_eq!(err, Error::InvalidData);
     }
 
@@ -161,8 +197,9 @@ mod tests {
         let mut buf = vec![0xd7, TIMESTAMP_EXT_TYPE];
         buf.extend_from_slice(&[0u8; 7]); // 1 byte short
 
-        let err = Timestamp64::decode(&buf).unwrap_err();
-        assert_eq!(err, Error::EofData);
+        let mut r = crate::io::SliceReader::new(&buf);
+        let err = Timestamp64::decode(&mut r).unwrap_err();
+        assert!(matches!(err, Error::Io(_)));
     }
 
     #[test]
@@ -174,10 +211,11 @@ mod tests {
         buf.extend_from_slice(&nanos.to_be_bytes());
         buf.extend_from_slice(&secs.to_be_bytes());
 
-        let (ts, rest) = Timestamp96::decode(&buf).unwrap();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let ts = Timestamp96::decode(&mut r).unwrap();
         assert_eq!(ts.seconds(), secs);
         assert_eq!(ts.nanos(), nanos);
-        assert!(rest.is_empty());
+        assert!(r.rest().is_empty());
     }
 
     #[test]
@@ -189,10 +227,11 @@ mod tests {
         buf.extend_from_slice(&nanos.to_be_bytes());
         buf.extend_from_slice(&secs.to_be_bytes());
 
-        let (ts, rest) = Timestamp96::decode(&buf).unwrap();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let ts = Timestamp96::decode(&mut r).unwrap();
         assert_eq!(ts.seconds(), secs);
         assert_eq!(ts.nanos(), nanos);
-        assert!(rest.is_empty());
+        assert!(r.rest().is_empty());
     }
 
     #[test]
@@ -201,7 +240,8 @@ mod tests {
         let mut buf = vec![0xd7, TIMESTAMP_EXT_TYPE];
         buf.extend_from_slice(&[0u8; 8]);
 
-        let err = Timestamp96::decode(&buf).unwrap_err();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let err = Timestamp96::decode(&mut r).unwrap_err();
         assert_eq!(err, Error::UnexpectedFormat);
     }
 
@@ -211,7 +251,8 @@ mod tests {
         let mut buf = vec![0xc7, 11, TIMESTAMP_EXT_TYPE];
         buf.extend_from_slice(&[0u8; 11]);
 
-        let err = Timestamp96::decode(&buf).unwrap_err();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let err = Timestamp96::decode(&mut r).unwrap_err();
         assert_eq!(err, Error::InvalidData);
     }
 
@@ -224,7 +265,8 @@ mod tests {
         buf.extend_from_slice(&nanos.to_be_bytes());
         buf.extend_from_slice(&secs.to_be_bytes());
 
-        let err = Timestamp96::decode(&buf).unwrap_err();
+        let mut r = crate::io::SliceReader::new(&buf);
+        let err = Timestamp96::decode(&mut r).unwrap_err();
         assert_eq!(err, Error::InvalidData);
     }
 
@@ -234,7 +276,8 @@ mod tests {
         let mut buf = vec![0xc7, 12, TIMESTAMP_EXT_TYPE];
         buf.extend_from_slice(&[0u8; 11]);
 
-        let err = Timestamp96::decode(&buf).unwrap_err();
-        assert_eq!(err, Error::EofData);
+        let mut r = crate::io::SliceReader::new(&buf);
+        let err = Timestamp96::decode(&mut r).unwrap_err();
+        assert!(matches!(err, Error::Io(_)));
     }
 }

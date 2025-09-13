@@ -7,7 +7,11 @@ use error::CoreError;
 pub use error::Error;
 
 use crate::value::extension::DeserializeExt;
-use messagepack_core::{Decode, Format, decode::NbyteReader};
+use messagepack_core::{
+    Decode, Format,
+    decode::NbyteReader,
+    io::{IoRead, RError},
+};
 use serde::{
     Deserialize,
     de::{self, IntoDeserializer},
@@ -15,9 +19,10 @@ use serde::{
 };
 
 /// Deserialize from slice
-pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error> {
-    let mut deserializer = Deserializer::from_slice(input);
-    T::deserialize(&mut deserializer)
+pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error<RError>> {
+    use messagepack_core::io::SliceReader;
+    let reader = SliceReader::new(input);
+    from_trait(reader)
 }
 
 #[cfg(feature = "std")]
@@ -27,27 +32,58 @@ where
     R: std::io::Read,
     T: for<'a> Deserialize<'a>,
 {
-    let mut buf = Vec::new();
-    reader.read_to_end(&mut buf)?;
+    use messagepack_core::io::StdReader;
+    use std::io;
+    let reader = StdReader::new(reader);
+    let result = from_trait::<'_, StdReader<&mut R>, T>(reader);
+    match result {
+        Ok(v) => Ok(v),
+        Err(err) => match err {
+            Error::Decode(err) => match err {
+                messagepack_core::decode::Error::InvalidData
+                | messagepack_core::decode::Error::UnexpectedFormat => {
+                    Err(io::Error::new(io::ErrorKind::InvalidData, err))
+                }
+                messagepack_core::decode::Error::UnexpectedEof => {
+                    Err(io::Error::new(io::ErrorKind::UnexpectedEof, err))
+                }
+                messagepack_core::decode::Error::Io(e) => Err(e),
+            },
+            _ => Err(io::Error::other(err)),
+        },
+    }
+}
 
-    let mut deserializer = Deserializer::from_slice(&buf);
-    T::deserialize(&mut deserializer).map_err(std::io::Error::other)
+fn from_trait<'de, R, T>(reader: R) -> Result<T, Error<R::Error>>
+where
+    R: IoRead<'de>,
+    T: Deserialize<'de>,
+{
+    let mut deserializer = Deserializer::from_trait(reader);
+    T::deserialize(&mut deserializer)
 }
 
 const MAX_RECURSION_DEPTH: usize = 256;
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-struct Deserializer<'de> {
-    input: &'de [u8],
+struct Deserializer<R> {
+    reader: R,
     depth: usize,
+    format: Option<Format>,
 }
 
-impl<'de> Deserializer<'de> {
-    pub fn from_slice(input: &'de [u8]) -> Self {
-        Deserializer { input, depth: 0 }
+impl<'de, R> Deserializer<R>
+where
+    R: IoRead<'de>,
+{
+    pub fn from_trait(reader: R) -> Self {
+        Deserializer {
+            reader,
+            depth: 0,
+            format: None,
+        }
     }
 
-    fn recurse<F, V>(&mut self, f: F) -> Result<V, Error>
+    fn recurse<F, V>(&mut self, f: F) -> Result<V, Error<R::Error>>
     where
         F: FnOnce(&mut Self) -> V,
     {
@@ -60,75 +96,76 @@ impl<'de> Deserializer<'de> {
         Ok(result)
     }
 
-    fn decode<V: Decode<'de>>(&mut self) -> Result<V::Value, Error> {
-        let (decoded, rest) = V::decode(self.input)?;
-        self.input = rest;
+    fn decode_format(&mut self) -> Result<Format, Error<R::Error>> {
+        match self.format.take() {
+            Some(v) => Ok(v),
+            None => {
+                let v = Format::decode(&mut self.reader)?;
+                Ok(v)
+            }
+        }
+    }
+
+    fn decode_with_format<V: Decode<'de>>(
+        &mut self,
+        format: Format,
+    ) -> Result<V::Value, Error<R::Error>> {
+        let decoded = V::decode_with_format(format, &mut self.reader)?;
         Ok(decoded)
     }
 
-    fn decode_with_format<V: Decode<'de>>(&mut self, format: Format) -> Result<V::Value, Error> {
-        let (decoded, rest) = V::decode_with_format(format, self.input)?;
-        self.input = rest;
-        Ok(decoded)
-    }
-
-    fn decode_seq_with_format<V>(&mut self, format: Format, visitor: V) -> Result<V::Value, Error>
+    fn decode_seq_with_format<V>(
+        &mut self,
+        format: Format,
+        visitor: V,
+    ) -> Result<V::Value, Error<R::Error>>
     where
         V: de::Visitor<'de>,
     {
         let n = match format {
             Format::FixArray(n) => n.into(),
-            Format::Array16 => {
-                let (n, buf) = NbyteReader::<2>::read(self.input)?;
-                self.input = buf;
-                n
-            }
-            Format::Array32 => {
-                let (n, buf) = NbyteReader::<4>::read(self.input)?;
-                self.input = buf;
-                n
-            }
+            Format::Array16 => NbyteReader::<2>::read(&mut self.reader)?,
+            Format::Array32 => NbyteReader::<4>::read(&mut self.reader)?,
             _ => return Err(CoreError::UnexpectedFormat.into()),
         };
         self.recurse(move |des| visitor.visit_seq(seq::FixLenAccess::new(des, n)))?
     }
 
-    fn decode_map_with_format<V>(&mut self, format: Format, visitor: V) -> Result<V::Value, Error>
+    fn decode_map_with_format<V>(
+        &mut self,
+        format: Format,
+        visitor: V,
+    ) -> Result<V::Value, Error<R::Error>>
     where
         V: de::Visitor<'de>,
     {
         let n = match format {
             Format::FixMap(n) => n.into(),
-            Format::Map16 => {
-                let (n, buf) = NbyteReader::<2>::read(self.input)?;
-                self.input = buf;
-                n
-            }
-            Format::Map32 => {
-                let (n, buf) = NbyteReader::<4>::read(self.input)?;
-                self.input = buf;
-                n
-            }
+            Format::Map16 => NbyteReader::<2>::read(&mut self.reader)?,
+            Format::Map32 => NbyteReader::<4>::read(&mut self.reader)?,
             _ => return Err(CoreError::UnexpectedFormat.into()),
         };
         self.recurse(move |des| visitor.visit_map(seq::FixLenAccess::new(des, n)))?
     }
 }
 
-impl AsMut<Self> for Deserializer<'_> {
+impl<R> AsMut<Self> for Deserializer<R> {
     fn as_mut(&mut self) -> &mut Self {
         self
     }
 }
 
-impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
-    type Error = Error;
+impl<'de, R> de::Deserializer<'de> for &mut Deserializer<R>
+where
+    R: IoRead<'de>,
+{
+    type Error = Error<R::Error>;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        let format = self.decode::<Format>()?;
+        let format = self.decode_format()?;
         match format {
             Format::Nil => visitor.visit_unit(),
             Format::False => visitor.visit_bool(false),
@@ -197,12 +234,12 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
             | Format::FixExt4
             | Format::FixExt8
             | Format::FixExt16 => {
-                let mut de_ext = DeserializeExt::new(format, self.input)?;
-                let val = (&mut de_ext).deserialize_newtype_struct(
+                let mut de_ext = DeserializeExt::new(format, &mut self.reader)?;
+                let val = de::Deserializer::deserialize_newtype_struct(
+                    &mut de_ext,
                     crate::value::extension::EXTENSION_STRUCT_NAME,
                     visitor,
                 )?;
-                self.input = de_ext.input;
 
                 Ok(val)
             }
@@ -214,15 +251,13 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let (first, rest) = self.input.split_first().ok_or(CoreError::EofFormat)?;
-
-        let format = Format::from_byte(*first);
+        let format = self.decode_format()?;
         match format {
-            Format::Nil => {
-                self.input = rest;
-                visitor.visit_none()
+            Format::Nil => visitor.visit_none(),
+            _ => {
+                self.format = Some(format);
+                visitor.visit_some(self.as_mut())
             }
-            _ => visitor.visit_some(self),
         }
     }
 
@@ -235,29 +270,22 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let ident = self.decode::<&str>();
-        match ident {
-            Ok(ident) => visitor.visit_enum(ident.into_deserializer()),
-            _ => {
-                let (format, rest) = Format::decode(self.input)?;
-                let mut des = Deserializer::from_slice(rest);
-                // inherit depth
-                des.depth = self.depth;
-                let val = match format {
-                    Format::FixMap(_)
-                    | Format::Map16
-                    | Format::Map32
-                    | Format::FixArray(_)
-                    | Format::Array16
-                    | Format::Array32 => {
-                        des.recurse(|d| visitor.visit_enum(enum_::Enum::new(d)))?
-                    }
-                    _ => Err(CoreError::UnexpectedFormat.into()),
-                }?;
-                self.input = des.input;
-
-                Ok(val)
+        let format = self.decode_format()?;
+        match format {
+            Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
+                let s = self.decode_with_format::<&str>(format)?;
+                visitor.visit_enum(s.into_deserializer())
             }
+            Format::FixMap(_)
+            | Format::Map16
+            | Format::Map32
+            | Format::FixArray(_)
+            | Format::Array16
+            | Format::Array32 => {
+                let enum_access = enum_::Enum::new(self);
+                visitor.visit_enum(enum_access)
+            }
+            _ => Err(CoreError::UnexpectedFormat.into()),
         }
     }
 
@@ -397,6 +425,27 @@ mod tests {
     #[case([0x81, 0xa6, 0x53, 0x74, 0x72, 0x75, 0x63, 0x74, 0x81, 0xa1, 0x61, 0xc2],E::Struct { a: false })] // {"Struct":{"a":false}}
     fn decode_enum<Buf: AsRef<[u8]>>(#[case] buf: Buf, #[case] expected: E) {
         let decoded = from_slice::<E>(buf.as_ref()).unwrap();
+        assert_eq!(decoded, expected);
+    }
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    #[serde(untagged)]
+    enum Untagged {
+        Bool(bool),
+        U8(u8),
+        Pair(u8, bool),
+        Struct { a: bool },
+        Nested(E),
+    }
+
+    #[rstest]
+    #[case([0xc3],Untagged::Bool(true))]
+    #[case([0x05],Untagged::U8(5))]
+    #[case([0x92, 0x02, 0xc3],Untagged::Pair(2,true))]
+    #[case([0x81, 0xa1, 0x61, 0xc2],Untagged::Struct { a: false })]
+    #[case([0xa4,0x55,0x6e,0x69,0x74],Untagged::Nested(E::Unit))] // "Unit"
+    fn decode_untagged_enum<Buf: AsRef<[u8]>>(#[case] buf: Buf, #[case] expected: Untagged) {
+        let decoded = from_slice::<Untagged>(buf.as_ref()).unwrap();
         assert_eq!(decoded, expected);
     }
 

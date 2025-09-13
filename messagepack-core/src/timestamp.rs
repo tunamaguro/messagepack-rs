@@ -70,7 +70,8 @@ impl TryFrom<FixedExtension<4>> for Timestamp32 {
 
 impl From<Timestamp32> for FixedExtension<4> {
     fn from(value: Timestamp32) -> Self {
-        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, value.to_buf())
+        let buf = value.to_buf();
+        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, buf.len(), buf)
     }
 }
 
@@ -171,7 +172,8 @@ impl TryFrom<FixedExtension<8>> for Timestamp64 {
 
 impl From<Timestamp64> for FixedExtension<8> {
     fn from(value: Timestamp64) -> Self {
-        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, value.to_buf())
+        let buf = value.to_buf();
+        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, buf.len(), buf)
     }
 }
 
@@ -253,6 +255,7 @@ impl TryFrom<FixedExtension<12>> for Timestamp96 {
 
 impl From<Timestamp96> for FixedExtension<12> {
     fn from(value: Timestamp96) -> Self {
-        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, value.to_buf())
+        let buf = value.to_buf();
+        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, buf.len(), buf)
     }
 }

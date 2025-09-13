@@ -8,21 +8,21 @@ use crate::{
 impl<W: IoWrite> Encode<W> for Timestamp32 {
     fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
         let buf = self.to_buf();
-        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, buf).encode(writer)
+        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, buf.len(), buf).encode(writer)
     }
 }
 
 impl<W: IoWrite> Encode<W> for Timestamp64 {
     fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
         let buf = self.to_buf();
-        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, buf).encode(writer)
+        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, buf.len(), buf).encode(writer)
     }
 }
 
 impl<W: IoWrite> Encode<W> for Timestamp96 {
     fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
         let buf = self.to_buf();
-        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, buf).encode(writer)
+        FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, buf.len(), buf).encode(writer)
     }
 }
 

@@ -5,7 +5,7 @@ messagepack for `no_std`
 ### Example
 
 ```rust
-use messagepack_core::{Decode, Encode, decode::StrDecoder, io::SliceWriter};
+use messagepack_core::{Decode, Encode, decode::StrDecoder, io::{SliceWriter, SliceReader}};
 
 let mut buf = [0u8; 12];
 let mut writer = SliceWriter::from_slice(&mut buf);
@@ -19,9 +19,10 @@ assert_eq!(
 );
 assert_eq!(written, 12);
 
-let (decoded, rest) = StrDecoder::decode(&buf).unwrap();
+let mut reader = SliceReader::new(&buf);
+let decoded = StrDecoder::decode(&mut reader).unwrap();
 assert_eq!(decoded, "MessagePack");
-assert_eq!(rest.len(), 0);
+assert_eq!(reader.rest().len(), 0);
 ```
 
 ## License

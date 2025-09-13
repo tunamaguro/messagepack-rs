@@ -1,52 +1,60 @@
 //! Nil and `Option` decoding helpers.
 
-use super::{Decode, Error, Result};
-use crate::formats::Format;
+use super::{Decode, Error};
+use crate::{formats::Format, io::IoRead};
 
 /// Decode the MessagePack `nil` value.
 pub struct NilDecoder;
 
-impl<'a> Decode<'a> for NilDecoder {
+impl<'de> Decode<'de> for NilDecoder {
     type Value = ();
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (format, buf) = Format::decode(buf)?;
 
-        Self::decode_with_format(format, buf)
-    }
-
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
+    fn decode_with_format<R>(
+        format: Format,
+        _reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
         match format {
-            Format::Nil => Ok(((), buf)),
+            Format::Nil => Ok(()),
             _ => Err(Error::UnexpectedFormat),
         }
     }
 }
 
-impl<'a> Decode<'a> for () {
+impl<'de> Decode<'de> for () {
     type Value = ();
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        NilDecoder::decode(buf)
-    }
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        NilDecoder::decode_with_format(format, buf)
+
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        NilDecoder::decode_with_format(format, reader)
     }
 }
 
-impl<'a, V> Decode<'a> for Option<V>
+impl<'de, V> Decode<'de> for Option<V>
 where
-    V: Decode<'a>,
+    V: Decode<'de>,
 {
     type Value = Option<V::Value>;
-    fn decode(buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
-        let (format, buf) = Format::decode(buf)?;
-        Self::decode_with_format(format, buf)
-    }
-    fn decode_with_format(format: Format, buf: &'a [u8]) -> Result<(Self::Value, &'a [u8])> {
+
+    fn decode_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
         match format {
-            Format::Nil => Ok((None, buf)),
+            Format::Nil => Ok(None),
             other => {
-                let (val, buf) = V::decode_with_format(other, buf)?;
-                Ok((Some(val), buf))
+                let val = V::decode_with_format(other, reader)?;
+                Ok(Some(val))
             }
         }
     }
@@ -59,20 +67,23 @@ mod tests {
     #[test]
     fn decode_nil() {
         let buf: &[u8] = &[0xc0];
-        let (_, rest) = NilDecoder::decode(buf).unwrap();
-        assert_eq!(rest.len(), 0);
+        let mut r = crate::io::SliceReader::new(buf);
+        NilDecoder::decode(&mut r).unwrap();
+        assert_eq!(r.rest().len(), 0);
     }
 
     #[test]
     fn decode_option() {
         let buf: &[u8] = &[0xc0];
-        let (decoded, rest) = Option::<bool>::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = Option::<bool>::decode(&mut r).unwrap();
         assert_eq!(decoded, None);
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
 
         let buf: &[u8] = &[0xc3];
-        let (decoded, rest) = Option::<bool>::decode(buf).unwrap();
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = Option::<bool>::decode(&mut r).unwrap();
         assert_eq!(decoded, Some(true));
-        assert_eq!(rest.len(), 0);
+        assert_eq!(r.rest().len(), 0);
     }
 }
