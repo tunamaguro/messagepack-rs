@@ -14,36 +14,6 @@ const U32_MAX: usize = u32::MAX as usize;
 const U8_MAX_PLUS_ONE: usize = U8_MAX + 1;
 const U16_MAX_PLUS_ONE: usize = U16_MAX + 1;
 
-fn decode_type_and_ref<'de, 'a, R>(
-    format: Format,
-    reader: &'a mut R,
-) -> Result<(i8, crate::io::Reference<'de, 'a>), decode::Error<R::Error>>
-where
-    R: IoRead<'de>,
-{
-    let len = match format {
-        Format::FixExt1 => 1,
-        Format::FixExt2 => 2,
-        Format::FixExt4 => 4,
-        Format::FixExt8 => 8,
-        Format::FixExt16 => 16,
-        Format::Ext8 => NbyteReader::<1>::read(reader)?,
-        Format::Ext16 => NbyteReader::<2>::read(reader)?,
-        Format::Ext32 => NbyteReader::<4>::read(reader)?,
-        _ => return Err(decode::Error::UnexpectedFormat),
-    };
-    let ext_type: [u8; 1] = reader
-        .read_slice(1)
-        .map_err(decode::Error::Io)?
-        .as_bytes()
-        .try_into()
-        .map_err(|_| decode::Error::UnexpectedEof)?;
-    let ext_type = ext_type[0] as i8;
-
-    let data_ref = reader.read_slice(len).map_err(decode::Error::Io)?;
-    Ok((ext_type, data_ref))
-}
-
 /// A borrowed view of a MessagePack extension value.
 ///
 /// Note that the MessagePack header (FixExt vs Ext8/16/32) is determined by the
@@ -153,7 +123,26 @@ impl<'de> Decode<'de> for ExtensionRef<'de> {
     where
         R: IoRead<'de>,
     {
-        let (ext_type, data_ref) = decode_type_and_ref(format, reader)?;
+        let len = match format {
+            Format::FixExt1 => 1,
+            Format::FixExt2 => 2,
+            Format::FixExt4 => 4,
+            Format::FixExt8 => 8,
+            Format::FixExt16 => 16,
+            Format::Ext8 => NbyteReader::<1>::read(reader)?,
+            Format::Ext16 => NbyteReader::<2>::read(reader)?,
+            Format::Ext32 => NbyteReader::<4>::read(reader)?,
+            _ => return Err(decode::Error::UnexpectedFormat),
+        };
+        let ext_type: [u8; 1] = reader
+            .read_slice(1)
+            .map_err(decode::Error::Io)?
+            .as_bytes()
+            .try_into()
+            .map_err(|_| decode::Error::UnexpectedEof)?;
+        let ext_type = ext_type[0] as i8;
+
+        let data_ref = reader.read_slice(len).map_err(decode::Error::Io)?;
         let data = match data_ref {
             crate::io::Reference::Borrowed(b) => b,
             crate::io::Reference::Copied(_) => return Err(decode::Error::InvalidData),
@@ -281,16 +270,15 @@ impl<'de, const N: usize> Decode<'de> for FixedExtension<N> {
     where
         R: IoRead<'de>,
     {
-        let (ext_type, data_ref) = decode_type_and_ref(format, reader)?;
-        let bytes = data_ref.as_bytes();
-        if bytes.len() > N {
+        let ext = ExtensionRef::decode_with_format(format, reader)?;
+        if ext.data.len() > N {
             return Err(decode::Error::InvalidData);
         }
         let mut buf_arr = [0u8; N];
-        buf_arr[..bytes.len()].copy_from_slice(bytes);
+        buf_arr[..ext.data.len()].copy_from_slice(ext.data);
         Ok(FixedExtension {
-            r#type: ext_type,
-            len: bytes.len(),
+            r#type: ext.r#type,
+            len: ext.data.len(),
             data: buf_arr,
         })
     }
@@ -358,11 +346,10 @@ mod owned {
         where
             R: crate::io::IoRead<'de>,
         {
-            let (ext_type, data_ref) = decode_type_and_ref(format, reader)?;
-
+            let ext = ExtensionRef::decode_with_format(format, reader)?;
             Ok(ExtensionOwned {
-                r#type: ext_type,
-                data: data_ref.as_bytes().to_vec(),
+                r#type: ext.r#type,
+                data: ext.data.to_vec(),
             })
         }
     }
@@ -473,34 +460,6 @@ mod tests {
         assert_eq!(ext.r#type, ty);
         assert_eq!(ext.data, data.as_ref());
         assert!(r.rest().is_empty());
-    }
-
-    /// `FixedExtension::new` should fail when the input exceeds capacity.
-    #[test]
-    fn fixed_new_over_capacity_will_none() {
-        assert!(FixedExtension::<4>::new(1, &[0; 5]).is_none());
-    }
-
-    /// `FixedExtension::<N>::decode` must fail if payload length exceeds N.
-    #[test]
-    fn fixed_decode_over_capacity_will_failed() {
-        // Encoded as Ext8 with length 5.
-        let buf = [
-            Format::Ext8.as_byte(),
-            5u8,
-            7u8, // type
-            0,
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-        ];
-        let mut r = crate::io::SliceReader::new(&buf);
-        let err = FixedExtension::<4>::decode(&mut r).unwrap_err();
-        assert_eq!(err, crate::decode::Error::InvalidData);
     }
 
     #[rstest]

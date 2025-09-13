@@ -179,7 +179,7 @@ impl<'de> serde::Deserialize<'de> for Value {
                 Ok(Value::Nil)
             }
 
-            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+            fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {

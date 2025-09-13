@@ -57,11 +57,11 @@ where
 }
 
 /// A type that can be decoded using an `IoRead` input.
-pub trait Decode<'de, 'a> {
+pub trait Decode<'de> {
     /// The materialised value type.
     type Value: Sized;
     /// Decode a value from `reader`.
-    fn decode<R>(reader: &'a mut R) -> Result<Self::Value, Error<R::Error>>
+    fn decode<R>(reader: &mut R) -> Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -74,15 +74,15 @@ pub trait Decode<'de, 'a> {
     /// appropriate for the type and return an error otherwise.
     fn decode_with_format<R>(
         format: Format,
-        reader: &'a mut R,
+        reader: &mut R,
     ) -> Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>;
 }
 
-impl<'de, 'a> Decode<'de, 'a> for Format {
+impl<'de> Decode<'de> for Format {
     type Value = Self;
-    fn decode<R>(reader: &'a mut R) -> Result<Self::Value, Error<R::Error>>
+    fn decode<R>(reader: &mut R) -> Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -96,7 +96,7 @@ impl<'de, 'a> Decode<'de, 'a> for Format {
 
     fn decode_with_format<R>(
         format: Format,
-        _reader: &'a mut R,
+        _reader: &mut R,
     ) -> Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
