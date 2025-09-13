@@ -43,7 +43,7 @@ const MAP16: u8 = 0xde;
 const MAP32: u8 = 0xdf;
 
 /// MessagePack format marker.
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Format {
     /// Positive fixint (0xxxxxxx): stores a positive 7‑bit integer in the marker.
     PositiveFixInt(u8),

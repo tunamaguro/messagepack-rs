@@ -172,28 +172,17 @@ pub trait IoRead<'de> {
     type Error: core::error::Error + 'static;
     /// read exactly `len` bytes and consume
     fn read_slice<'a>(&'a mut self, len: usize) -> Result<Reference<'de, 'a>, Self::Error>;
-    /// peek exactly `len` bytes without consuming them. peek is accumulating
-    fn peek_slice<'a>(&'a mut self, len: usize) -> Result<Reference<'de, 'a>, Self::Error>;
-    /// consume peeked bytes
-    fn consume(&mut self);
-    /// discard peeked bytes
-    fn discard(&mut self);
 }
 
 /// Simple reader that reads from a byte slice.
 pub struct SliceReader<'de> {
     /// current buffer
     cursor: &'de [u8],
-    /// peeked buffer
-    peeked: &'de [u8],
 }
 impl<'de> SliceReader<'de> {
     /// create a new reader
     pub fn new(buf: &'de [u8]) -> Self {
-        Self {
-            cursor: buf,
-            peeked: buf,
-        }
+        Self { cursor: buf }
     }
 
     /// Get the remaining, committed bytes (peeked bytes are not subtracted
@@ -223,32 +212,14 @@ impl core::error::Error for RError {}
 impl<'de> IoRead<'de> for SliceReader<'de> {
     type Error = RError;
 
+    #[inline]
     fn read_slice<'a>(&'a mut self, len: usize) -> Result<Reference<'de, 'a>, Self::Error> {
-        self.consume();
         let (read, rest) = self
             .cursor
             .split_at_checked(len)
             .ok_or(RError::BufferEmpty)?;
         self.cursor = rest;
-        self.peeked = rest;
         Ok(Reference::Borrowed(read))
-    }
-
-    fn peek_slice<'a>(&'a mut self, len: usize) -> Result<Reference<'de, 'a>, Self::Error> {
-        let (peek, rest) = self
-            .peeked
-            .split_at_checked(len)
-            .ok_or(RError::BufferEmpty)?;
-        self.peeked = rest;
-        Ok(Reference::Borrowed(peek))
-    }
-
-    fn consume(&mut self) {
-        self.cursor = self.peeked;
-    }
-
-    fn discard(&mut self) {
-        self.peeked = self.cursor;
     }
 }
 
@@ -259,8 +230,7 @@ mod std_reader {
     /// Simple reader that reads from a `std::io::Read`.
     pub struct StdReader<R> {
         reader: R,
-        buf: alloc::vec::Vec<u8>,
-        cursor: usize,
+        buf: std::vec::Vec<u8>,
     }
 
     impl<R> StdReader<R>
@@ -271,8 +241,7 @@ mod std_reader {
         pub fn new(reader: R) -> Self {
             Self {
                 reader,
-                buf: alloc::vec::Vec::new(),
-                cursor: 0,
+                buf: std::vec::Vec::new(),
             }
         }
     }
@@ -287,44 +256,12 @@ mod std_reader {
             &'a mut self,
             len: usize,
         ) -> Result<super::Reference<'de, 'a>, Self::Error> {
-            self.consume();
+            if self.buf.len() < len {
+                self.buf.resize(len, 0);
+            };
+            self.reader.read_exact(&mut self.buf[..len])?;
 
-            let mut buf = alloc::vec::Vec::with_capacity(len);
-            self.reader.read_exact(&mut buf)?;
-            self.buf = buf;
-
-            Ok(super::Reference::Copied(&self.buf))
-        }
-
-        fn peek_slice<'a>(
-            &'a mut self,
-            len: usize,
-        ) -> Result<super::Reference<'de, 'a>, Self::Error> {
-            let mut buf = alloc::vec::Vec::with_capacity(len);
-            self.reader.read_exact(&mut buf)?;
-            self.buf.append(&mut buf);
-
-            let peeked_cursor = self.cursor + self.buf.len();
-            let peek_max = peeked_cursor + len;
-            if self.buf.len() > peek_max {
-                let from: &[u8] = &self.buf[peeked_cursor..peek_max];
-                self.cursor += len;
-                Ok(super::Reference::Copied(from))
-            } else {
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::UnexpectedEof,
-                    "Buffer is empty",
-                ))
-            }
-        }
-
-        fn consume(&mut self) {
-            self.buf.clear();
-            self.cursor = 0;
-        }
-
-        fn discard(&mut self) {
-            self.cursor = 0;
+            Ok(super::Reference::Copied(&self.buf[..len]))
         }
     }
 }

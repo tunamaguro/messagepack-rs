@@ -112,22 +112,15 @@ impl<'de> Deserializer<'de> {
         };
         self.recurse(move |des| visitor.visit_map(seq::FixLenAccess::new(des, n)))?
     }
-}
 
-impl AsMut<Self> for Deserializer<'_> {
-    fn as_mut(&mut self) -> &mut Self {
-        self
-    }
-}
-
-impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
-    type Error = Error<RError>;
-
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_any_with_format<V>(
+        &mut self,
+        format: Format,
+        visitor: V,
+    ) -> Result<V::Value, Error<RError>>
     where
         V: de::Visitor<'de>,
     {
-        let format = self.decode::<Format>()?;
         match format {
             Format::Nil => visitor.visit_unit(),
             Format::False => visitor.visit_bool(false),
@@ -196,150 +189,35 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
             | Format::FixExt4
             | Format::FixExt8
             | Format::FixExt16 => {
-                // Snapshot the slice at current reader position
-                let start = self.reader.rest();
-                let mut de_ext = DeserializeExt::new(format, start)?;
-                let val = (&mut de_ext).deserialize_newtype_struct(
+                let mut de_ext = DeserializeExt::<'de, '_>::new(format, &mut self.reader)?;
+                let val = de::Deserializer::deserialize_newtype_struct(
+                    &mut de_ext,
                     crate::value::extension::EXTENSION_STRUCT_NAME,
                     visitor,
                 )?;
-                // Advance main reader by consumed bytes
-                let consumed = start.len() - de_ext.input.len();
-                let _ = self.reader.read_slice(consumed).map_err(CoreError::Io)?;
 
                 Ok(val)
             }
             Format::NeverUsed => Err(CoreError::UnexpectedFormat.into()),
         }
     }
+}
 
-    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        let val = self.decode::<bool>()?;
-        visitor.visit_bool(val)
+impl AsMut<Self> for Deserializer<'_> {
+    fn as_mut(&mut self) -> &mut Self {
+        self
     }
+}
 
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
+    type Error = Error<RError>;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        let val = self.decode::<u8>()?;
-        visitor.visit_u8(val)
-    }
-
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        let val = self.decode::<u16>()?;
-        visitor.visit_u16(val)
-    }
-
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        let val = self.decode::<u32>()?;
-        visitor.visit_u32(val)
-    }
-
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        let val = self.decode::<u64>()?;
-        visitor.visit_u64(val)
-    }
-
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        let val = self.decode::<i8>()?;
-        visitor.visit_i8(val)
-    }
-
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        let val = self.decode::<i16>()?;
-        visitor.visit_i16(val)
-    }
-
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        let val = self.decode::<i32>()?;
-        visitor.visit_i32(val)
-    }
-
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        let val = self.decode::<i64>()?;
-        visitor.visit_i64(val)
-    }
-
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        let val = self.decode::<f32>()?;
-        visitor.visit_f32(val)
-    }
-
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        let val = self.decode::<f64>()?;
-        visitor.visit_f64(val)
-    }
-
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        let val = self.decode::<&str>()?;
-        visitor.visit_borrowed_str(val)
-    }
-
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_str(visitor)
-    }
-
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_str(visitor)
-    }
-
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        let b = self.reader.peek_slice(1).map_err(CoreError::Io)?.as_bytes()[0];
-        let format = Format::from_byte(b);
-        match format {
-            Format::Nil => {
-                self.reader.consume();
-                visitor.visit_none()
-            }
-            _ => {
-                // Do not consume the peeked byte; clear peek state only.
-                self.reader.discard();
-                visitor.visit_some(self)
-            }
-        }
+        let format = self.decode::<Format>()?;
+        self.deserialize_any_with_format(format, visitor)
     }
 
     fn deserialize_enum<V>(
@@ -351,47 +229,29 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        // Peek next format to decide enum form without consuming
-        let next = self.reader.peek_slice(1).map_err(CoreError::Io)?.as_bytes()[0];
-        let next_format = Format::from_byte(next);
-        match next_format {
+        let format = self.decode::<Format>()?;
+        match format {
             Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
-                // Clear peek state and parse identifier as &str
-                self.reader.discard();
-                let ident = self.decode::<&str>()?;
-                visitor.visit_enum(ident.into_deserializer())
+                let s = self.decode_with_format::<&str>(format)?;
+                visitor.visit_enum(s.into_deserializer())
             }
-            _ => {
-                // Map/Array‑based enum: consume the collection header
-                self.reader.discard();
-                let format = Format::decode(&mut self.reader)?;
-                let mut des = Deserializer {
-                    reader: SliceReader::new(self.reader.rest()),
-                    depth: 0,
-                };
-                // inherit depth
-                des.depth = self.depth;
-                let val = match format {
-                    Format::FixMap(_)
-                    | Format::Map16
-                    | Format::Map32
-                    | Format::FixArray(_)
-                    | Format::Array16
-                    | Format::Array32 => {
-                        des.recurse(|d| visitor.visit_enum(enum_::Enum::new(d)))?
-                    }
-                    _ => Err(CoreError::UnexpectedFormat.into()),
-                }?;
-                self.reader = des.reader;
-
-                Ok(val)
+            Format::FixMap(_)
+            | Format::Map16
+            | Format::Map32
+            | Format::FixArray(_)
+            | Format::Array16
+            | Format::Array32 => {
+                let enum_access = enum_::Enum::new(self.as_mut());
+                visitor.visit_enum(enum_access)
             }
+            _ => Err(CoreError::UnexpectedFormat.into()),
         }
     }
 
     forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
         bytes byte_buf unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct identifier ignored_any
+        tuple_struct map struct identifier ignored_any option
     }
 
     fn is_human_readable(&self) -> bool {
