@@ -10,7 +10,7 @@ use crate::value::extension::DeserializeExt;
 use messagepack_core::{
     Decode, Format,
     decode::NbyteReader,
-    io::{IoRead, RError, SliceReader},
+    io::{RError, SliceReader},
 };
 use serde::{
     Deserialize,
@@ -43,6 +43,7 @@ const MAX_RECURSION_DEPTH: usize = 256;
 struct Deserializer<'de> {
     reader: SliceReader<'de>,
     depth: usize,
+    format: Option<Format>,
 }
 
 impl<'de> Deserializer<'de> {
@@ -50,6 +51,7 @@ impl<'de> Deserializer<'de> {
         Deserializer {
             reader: SliceReader::new(input),
             depth: 0,
+            format: None,
         }
     }
 
@@ -66,9 +68,14 @@ impl<'de> Deserializer<'de> {
         Ok(result)
     }
 
-    fn decode<V: Decode<'de>>(&mut self) -> Result<V::Value, Error<RError>> {
-        let decoded = V::decode(&mut self.reader)?;
-        Ok(decoded)
+    fn decode_format(&mut self) -> Result<Format, Error<RError>> {
+        match self.format.take() {
+            Some(v) => Ok(v),
+            None => {
+                let v = Format::decode(&mut self.reader)?;
+                Ok(v)
+            }
+        }
     }
 
     fn decode_with_format<V: Decode<'de>>(
@@ -112,15 +119,22 @@ impl<'de> Deserializer<'de> {
         };
         self.recurse(move |des| visitor.visit_map(seq::FixLenAccess::new(des, n)))?
     }
+}
 
-    fn deserialize_any_with_format<V>(
-        &mut self,
-        format: Format,
-        visitor: V,
-    ) -> Result<V::Value, Error<RError>>
+impl AsMut<Self> for Deserializer<'_> {
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+
+impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
+    type Error = Error<RError>;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
+        let format = self.decode_format()?;
         match format {
             Format::Nil => visitor.visit_unit(),
             Format::False => visitor.visit_bool(false),
@@ -201,23 +215,19 @@ impl<'de> Deserializer<'de> {
             Format::NeverUsed => Err(CoreError::UnexpectedFormat.into()),
         }
     }
-}
 
-impl AsMut<Self> for Deserializer<'_> {
-    fn as_mut(&mut self) -> &mut Self {
-        self
-    }
-}
-
-impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
-    type Error = Error<RError>;
-
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        let format = self.decode::<Format>()?;
-        self.deserialize_any_with_format(format, visitor)
+        let format = self.decode_format()?;
+        match format {
+            Format::Nil => visitor.visit_none(),
+            _ => {
+                self.format = Some(format);
+                visitor.visit_some(self.as_mut())
+            }
+        }
     }
 
     fn deserialize_enum<V>(
@@ -229,7 +239,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let format = self.decode::<Format>()?;
+        let format = self.decode_format()?;
         match format {
             Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
                 let s = self.decode_with_format::<&str>(format)?;
@@ -251,7 +261,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
         bytes byte_buf unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct identifier ignored_any option
+        tuple_struct map struct identifier ignored_any
     }
 
     fn is_human_readable(&self) -> bool {
