@@ -1,7 +1,7 @@
 use messagepack_core::{
     Format,
     extension::ExtensionRef as CoreExtensionRef,
-    io::{IoRead, IoWrite, RError},
+    io::{IoRead, IoWrite},
 };
 use serde::{
     Serialize, Serializer,
@@ -343,16 +343,16 @@ where
             Format::FixExt8 => 8,
             Format::FixExt16 => 16,
             Format::Ext8 => {
-                let val = NbyteReader::<1>::read(reader)?;
-                val
+                
+                NbyteReader::<1>::read(reader)?
             }
             Format::Ext16 => {
-                let val = NbyteReader::<2>::read(reader)?;
-                val
+                
+                NbyteReader::<2>::read(reader)?
             }
             Format::Ext32 => {
-                let val = NbyteReader::<4>::read(reader)?;
-                val
+                
+                NbyteReader::<4>::read(reader)?
             }
             _ => return Err(messagepack_core::decode::Error::UnexpectedFormat.into()),
         };

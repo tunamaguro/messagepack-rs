@@ -1,4 +1,4 @@
-use messagepack_core::io::{IoRead, RError};
+use messagepack_core::io::IoRead;
 use serde::de;
 
 use super::{Deserializer, Error, error::CoreError};

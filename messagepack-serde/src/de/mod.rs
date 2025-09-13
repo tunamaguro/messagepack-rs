@@ -282,7 +282,7 @@ where
             | Format::FixArray(_)
             | Format::Array16
             | Format::Array32 => {
-                let enum_access = enum_::Enum::new(self.as_mut());
+                let enum_access = enum_::Enum::new(self);
                 visitor.visit_enum(enum_access)
             }
             _ => Err(CoreError::UnexpectedFormat.into()),

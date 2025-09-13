@@ -5,3 +5,4 @@ lto = true
 [alias]
 format = "fmt --all"
 lint = "clippy --workspace --tests --all-targets --all-features -- -D clippy::all"
+lint-fix = "clippy --workspace --tests --all-targets --all-features --allow-dirty --fix -- -D clippy::all"
