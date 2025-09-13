@@ -54,3 +54,60 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case(&[0x82, 0x01, 0x0a, 0x02, 0x14], vec![(1u8, 10u8), (2, 20)], &[])]
+    #[case(&[0xde, 0x00, 0x02, 0x01, 0x0a, 0x02, 0x14], vec![(1u8, 10u8), (2, 20)], &[])]
+    fn map_decode_success(
+        #[case] buf: &[u8],
+        #[case] expect: Vec<(u8, u8)>,
+        #[case] rest_expect: &[u8],
+    ) {
+        let mut r = crate::io::SliceReader::new(buf);
+        let decoded = MapDecoder::<Vec<(u8, u8)>, u8, u8>::decode(&mut r).unwrap();
+        assert_eq!(decoded, expect);
+        assert_eq!(r.rest(), rest_expect);
+    }
+
+    #[test]
+    fn map_decoder_unexpected_format() {
+        // array(1) where a map is expected
+        let buf = &[0x91, 0x00];
+        let mut r = crate::io::SliceReader::new(buf);
+        let err = MapDecoder::<Vec<(u8, u8)>, u8, u8>::decode(&mut r).unwrap_err();
+        assert!(matches!(err, Error::UnexpectedFormat));
+    }
+
+    #[test]
+    fn map_decode_eof_on_key() {
+        // map(1) but missing key/value bytes
+        let buf = &[0x81];
+        let mut r = crate::io::SliceReader::new(buf);
+        let err = MapDecoder::<Vec<(u8, u8)>, u8, u8>::decode(&mut r).unwrap_err();
+        assert!(matches!(err, Error::Io(_)));
+    }
+
+    #[test]
+    fn map_decode_key_unexpected_format() {
+        // map(1) with a string key (invalid for u8 key)
+        let buf = &[0x81, 0xa1, b'a', 0x02];
+        let mut r = crate::io::SliceReader::new(buf);
+        let err = MapDecoder::<Vec<(u8, u8)>, u8, u8>::decode(&mut r).unwrap_err();
+        assert!(matches!(err, Error::UnexpectedFormat));
+    }
+
+    #[test]
+    fn map_decode_value_error_after_first_pair() {
+        // map(2): first pair ok (1->1), second pair truncated (key present, value missing)
+        let buf = &[0x82, 0x01, 0x01, 0x02];
+        let mut r = crate::io::SliceReader::new(buf);
+        let err = MapDecoder::<Vec<(u8, u8)>, u8, u8>::decode(&mut r).unwrap_err();
+        // read_slice should fail while decoding second value
+        assert!(matches!(err, Error::Io(_)));
+    }
+}
