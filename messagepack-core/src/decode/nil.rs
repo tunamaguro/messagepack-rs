@@ -7,12 +7,12 @@ use crate::{formats::Format, io::IoRead};
 pub struct NilDecoder;
 
 impl<'de> Decode<'de> for NilDecoder {
-    type Value = ();
+    type Value<'a> = ();
 
-    fn decode_with_format<R>(
+    fn decode_with_format<'a, R>(
         format: Format,
-        _reader: &mut R,
-    ) -> core::result::Result<Self::Value, Error<R::Error>>
+        _reader: &'a mut R,
+    ) -> core::result::Result<Self::Value<'a>, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -24,12 +24,12 @@ impl<'de> Decode<'de> for NilDecoder {
 }
 
 impl<'de> Decode<'de> for () {
-    type Value = ();
+    type Value<'a> = ();
 
-    fn decode_with_format<R>(
+    fn decode_with_format<'a, R>(
         format: Format,
-        reader: &mut R,
-    ) -> core::result::Result<Self::Value, Error<R::Error>>
+        reader: &'a mut R,
+    ) -> core::result::Result<Self::Value<'a>, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -41,12 +41,15 @@ impl<'de, V> Decode<'de> for Option<V>
 where
     V: Decode<'de>,
 {
-    type Value = Option<V::Value>;
+    type Value<'a>
+        = Option<V::Value<'a>>
+    where
+        V: 'a;
 
-    fn decode_with_format<R>(
+    fn decode_with_format<'a, R>(
         format: Format,
-        reader: &mut R,
-    ) -> core::result::Result<Self::Value, Error<R::Error>>
+        reader: &'a mut R,
+    ) -> core::result::Result<Self::Value<'a>, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
