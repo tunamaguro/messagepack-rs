@@ -213,15 +213,42 @@ where
                 visitor.visit_f64(v)
             }
             Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
-                let v = self.decode_with_format::<&str>(format)?;
-                visitor.visit_borrowed_str(v)
+                use messagepack_core::io::Reference;
+                let len = match format {
+                    Format::FixStr(n) => n.into(),
+                    Format::Str8 => NbyteReader::<1>::read(&mut self.reader)?,
+                    Format::Str16 => NbyteReader::<2>::read(&mut self.reader)?,
+                    Format::Str32 => NbyteReader::<4>::read(&mut self.reader)?,
+                    _ => return Err(CoreError::UnexpectedFormat.into()),
+                };
+                let data = self.reader.read_slice(len).map_err(CoreError::Io)?;
+                match data {
+                    Reference::Borrowed(items) => {
+                        let s = str::from_utf8(items).map_err(|_| CoreError::InvalidData)?;
+                        visitor.visit_borrowed_str(s)
+                    }
+                    Reference::Copied(items) => {
+                        let s = str::from_utf8(items).map_err(|_| CoreError::InvalidData)?;
+                        visitor.visit_str(s)
+                    }
+                }
             }
             Format::FixArray(_) | Format::Array16 | Format::Array32 => {
                 self.decode_seq_with_format(format, visitor)
             }
             Format::Bin8 | Format::Bin16 | Format::Bin32 => {
-                let v = self.decode_with_format::<&[u8]>(format)?;
-                visitor.visit_borrowed_bytes(v)
+                use messagepack_core::io::Reference;
+                let len = match format {
+                    Format::Bin8 => NbyteReader::<1>::read(&mut self.reader)?,
+                    Format::Bin16 => NbyteReader::<2>::read(&mut self.reader)?,
+                    Format::Bin32 => NbyteReader::<4>::read(&mut self.reader)?,
+                    _ => return Err(CoreError::UnexpectedFormat.into()),
+                };
+                let data = self.reader.read_slice(len).map_err(CoreError::Io)?;
+                match data {
+                    Reference::Borrowed(items) => visitor.visit_borrowed_bytes(items),
+                    Reference::Copied(items) => visitor.visit_bytes(items),
+                }
             }
             Format::FixMap(_) | Format::Map16 | Format::Map32 => {
                 self.decode_map_with_format(format, visitor)
