@@ -6,12 +6,12 @@ use crate::{formats::Format, io::IoRead};
 /// Decode the MessagePack `nil` value.
 pub struct NilDecoder;
 
-impl<'de> Decode<'de> for NilDecoder {
+impl<'de, 'a> Decode<'de, 'a> for NilDecoder {
     type Value = ();
 
     fn decode_with_format<R>(
         format: Format,
-        _reader: &mut R,
+        _reader: &'a mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -23,12 +23,12 @@ impl<'de> Decode<'de> for NilDecoder {
     }
 }
 
-impl<'de> Decode<'de> for () {
+impl<'de, 'a> Decode<'de, 'a> for () {
     type Value = ();
 
     fn decode_with_format<R>(
         format: Format,
-        reader: &mut R,
+        reader: &'a mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -37,15 +37,15 @@ impl<'de> Decode<'de> for () {
     }
 }
 
-impl<'de, V> Decode<'de> for Option<V>
+impl<'de, 'a, V> Decode<'de, 'a> for Option<V>
 where
-    V: Decode<'de>,
+    V: Decode<'de, 'a>,
 {
     type Value = Option<V::Value>;
 
     fn decode_with_format<R>(
         format: Format,
-        reader: &mut R,
+        reader: &'a mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,

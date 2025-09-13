@@ -80,6 +80,17 @@ pub trait Decode<'de, 'a> {
         R: IoRead<'de>;
 }
 
+pub trait DecodeBorrowed<'de>: for<'a> Decode<'de, 'a> {
+    type Value: Sized;
+}
+
+impl<'de, T> DecodeBorrowed<'de> for T
+where
+    T: for<'a> Decode<'de, 'a>,
+{
+    type Value = <T as Decode<'de, 'de>>::Value;
+}
+
 impl<'de, 'a> Decode<'de, 'a> for Format {
     type Value = Self;
     fn decode<R>(reader: &'a mut R) -> Result<Self::Value, Error<R::Error>>

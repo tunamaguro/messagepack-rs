@@ -6,12 +6,12 @@ use crate::{formats::Format, io::IoRead};
 /// Decode a MessagePack string and return a borrowed `&str`.
 pub struct StrDecoder;
 
-impl<'de> Decode<'de> for StrDecoder {
+impl<'de, 'a> Decode<'de, 'a> for StrDecoder {
     type Value = &'de str;
 
     fn decode_with_format<R>(
         format: Format,
-        reader: &mut R,
+        reader: &'a mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -34,12 +34,12 @@ impl<'de> Decode<'de> for StrDecoder {
     }
 }
 
-impl<'de> Decode<'de> for &'de str {
+impl<'de, 'a> Decode<'de, 'a> for &'de str {
     type Value = &'de str;
 
     fn decode_with_format<R>(
         format: Format,
-        reader: &mut R,
+        reader: &'a mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
