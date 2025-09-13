@@ -644,123 +644,6 @@ pub mod ext_fixed {
     }
 }
 
-/// De/Serialize [messagepack_core::extension::ExtensionOwned]
-///
-/// ## Example
-///
-/// ```rust
-/// use serde::{Serialize,Deserialize};
-/// use messagepack_core::extension::ExtensionOwned;
-///
-/// #[derive(Debug, Serialize, Deserialize, PartialEq)]
-/// #[serde(transparent)]
-/// struct WrapOwned(
-///     #[serde(with = "messagepack_serde::value::ext_owned")] ExtensionOwned,
-/// );
-///
-/// # fn main() {
-///
-/// let ext = WrapOwned(
-///     ExtensionOwned::new(10, vec![0,1,2,3,4,5])
-/// );
-/// let mut buf = [0u8; 9];
-/// messagepack_serde::to_slice(&ext, &mut buf).unwrap();
-///
-/// let result = messagepack_serde::from_slice::<WrapOwned>(&buf).unwrap();
-/// assert_eq!(ext,result);
-///
-/// # }
-/// ```
-#[cfg(feature = "alloc")]
-pub mod ext_owned {
-    use super::*;
-    use serde::{Deserialize, de};
-
-    /// Serialize [messagepack_core::extension::ExtensionOwned]
-    pub fn serialize<S>(
-        ext: &messagepack_core::extension::ExtensionOwned,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_newtype_struct(
-            EXTENSION_STRUCT_NAME,
-            &ExtInner {
-                kind: ext.r#type,
-                data: &ext.data,
-            },
-        )
-    }
-
-    /// Deserialize [messagepack_core::extension::ExtensionOwned]
-    pub fn deserialize<'de, D>(
-        deserializer: D,
-    ) -> Result<messagepack_core::extension::ExtensionOwned, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct VecStruct(alloc::vec::Vec<u8>);
-        impl<'de> Deserialize<'de> for VecStruct {
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: de::Deserializer<'de>,
-            {
-                struct VecVisitor;
-                impl<'de> Visitor<'de> for VecVisitor {
-                    type Value = VecStruct;
-                    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-                        formatter.write_str("expect extension bytes")
-                    }
-
-                    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
-                    where
-                        E: de::Error,
-                    {
-                        let v = alloc::vec::Vec::from(v);
-                        Ok(VecStruct(v))
-                    }
-                }
-                deserializer.deserialize_bytes(VecVisitor)
-            }
-        }
-
-        struct ExtensionVisitor;
-
-        impl<'de> Visitor<'de> for ExtensionVisitor {
-            type Value = messagepack_core::extension::ExtensionOwned;
-            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-                formatter.write_str("expect extension")
-            }
-
-            fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-            where
-                D: de::Deserializer<'de>,
-            {
-                deserializer.deserialize_seq(self)
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-            where
-                A: serde::de::SeqAccess<'de>,
-            {
-                let kind = seq
-                    .next_element::<i8>()?
-                    .ok_or(de::Error::missing_field("extension type missing"))?;
-
-                let data = seq
-                    .next_element::<VecStruct>()?
-                    .ok_or(de::Error::missing_field("extension data missing"))?;
-
-                Ok(messagepack_core::extension::ExtensionOwned::new(
-                    kind, data.0,
-                ))
-            }
-        }
-        deserializer.deserialize_seq(ExtensionVisitor)
-    }
-}
-
 /// De/Serialize messagepack timestamp 32 extension.
 ///
 /// This module allows serializing and deserializing
@@ -917,7 +800,8 @@ pub mod timestamp96 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use messagepack_core::extension::{ExtensionOwned, ExtensionRef, FixedExtension};
+
+    use messagepack_core::extension::{ExtensionRef, FixedExtension};
     use messagepack_core::timestamp::{Timestamp32, Timestamp64, Timestamp96};
     use rstest::rstest;
     use serde::{Deserialize, Serialize};
@@ -980,27 +864,6 @@ mod tests {
     #[should_panic]
     fn decode_ext_fixed_smaller_will_failed() {
         let _ = crate::from_slice::<WrapFixed<3>>(TIMESTAMP32).unwrap();
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    struct WrapOwned(#[serde(with = "ext_owned")] messagepack_core::extension::ExtensionOwned);
-
-    #[rstest]
-    fn encode_ext_owned_fix() {
-        let mut buf = [0u8; 3];
-        let kind: i8 = 123;
-        let ext = WrapOwned(ExtensionOwned::new(kind, vec![0x12]));
-        let length = crate::to_slice(&ext, &mut buf).unwrap();
-
-        assert_eq!(length, 3);
-        assert_eq!(buf, [0xd4, kind.to_be_bytes()[0], 0x12]);
-    }
-
-    #[rstest]
-    fn decode_ext_owned() {
-        let ext = crate::from_slice::<WrapOwned>(TIMESTAMP32).unwrap().0;
-        assert_eq!(ext.r#type, -1);
-        assert_eq!(ext.data, vec![0, 0, 0, 0]);
     }
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
