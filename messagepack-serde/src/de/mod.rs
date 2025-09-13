@@ -213,8 +213,12 @@ where
                 visitor.visit_f64(v)
             }
             Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
-                let v = self.decode_with_format::<&str>(format)?;
-                visitor.visit_borrowed_str(v)
+                use messagepack_core::decode::{StrReference, StrReferenceDecoder};
+                let v = self.decode_with_format::<StrReferenceDecoder>(format)?;
+                match v {
+                    StrReference::Borrowed(s) => visitor.visit_borrowed_str(s),
+                    StrReference::Copied(s) => visitor.visit_str(s),
+                }
             }
             Format::FixArray(_) | Format::Array16 | Format::Array32 => {
                 self.decode_seq_with_format(format, visitor)
