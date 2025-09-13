@@ -14,7 +14,7 @@ mod int;
 mod nil;
 pub use nil::NilDecoder;
 mod str;
-pub use str::{StrDecoder, StrReference, StrReferenceDecoder};
+pub use str::StrDecoder;
 mod timestamp;
 
 /// MessagePack decode error

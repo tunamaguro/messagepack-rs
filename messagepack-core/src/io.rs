@@ -148,7 +148,7 @@ where
     }
 }
 
-/// A reference to a byte sequence
+/// Types used by decoder
 pub enum Reference<'de, 'a> {
     /// Reference to a byte sequence that survives at least as long as the de
     Borrowed(&'de [u8]),
