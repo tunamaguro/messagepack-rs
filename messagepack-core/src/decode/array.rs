@@ -63,6 +63,24 @@ where
         for item in tmp.iter_mut() {
             *item = Some(V::decode(reader)?);
         }
+        // NOTE: This `expect` cannot fire given the invariant established above.
+        // - We allocate a temporary `[Option<V::Value>; N]` initialized to `None`.
+        // - The loop assigns `Some(..)` to every element or returns early on error.
+        // - Therefore, reaching here implies all entries are `Some`, making the
+        //   unwrap logically safe.
+        //
+        // Why not avoid `expect` entirely?
+        // - On stable Rust, there is no fully-ergonomic way to construct
+        //   `[T; N]` from a fallible producer without either allocation or
+        //   `unsafe`.
+        // - `core::array::try_from_fn` would be a perfect fit but is not yet
+        //   stabilized at the time of writing.
+        // - Collecting into `Vec<T>` and converting with `try_into::<[T; N]>()`
+        //   requires the `alloc` feature, while this crate targets `no_std` by
+        //   default.
+        //
+        // If/when `try_from_fn` is stabilized, or if an `alloc`-enabled fast
+        // path is desired, this code can be revisited to remove `expect`.
         let out = core::array::from_fn(|i| tmp[i].take().expect("initialized"));
         Ok(out)
     }
