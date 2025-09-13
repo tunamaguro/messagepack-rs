@@ -4,6 +4,8 @@ use super::{Decode, Error, NbyteReader};
 use crate::{formats::Format, io::IoRead};
 
 /// Decode a MessagePack binary blob and return a borrowed byte slice.
+/// 
+/// This decode a slice that survives at least as long as the `de`
 pub struct BinDecoder;
 
 impl<'de> Decode<'de> for BinDecoder {
@@ -16,13 +18,7 @@ impl<'de> Decode<'de> for BinDecoder {
     where
         R: IoRead<'de>,
     {
-        let len = match format {
-            Format::Bin8 => NbyteReader::<1>::read(reader)?,
-            Format::Bin16 => NbyteReader::<2>::read(reader)?,
-            Format::Bin32 => NbyteReader::<4>::read(reader)?,
-            _ => return Err(Error::UnexpectedFormat),
-        };
-        let data = reader.read_slice(len).map_err(Error::Io)?;
+        let data = ReferenceDecoder::decode_with_format(format, reader)?;
         match data {
             crate::io::Reference::Borrowed(b) => Ok(b),
             crate::io::Reference::Copied(_) => Err(Error::InvalidData),
@@ -44,6 +40,34 @@ impl<'de> Decode<'de> for &'de [u8] {
         R: IoRead<'de>,
     {
         BinDecoder::decode_with_format(format, reader)
+    }
+}
+
+/// Decode a MessagePack binary blob and return a borrowed byte slice. 
+/// 
+/// This decoded a slice that may be free soon
+pub struct ReferenceDecoder;
+
+impl<'de> Decode<'de> for ReferenceDecoder {
+    type Value<'a>
+        = crate::io::Reference<'de, 'a>
+    where
+        Self: 'a;
+    fn decode_with_format<'a, R>(
+        format: Format,
+        reader: &'a mut R,
+    ) -> Result<Self::Value<'a>, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let len = match format {
+            Format::Bin8 => NbyteReader::<1>::read(reader)?,
+            Format::Bin16 => NbyteReader::<2>::read(reader)?,
+            Format::Bin32 => NbyteReader::<4>::read(reader)?,
+            _ => return Err(Error::UnexpectedFormat),
+        };
+        let data = reader.read_slice(len).map_err(Error::Io)?;
+        Ok(data)
     }
 }
 

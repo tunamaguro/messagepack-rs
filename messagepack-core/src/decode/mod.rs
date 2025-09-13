@@ -5,7 +5,7 @@ use crate::{Format, io::IoRead};
 // mod array;
 // pub use array::ArrayDecoder;
 mod bin;
-pub use bin::BinDecoder;
+pub use bin::{BinDecoder, ReferenceDecoder};
 mod bool;
 mod float;
 mod int;
