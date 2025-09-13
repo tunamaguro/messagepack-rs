@@ -5,12 +5,12 @@ use crate::{
     timestamp::{TIMESTAMP_EXTENSION_TYPE, Timestamp32, Timestamp64, Timestamp96},
 };
 
-impl<'de, 'a> Decode<'de, 'a> for Timestamp32 {
+impl<'de> Decode<'de> for Timestamp32 {
     type Value = Timestamp32;
 
     fn decode_with_format<R>(
         format: crate::Format,
-        reader: &'a mut R,
+        reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -41,12 +41,12 @@ impl<'de, 'a> Decode<'de, 'a> for Timestamp32 {
     }
 }
 
-impl<'de, 'a> Decode<'de, 'a> for Timestamp64 {
+impl<'de> Decode<'de> for Timestamp64 {
     type Value = Timestamp64;
 
     fn decode_with_format<R>(
         format: crate::Format,
-        reader: &'a mut R,
+        reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -77,12 +77,12 @@ impl<'de, 'a> Decode<'de, 'a> for Timestamp64 {
     }
 }
 
-impl<'de, 'a> Decode<'de, 'a> for Timestamp96 {
+impl<'de> Decode<'de> for Timestamp96 {
     type Value = Timestamp96;
 
     fn decode_with_format<R>(
         format: crate::Format,
-        reader: &'a mut R,
+        reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,

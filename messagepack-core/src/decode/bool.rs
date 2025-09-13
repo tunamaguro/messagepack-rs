@@ -1,12 +1,12 @@
 use super::{Decode, Error};
 use crate::{formats::Format, io::IoRead};
 
-impl<'de, 'a> Decode<'de, 'a> for bool {
+impl<'de> Decode<'de> for bool {
     type Value = Self;
 
     fn decode_with_format<R>(
         format: Format,
-        _reader: &'a mut R,
+        _reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,

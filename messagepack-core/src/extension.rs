@@ -143,12 +143,12 @@ impl<'a, W: IoWrite> Encode<W> for ExtensionRef<'a> {
     }
 }
 
-impl<'de, 'a> Decode<'de, 'a> for ExtensionRef<'de> {
+impl<'de> Decode<'de> for ExtensionRef<'de> {
     type Value = ExtensionRef<'de>;
 
     fn decode_with_format<R>(
         format: Format,
-        reader: &'a mut R,
+        reader: &mut R,
     ) -> core::result::Result<Self::Value, decode::Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -271,12 +271,12 @@ impl<const N: usize, W: IoWrite> Encode<W> for FixedExtension<N> {
     }
 }
 
-impl<'de, 'a, const N: usize> Decode<'de, 'a> for FixedExtension<N> {
+impl<'de, const N: usize> Decode<'de> for FixedExtension<N> {
     type Value = FixedExtension<N>;
 
     fn decode_with_format<R>(
         format: Format,
-        reader: &'a mut R,
+        reader: &mut R,
     ) -> core::result::Result<Self::Value, decode::Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -348,12 +348,12 @@ mod owned {
         }
     }
 
-    impl<'de, 'a> Decode<'de, 'a> for ExtensionOwned {
+    impl<'de> Decode<'de> for ExtensionOwned {
         type Value = ExtensionOwned;
 
         fn decode_with_format<R>(
             format: Format,
-            reader: &'a mut R,
+            reader: &mut R,
         ) -> core::result::Result<Self::Value, decode::Error<R::Error>>
         where
             R: crate::io::IoRead<'de>,

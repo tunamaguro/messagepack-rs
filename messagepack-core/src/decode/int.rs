@@ -1,12 +1,12 @@
 use super::{Decode, Error};
 use crate::{formats::Format, io::IoRead};
 
-impl<'de, 'a> Decode<'de, 'a> for u8 {
+impl<'de> Decode<'de> for u8 {
     type Value = Self;
 
     fn decode_with_format<R>(
         format: Format,
-        reader: &'a mut R,
+        reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -23,12 +23,12 @@ impl<'de, 'a> Decode<'de, 'a> for u8 {
     }
 }
 
-impl<'de, 'a> Decode<'de, 'a> for i8 {
+impl<'de> Decode<'de> for i8 {
     type Value = Self;
 
     fn decode_with_format<R>(
         format: Format,
-        reader: &'a mut R,
+        reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -47,12 +47,12 @@ impl<'de, 'a> Decode<'de, 'a> for i8 {
 
 macro_rules! impl_decode_int {
     ($ty:ty,$format:path) => {
-        impl<'de, 'a> Decode<'de, 'a> for $ty {
+        impl<'de> Decode<'de> for $ty {
             type Value = Self;
 
             fn decode_with_format<R>(
                 format: Format,
-                reader: &'a mut R,
+                reader: &mut R,
             ) -> core::result::Result<Self::Value, Error<R::Error>>
             where
                 R: IoRead<'de>,
@@ -81,12 +81,12 @@ impl_decode_int!(i16, Format::Int16);
 impl_decode_int!(i32, Format::Int32);
 impl_decode_int!(i64, Format::Int64);
 
-impl<'de, 'a> Decode<'de, 'a> for u128 {
+impl<'de> Decode<'de> for u128 {
     type Value = Self;
 
     fn decode_with_format<R>(
         format: Format,
-        reader: &'a mut R,
+        reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -96,12 +96,12 @@ impl<'de, 'a> Decode<'de, 'a> for u128 {
     }
 }
 
-impl<'de, 'a> Decode<'de, 'a> for i128 {
+impl<'de> Decode<'de> for i128 {
     type Value = Self;
 
     fn decode_with_format<R>(
         format: Format,
-        reader: &'a mut R,
+        reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -111,12 +111,12 @@ impl<'de, 'a> Decode<'de, 'a> for i128 {
     }
 }
 
-impl<'de, 'a> Decode<'de, 'a> for usize {
+impl<'de> Decode<'de> for usize {
     type Value = Self;
 
     fn decode_with_format<R>(
         format: Format,
-        reader: &'a mut R,
+        reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -126,12 +126,12 @@ impl<'de, 'a> Decode<'de, 'a> for usize {
     }
 }
 
-impl<'de, 'a> Decode<'de, 'a> for isize {
+impl<'de> Decode<'de> for isize {
     type Value = Self;
 
     fn decode_with_format<R>(
         format: Format,
-        reader: &'a mut R,
+        reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,

@@ -3,12 +3,12 @@ use crate::{formats::Format, io::IoRead};
 
 macro_rules! impl_decode_float {
     ($ty:ty,$format:path) => {
-        impl<'de, 'a> Decode<'de, 'a> for $ty {
+        impl<'de> Decode<'de> for $ty {
             type Value = Self;
 
             fn decode_with_format<R>(
                 format: Format,
-                reader: &'a mut R,
+                reader: &mut R,
             ) -> core::result::Result<Self::Value, Error<R::Error>>
             where
                 R: IoRead<'de>,
