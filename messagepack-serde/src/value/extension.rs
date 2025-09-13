@@ -316,22 +316,25 @@ impl ser::Serialize for ExtInner<'_> {
     }
 }
 
-pub(crate) struct DeserializeExt<'de, 'a> {
+pub(crate) struct DeserializeExt<'a, R> {
     data_len: usize,
-    reader: &'a mut messagepack_core::io::SliceReader<'de>,
+    reader: &'a mut R,
 }
 
-impl AsMut<Self> for DeserializeExt<'_, '_> {
+impl<'a, R> AsMut<Self> for DeserializeExt<'a, R> {
     fn as_mut(&mut self) -> &mut Self {
         self
     }
 }
 
-impl<'de, 'a> DeserializeExt<'de, 'a> {
+impl<'de, 'a, R> DeserializeExt<'a, R>
+where
+    R: IoRead<'de>,
+{
     pub(crate) fn new(
         format: Format,
-        reader: &'a mut messagepack_core::io::SliceReader<'de>,
-    ) -> Result<Self, crate::de::Error<RError>> {
+        reader: &'a mut R,
+    ) -> Result<Self, crate::de::Error<R::Error>> {
         use messagepack_core::decode::NbyteReader;
         let data_len = match format {
             Format::FixExt1 => 1,
@@ -357,8 +360,11 @@ impl<'de, 'a> DeserializeExt<'de, 'a> {
     }
 }
 
-impl<'de> serde::Deserializer<'de> for &mut DeserializeExt<'de, '_> {
-    type Error = crate::de::Error<RError>;
+impl<'de, 'a, R> serde::Deserializer<'de> for &mut DeserializeExt<'a, R>
+where
+    R: IoRead<'de>,
+{
+    type Error = crate::de::Error<R::Error>;
 
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
@@ -377,9 +383,10 @@ impl<'de> serde::Deserializer<'de> for &mut DeserializeExt<'de, '_> {
             .reader
             .read_slice(1)
             .map_err(messagepack_core::decode::Error::Io)?;
-        let buf: [u8; 1] = slice.as_bytes().try_into().map_err(|_| {
-            messagepack_core::decode::Error::Io(messagepack_core::io::RError::BufferEmpty)
-        })?;
+        let buf: [u8; 1] = slice
+            .as_bytes()
+            .try_into()
+            .map_err(|_| messagepack_core::decode::Error::UnexpectedEof)?;
 
         let val = i8::from_be_bytes(buf);
         visitor.visit_i8(val)
@@ -424,8 +431,11 @@ impl<'de> serde::Deserializer<'de> for &mut DeserializeExt<'de, '_> {
     }
 }
 
-impl<'de> serde::de::SeqAccess<'de> for &mut DeserializeExt<'de, '_> {
-    type Error = crate::de::Error<RError>;
+impl<'de, 'a, R> serde::de::SeqAccess<'de> for &mut DeserializeExt<'a, R>
+where
+    R: IoRead<'de>,
+{
+    type Error = crate::de::Error<R::Error>;
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
         T: serde::de::DeserializeSeed<'de>,

@@ -1,24 +1,25 @@
-use messagepack_core::io::RError;
+use messagepack_core::io::{IoRead, RError};
 use serde::de;
 
 use super::{Deserializer, Error};
 
-pub struct FixLenAccess<'de, 'a> {
-    de: &'a mut Deserializer<'de>,
+pub struct FixLenAccess<'a, R> {
+    de: &'a mut Deserializer<R>,
     left: usize,
 }
 
-impl<'de, 'a> FixLenAccess<'de, 'a> {
-    pub fn new(de: &'a mut Deserializer<'de>, len: usize) -> Self {
+impl<'a, R> FixLenAccess<'a, R> {
+    pub fn new(de: &'a mut Deserializer<R>, len: usize) -> Self {
         Self { de, left: len }
     }
 }
 
-impl<'de, 'a> de::SeqAccess<'de> for FixLenAccess<'de, 'a>
+impl<'de, 'a, R> de::SeqAccess<'de> for FixLenAccess<'a, R>
 where
     'de: 'a,
+    R: IoRead<'de>,
 {
-    type Error = Error<RError>;
+    type Error = Error<R::Error>;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
@@ -40,11 +41,12 @@ where
     }
 }
 
-impl<'de, 'a> de::MapAccess<'de> for FixLenAccess<'de, 'a>
+impl<'de, 'a, R> de::MapAccess<'de> for FixLenAccess<'a, R>
 where
     'de: 'a,
+    R: IoRead<'de>,
 {
-    type Error = Error<RError>;
+    type Error = Error<R::Error>;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
     where

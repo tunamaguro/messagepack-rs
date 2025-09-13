@@ -10,7 +10,7 @@ use crate::value::extension::DeserializeExt;
 use messagepack_core::{
     Decode, Format,
     decode::NbyteReader,
-    io::{RError, SliceReader},
+    io::{IoRead, RError},
 };
 use serde::{
     Deserialize,
@@ -20,8 +20,9 @@ use serde::{
 
 /// Deserialize from slice
 pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error<RError>> {
-    let mut deserializer = Deserializer::from_slice(input);
-    T::deserialize(&mut deserializer)
+    use messagepack_core::io::SliceReader;
+    let reader = SliceReader::new(input);
+    from_trait(reader)
 }
 
 #[cfg(feature = "std")]
@@ -31,31 +32,58 @@ where
     R: std::io::Read,
     T: for<'a> Deserialize<'a>,
 {
-    let mut buf = Vec::new();
-    reader.read_to_end(&mut buf)?;
+    use messagepack_core::io::StdReader;
+    use std::io;
+    let reader = StdReader::new(reader);
+    let result = from_trait::<'_, StdReader<&mut R>, T>(reader);
+    match result {
+        Ok(v) => Ok(v),
+        Err(err) => match err {
+            Error::Decode(err) => match err {
+                messagepack_core::decode::Error::InvalidData
+                | messagepack_core::decode::Error::UnexpectedFormat => {
+                    Err(io::Error::new(io::ErrorKind::InvalidData, err))
+                }
+                messagepack_core::decode::Error::UnexpectedEof => {
+                    Err(io::Error::new(io::ErrorKind::UnexpectedEof, err))
+                }
+                messagepack_core::decode::Error::Io(e) => Err(e),
+            },
+            _ => Err(io::Error::other(err)),
+        },
+    }
+}
 
-    let mut deserializer = Deserializer::from_slice(&buf);
-    T::deserialize(&mut deserializer).map_err(std::io::Error::other)
+fn from_trait<'de, R, T>(reader: R) -> Result<T, Error<R::Error>>
+where
+    R: IoRead<'de>,
+    T: Deserialize<'de>,
+{
+    let mut deserializer = Deserializer::from_trait(reader);
+    T::deserialize(&mut deserializer)
 }
 
 const MAX_RECURSION_DEPTH: usize = 256;
 
-struct Deserializer<'de> {
-    reader: SliceReader<'de>,
+struct Deserializer<R> {
+    reader: R,
     depth: usize,
     format: Option<Format>,
 }
 
-impl<'de> Deserializer<'de> {
-    pub fn from_slice(input: &'de [u8]) -> Self {
+impl<'de, R> Deserializer<R>
+where
+    R: IoRead<'de>,
+{
+    pub fn from_trait(reader: R) -> Self {
         Deserializer {
-            reader: SliceReader::new(input),
+            reader,
             depth: 0,
             format: None,
         }
     }
 
-    fn recurse<F, V>(&mut self, f: F) -> Result<V, Error<RError>>
+    fn recurse<F, V>(&mut self, f: F) -> Result<V, Error<R::Error>>
     where
         F: FnOnce(&mut Self) -> V,
     {
@@ -68,7 +96,7 @@ impl<'de> Deserializer<'de> {
         Ok(result)
     }
 
-    fn decode_format(&mut self) -> Result<Format, Error<RError>> {
+    fn decode_format(&mut self) -> Result<Format, Error<R::Error>> {
         match self.format.take() {
             Some(v) => Ok(v),
             None => {
@@ -81,7 +109,7 @@ impl<'de> Deserializer<'de> {
     fn decode_with_format<V: Decode<'de>>(
         &mut self,
         format: Format,
-    ) -> Result<V::Value, Error<RError>> {
+    ) -> Result<V::Value, Error<R::Error>> {
         let decoded = V::decode_with_format(format, &mut self.reader)?;
         Ok(decoded)
     }
@@ -90,7 +118,7 @@ impl<'de> Deserializer<'de> {
         &mut self,
         format: Format,
         visitor: V,
-    ) -> Result<V::Value, Error<RError>>
+    ) -> Result<V::Value, Error<R::Error>>
     where
         V: de::Visitor<'de>,
     {
@@ -107,7 +135,7 @@ impl<'de> Deserializer<'de> {
         &mut self,
         format: Format,
         visitor: V,
-    ) -> Result<V::Value, Error<RError>>
+    ) -> Result<V::Value, Error<R::Error>>
     where
         V: de::Visitor<'de>,
     {
@@ -121,14 +149,17 @@ impl<'de> Deserializer<'de> {
     }
 }
 
-impl AsMut<Self> for Deserializer<'_> {
+impl<R> AsMut<Self> for Deserializer<R> {
     fn as_mut(&mut self) -> &mut Self {
         self
     }
 }
 
-impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
-    type Error = Error<RError>;
+impl<'de, R> de::Deserializer<'de> for &mut Deserializer<R>
+where
+    R: IoRead<'de>,
+{
+    type Error = Error<R::Error>;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
@@ -203,7 +234,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
             | Format::FixExt4
             | Format::FixExt8
             | Format::FixExt16 => {
-                let mut de_ext = DeserializeExt::<'de, '_>::new(format, &mut self.reader)?;
+                let mut de_ext = DeserializeExt::new(format, &mut self.reader)?;
                 let val = de::Deserializer::deserialize_newtype_struct(
                     &mut de_ext,
                     crate::value::extension::EXTENSION_STRUCT_NAME,
