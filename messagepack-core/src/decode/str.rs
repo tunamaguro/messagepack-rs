@@ -43,9 +43,9 @@ impl<'de> Decode<'de> for &'de str {
 
 /// A reference to a str
 pub enum StrReference<'de, 'a> {
-    /// Reference to a str that survives at least as long as the de
+    /// Reference to a str that survives at least as long as the de 
     Borrowed(&'de str),
-    /// Reference to a str that may be free soon
+    /// Reference to a str that may be free soon 
     Copied(&'a str),
 }
 

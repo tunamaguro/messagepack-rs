@@ -28,7 +28,7 @@ where
             #[cfg(not(any(feature = "alloc", feature = "std")))]
             Error::Custom => write!(f, "Cannot deserialize format"),
             #[cfg(any(feature = "alloc", feature = "std"))]
-            Error::Message(msg) => msg.fmt(f),
+            Error::Message(msg) => msg.fmt(f)
         }
     }
 }
