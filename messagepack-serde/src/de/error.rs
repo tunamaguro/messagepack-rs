@@ -9,12 +9,12 @@ pub enum Error<E> {
     Decode(CoreError<E>),
     /// Recursion limit (nesting depth) exceeded
     RecursionLimitExceeded,
-    #[cfg(not(feature = "std"))]
+    #[cfg(not(any(feature = "alloc", feature = "std")))]
     /// Parse error
     Custom,
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "alloc", feature = "std"))]
     /// Parse error
-    Message(String),
+    Message(alloc::string::String),
 }
 
 impl<E> core::fmt::Display for Error<E>
@@ -25,10 +25,10 @@ where
         match self {
             Error::Decode(e) => e.fmt(f),
             Error::RecursionLimitExceeded => write!(f, "recursion limit exceeded"),
-            #[cfg(not(feature = "std"))]
+            #[cfg(not(any(feature = "alloc", feature = "std")))]
             Error::Custom => write!(f, "Cannot deserialize format"),
-            #[cfg(feature = "std")]
-            Error::Message(msg) => f.write_str(msg),
+            #[cfg(any(feature = "alloc", feature = "std"))]
+            Error::Message(msg) => msg.fmt(f)
         }
     }
 }
@@ -59,13 +59,14 @@ where
     where
         T: core::fmt::Display,
     {
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "alloc", feature = "std")))]
         {
             Self::Custom
         }
 
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "alloc", feature = "std"))]
         {
+            use alloc::string::ToString;
             Self::Message(msg.to_string())
         }
     }
