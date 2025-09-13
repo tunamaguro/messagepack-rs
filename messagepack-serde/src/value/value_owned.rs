@@ -190,8 +190,8 @@ impl<'de> serde::Deserialize<'de> for Value {
             where
                 D: serde::Deserializer<'de>,
             {
-                let ext = super::ext_ref::deserialize(deserializer)?;
-                Ok(Value::Extension(ext.into()))
+                let ext = super::ext_owned::deserialize(deserializer)?;
+                Ok(Value::Extension(ext))
             }
 
             fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>

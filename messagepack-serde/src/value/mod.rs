@@ -14,6 +14,6 @@ mod value_owned;
 pub use value_owned::Value;
 
 pub(crate) mod extension;
-pub use extension::{ext_fixed, ext_ref, timestamp32, timestamp64, timestamp96};
+pub use extension::{ext_fixed, ext_owned, ext_ref, timestamp32, timestamp64, timestamp96};
 mod number;
 pub use number::Number;

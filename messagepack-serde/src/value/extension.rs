@@ -412,7 +412,7 @@ where
     where
         V: Visitor<'de>,
     {
-        self.deserialize_seq(visitor)
+        visitor.visit_newtype_struct(self)
     }
 
     serde::forward_to_deserialize_any! {
@@ -496,6 +496,13 @@ pub mod ext_ref {
             type Value = messagepack_core::extension::ExtensionRef<'de>;
             fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
                 formatter.write_str("expect extension")
+            }
+
+            fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: de::Deserializer<'de>,
+            {
+                deserializer.deserialize_seq(self)
             }
 
             fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
@@ -608,6 +615,13 @@ pub mod ext_fixed {
                 formatter.write_str("expect extension")
             }
 
+            fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: de::Deserializer<'de>,
+            {
+                deserializer.deserialize_seq(self)
+            }
+
             fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
             where
                 A: de::SeqAccess<'de>,
@@ -626,6 +640,123 @@ pub mod ext_fixed {
             }
         }
 
+        deserializer.deserialize_seq(ExtensionVisitor)
+    }
+}
+
+/// De/Serialize [messagepack_core::extension::ExtensionOwned]
+///
+/// ## Example
+///
+/// ```rust
+/// use serde::{Serialize,Deserialize};
+/// use messagepack_core::extension::ExtensionOwned;
+///
+/// #[derive(Debug, Serialize, Deserialize, PartialEq)]
+/// #[serde(transparent)]
+/// struct WrapOwned(
+///     #[serde(with = "messagepack_serde::value::ext_owned")] ExtensionOwned,
+/// );
+///
+/// # fn main() {
+///
+/// let ext = WrapOwned(
+///     ExtensionOwned::new(10, vec![0,1,2,3,4,5])
+/// );
+/// let mut buf = [0u8; 9];
+/// messagepack_serde::to_slice(&ext, &mut buf).unwrap();
+///
+/// let result = messagepack_serde::from_slice::<WrapOwned>(&buf).unwrap();
+/// assert_eq!(ext,result);
+///
+/// # }
+/// ```
+#[cfg(feature = "alloc")]
+pub mod ext_owned {
+    use super::*;
+    use serde::{Deserialize, de};
+
+    /// Serialize [messagepack_core::extension::ExtensionOwned]
+    pub fn serialize<S>(
+        ext: &messagepack_core::extension::ExtensionOwned,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_newtype_struct(
+            EXTENSION_STRUCT_NAME,
+            &ExtInner {
+                kind: ext.r#type,
+                data: &ext.data,
+            },
+        )
+    }
+
+    /// Deserialize [messagepack_core::extension::ExtensionOwned]
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<messagepack_core::extension::ExtensionOwned, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct VecStruct(alloc::vec::Vec<u8>);
+        impl<'de> Deserialize<'de> for VecStruct {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: de::Deserializer<'de>,
+            {
+                struct VecVisitor;
+                impl<'de> Visitor<'de> for VecVisitor {
+                    type Value = VecStruct;
+                    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+                        formatter.write_str("expect extension bytes")
+                    }
+
+                    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+                    where
+                        E: de::Error,
+                    {
+                        let v = alloc::vec::Vec::from(v);
+                        Ok(VecStruct(v))
+                    }
+                }
+                deserializer.deserialize_bytes(VecVisitor)
+            }
+        }
+
+        struct ExtensionVisitor;
+
+        impl<'de> Visitor<'de> for ExtensionVisitor {
+            type Value = messagepack_core::extension::ExtensionOwned;
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+                formatter.write_str("expect extension")
+            }
+
+            fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: de::Deserializer<'de>,
+            {
+                deserializer.deserialize_seq(self)
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let kind = seq
+                    .next_element::<i8>()?
+                    .ok_or(de::Error::missing_field("extension type missing"))?;
+
+                let data = seq
+                    .next_element::<VecStruct>()?
+                    .ok_or(de::Error::missing_field("extension data missing"))?;
+
+                Ok(messagepack_core::extension::ExtensionOwned::new(
+                    kind, data.0,
+                ))
+            }
+        }
         deserializer.deserialize_seq(ExtensionVisitor)
     }
 }
