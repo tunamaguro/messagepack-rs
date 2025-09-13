@@ -412,7 +412,7 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_newtype_struct(self)
+        self.deserialize_seq(visitor)
     }
 
     serde::forward_to_deserialize_any! {
@@ -464,6 +464,7 @@ where
 /// ```
 pub mod ext_ref {
     use super::*;
+    use serde::de;
 
     /// Serialize [messagepack_core::extension::ExtensionRef]
     pub fn serialize<S>(
@@ -497,24 +498,17 @@ pub mod ext_ref {
                 formatter.write_str("expect extension")
             }
 
-            fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-            where
-                D: serde::Deserializer<'de>,
-            {
-                deserializer.deserialize_seq(self)
-            }
-
             fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
             where
                 A: serde::de::SeqAccess<'de>,
             {
                 let kind = seq
                     .next_element::<i8>()?
-                    .ok_or(serde::de::Error::custom("expect i8"))?;
+                    .ok_or(de::Error::missing_field("extension type missing"))?;
 
                 let data = seq
                     .next_element::<&[u8]>()?
-                    .ok_or(serde::de::Error::custom("expect [u8]"))?;
+                    .ok_or(de::Error::missing_field("extension data missing"))?;
 
                 Ok(messagepack_core::extension::ExtensionRef::new(kind, data))
             }
@@ -551,7 +545,8 @@ pub mod ext_ref {
 /// # }
 /// ```
 pub mod ext_fixed {
-    use serde::de;
+    use super::*;
+    use serde::{Deserialize, de};
 
     /// Serialize [messagepack_core::extension::FixedExtension]
     pub fn serialize<const N: usize, S>(
@@ -571,11 +566,67 @@ pub mod ext_fixed {
     where
         D: serde::Deserializer<'de>,
     {
-        let r = super::ext_ref::deserialize(deserializer)?;
+        struct Data<const N: usize> {
+            len: usize,
+            buf: [u8; N],
+        }
+        impl<'de, const N: usize> Deserialize<'de> for Data<N> {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: de::Deserializer<'de>,
+            {
+                struct DataVisitor<const N: usize>;
+                impl<'de, const N: usize> Visitor<'de> for DataVisitor<N> {
+                    type Value = Data<N>;
+                    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+                        formatter.write_str("expect extension")
+                    }
 
-        let ext = messagepack_core::extension::FixedExtension::new(r.r#type, r.data)
-            .ok_or_else(|| de::Error::custom("extension length is too long"))?;
-        Ok(ext)
+                    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+                    where
+                        E: de::Error,
+                    {
+                        let len = v.len();
+
+                        if len > N {
+                            return Err(de::Error::invalid_length(len, &self));
+                        }
+
+                        let mut buf = [0; N];
+                        buf[..len].copy_from_slice(v);
+                        Ok(Data { len, buf })
+                    }
+                }
+                deserializer.deserialize_bytes(DataVisitor)
+            }
+        }
+
+        struct ExtensionVisitor<const N: usize>;
+        impl<'de, const N: usize> Visitor<'de> for ExtensionVisitor<N> {
+            type Value = messagepack_core::extension::FixedExtension<N>;
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+                formatter.write_str("expect extension")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: de::SeqAccess<'de>,
+            {
+                let kind = seq
+                    .next_element::<i8>()?
+                    .ok_or(serde::de::Error::missing_field("extension type missing"))?;
+                let data = seq
+                    .next_element::<Data<N>>()?
+                    .ok_or(de::Error::missing_field("extension data missing"))?;
+
+                let ext = messagepack_core::extension::FixedExtension::new_fixed(
+                    kind, data.len, data.buf,
+                );
+                Ok(ext)
+            }
+        }
+
+        deserializer.deserialize_seq(ExtensionVisitor)
     }
 }
 
@@ -778,7 +829,7 @@ mod tests {
         let mut buf = [0u8; 3];
         let kind: i8 = 123;
 
-        let ext = WrapFixed(FixedExtension::new_fixed(kind, [0x12]));
+        let ext = WrapFixed(FixedExtension::new_fixed(kind, 1, [0x12]));
         let length = crate::to_slice(&ext, &mut buf).unwrap();
 
         assert_eq!(length, 3);

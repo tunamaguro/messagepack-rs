@@ -192,10 +192,10 @@ impl<const N: usize> FixedExtension<N> {
     /// Note: Even when constructed with a fixed-size buffer, the encoder will
     /// emit `FixExtN` only if `N` is one of {1, 2, 4, 8, 16}. For any other
     /// `N`, the encoder uses `Ext8/16/32` as appropriate.
-    pub fn new_fixed(r#type: i8, data: [u8; N]) -> Self {
+    pub fn new_fixed(r#type: i8, len: usize, data: [u8; N]) -> Self {
         Self {
             r#type,
-            len: N,
+            len,
             data,
         }
     }
