@@ -7,12 +7,12 @@ use crate::{formats::Format, io::IoRead};
 pub struct StrDecoder;
 
 impl<'de> Decode<'de> for StrDecoder {
-    type Value<'a> = &'de str;
+    type Value = &'de str;
 
-    fn decode_with_format<'a, R>(
+    fn decode_with_format<R>(
         format: Format,
-        reader: &'a mut R,
-    ) -> core::result::Result<Self::Value<'a>, Error<R::Error>>
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -35,15 +35,12 @@ impl<'de> Decode<'de> for StrDecoder {
 }
 
 impl<'de> Decode<'de> for &'de str {
-    type Value<'a>
-        = &'de str
-    where
-        'de: 'a;
+    type Value = &'de str;
 
-    fn decode_with_format<'a, R>(
+    fn decode_with_format<R>(
         format: Format,
         reader: &mut R,
-    ) -> core::result::Result<Self::Value<'de>, Error<R::Error>>
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {

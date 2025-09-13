@@ -2,15 +2,15 @@
 
 use crate::{Format, io::IoRead};
 
-// mod array;
-// pub use array::ArrayDecoder;
+mod array;
+pub use array::ArrayDecoder;
 mod bin;
 pub use bin::BinDecoder;
 mod bool;
 mod float;
 mod int;
-// mod map;
-// pub use map::MapDecoder;
+mod map;
+pub use map::MapDecoder;
 mod nil;
 pub use nil::NilDecoder;
 mod str;
@@ -59,11 +59,9 @@ where
 /// A type that can be decoded using an `IoRead` input.
 pub trait Decode<'de> {
     /// The materialised value type.
-    type Value<'a>: Sized
-    where
-        Self: 'a;
+    type Value: Sized;
     /// Decode a value from `reader`.
-    fn decode<'a, R>(reader: &'a mut R) -> Result<Self::Value<'a>, Error<R::Error>>
+    fn decode<R>(reader: &mut R) -> Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -74,17 +72,17 @@ pub trait Decode<'de> {
     /// Decode a value assuming the leading MessagePack format has already been
     /// read by the caller. Implementations must validate that `format` is
     /// appropriate for the type and return an error otherwise.
-    fn decode_with_format<'a, R>(
+    fn decode_with_format<R>(
         format: Format,
-        reader: &'a mut R,
-    ) -> Result<Self::Value<'a>, Error<R::Error>>
+        reader: &mut R,
+    ) -> Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>;
 }
 
 impl<'de> Decode<'de> for Format {
-    type Value<'a> = Self;
-    fn decode<'a, R>(reader: &'a mut R) -> Result<Self::Value<'a>, Error<R::Error>>
+    type Value = Self;
+    fn decode<R>(reader: &mut R) -> Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -96,10 +94,10 @@ impl<'de> Decode<'de> for Format {
         Ok(Self::from_byte(byte))
     }
 
-    fn decode_with_format<'a, R>(
+    fn decode_with_format<R>(
         format: Format,
-        _reader: &'a mut R,
-    ) -> Result<Self::Value<'a>, Error<R::Error>>
+        _reader: &mut R,
+    ) -> Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
