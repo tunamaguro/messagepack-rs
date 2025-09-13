@@ -6,12 +6,12 @@ use crate::{
 };
 
 impl<'de> Decode<'de> for Timestamp32 {
-    type Value = Timestamp32;
+    type Value<'a> = Timestamp32;
 
-    fn decode_with_format<R>(
+    fn decode_with_format<'a, R>(
         format: crate::Format,
-        reader: &mut R,
-    ) -> core::result::Result<Self::Value, Error<R::Error>>
+        reader: &'a mut R,
+    ) -> core::result::Result<Self::Value<'a>, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -42,12 +42,12 @@ impl<'de> Decode<'de> for Timestamp32 {
 }
 
 impl<'de> Decode<'de> for Timestamp64 {
-    type Value = Timestamp64;
+    type Value<'a> = Timestamp64;
 
-    fn decode_with_format<R>(
+    fn decode_with_format<'a, R>(
         format: crate::Format,
-        reader: &mut R,
-    ) -> core::result::Result<Self::Value, Error<R::Error>>
+        reader: &'a mut R,
+    ) -> core::result::Result<Self::Value<'a>, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -78,12 +78,12 @@ impl<'de> Decode<'de> for Timestamp64 {
 }
 
 impl<'de> Decode<'de> for Timestamp96 {
-    type Value = Timestamp96;
+    type Value<'a> = Timestamp96;
 
-    fn decode_with_format<R>(
+    fn decode_with_format<'a, R>(
         format: crate::Format,
-        reader: &mut R,
-    ) -> core::result::Result<Self::Value, Error<R::Error>>
+        reader: &'a mut R,
+    ) -> core::result::Result<Self::Value<'a>, Error<R::Error>>
     where
         R: IoRead<'de>,
     {

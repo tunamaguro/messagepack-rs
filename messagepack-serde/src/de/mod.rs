@@ -109,7 +109,7 @@ where
     fn decode_with_format<V: Decode<'de>>(
         &mut self,
         format: Format,
-    ) -> Result<V::Value, Error<R::Error>> {
+    ) -> Result<V::Value<'_>, Error<R::Error>> {
         let decoded = V::decode_with_format(format, &mut self.reader)?;
         Ok(decoded)
     }
