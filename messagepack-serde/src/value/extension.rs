@@ -917,7 +917,7 @@ pub mod timestamp96 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use messagepack_core::extension::{ExtensionRef, FixedExtension};
+    use messagepack_core::extension::{ExtensionOwned, ExtensionRef, FixedExtension};
     use messagepack_core::timestamp::{Timestamp32, Timestamp64, Timestamp96};
     use rstest::rstest;
     use serde::{Deserialize, Serialize};
@@ -980,6 +980,27 @@ mod tests {
     #[should_panic]
     fn decode_ext_fixed_smaller_will_failed() {
         let _ = crate::from_slice::<WrapFixed<3>>(TIMESTAMP32).unwrap();
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct WrapOwned(#[serde(with = "ext_owned")] messagepack_core::extension::ExtensionOwned);
+
+    #[rstest]
+    fn encode_ext_owned_fix() {
+        let mut buf = [0u8; 3];
+        let kind: i8 = 123;
+        let ext = WrapOwned(ExtensionOwned::new(kind, vec![0x12]));
+        let length = crate::to_slice(&ext, &mut buf).unwrap();
+
+        assert_eq!(length, 3);
+        assert_eq!(buf, [0xd4, kind.to_be_bytes()[0], 0x12]);
+    }
+
+    #[rstest]
+    fn decode_ext_owned() {
+        let ext = crate::from_slice::<WrapOwned>(TIMESTAMP32).unwrap().0;
+        assert_eq!(ext.r#type, -1);
+        assert_eq!(ext.data, vec![0, 0, 0, 0]);
     }
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
