@@ -159,7 +159,7 @@ impl<'de> serde::Deserialize<'de> for Value {
                 Ok(Value::from(Number::from(v)))
             }
 
-            fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
@@ -179,7 +179,7 @@ impl<'de> serde::Deserialize<'de> for Value {
                 Ok(Value::Nil)
             }
 
-            fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
+            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
@@ -400,5 +400,24 @@ mod tests {
         let len = to_slice(&v, &mut buf).unwrap();
         let decoded = from_slice::<Value>(&buf[..len]).unwrap();
         assert_eq!(decoded, v);
+    }
+}
+
+#[cfg(all(test, feature = "std"))]
+mod reader_tests {
+    use super::*;
+    use crate::from_reader;
+
+    #[test]
+    fn value_owned_from_reader_str_and_bin() {
+        // fixstr "hi"
+        let mut r1 = std::io::Cursor::new([0xa2, 0x68, 0x69]);
+        let v1: Value = from_reader(&mut r1).unwrap();
+        assert_eq!(v1.as_string(), Some("hi"));
+
+        // bin8 [0x01, 0x02, 0x03]
+        let mut r2 = std::io::Cursor::new([0xc4, 0x03, 0x01, 0x02, 0x03]);
+        let v2: Value = from_reader(&mut r2).unwrap();
+        assert_eq!(v2.as_bin(), Some(&[1u8, 2, 3][..]));
     }
 }
