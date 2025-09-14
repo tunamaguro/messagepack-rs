@@ -1,9 +1,9 @@
 //! MessagePack extension helpers.
 
-use crate::decode::{self, NbyteReader};
+use crate::decode::{self, DecodeBorrowed, NbyteReader};
 use crate::encode;
 use crate::{
-    Decode, Encode,
+    Encode,
     formats::Format,
     io::{IoRead, IoWrite},
 };
@@ -113,10 +113,10 @@ impl<'a, W: IoWrite> Encode<W> for ExtensionRef<'a> {
     }
 }
 
-impl<'de> Decode<'de> for ExtensionRef<'de> {
+impl<'de> DecodeBorrowed<'de> for ExtensionRef<'de> {
     type Value = ExtensionRef<'de>;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, decode::Error<R::Error>>
@@ -260,17 +260,17 @@ impl<const N: usize, W: IoWrite> Encode<W> for FixedExtension<N> {
     }
 }
 
-impl<'de, const N: usize> Decode<'de> for FixedExtension<N> {
+impl<'de, const N: usize> DecodeBorrowed<'de> for FixedExtension<N> {
     type Value = FixedExtension<N>;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, decode::Error<R::Error>>
     where
         R: IoRead<'de>,
     {
-        let ext = ExtensionRef::decode_with_format(format, reader)?;
+        let ext = ExtensionRef::decode_borrowed_with_format(format, reader)?;
         if ext.data.len() > N {
             return Err(decode::Error::InvalidData);
         }
@@ -336,17 +336,17 @@ mod owned {
         }
     }
 
-    impl<'de> Decode<'de> for ExtensionOwned {
+    impl<'de> DecodeBorrowed<'de> for ExtensionOwned {
         type Value = ExtensionOwned;
 
-        fn decode_with_format<R>(
+        fn decode_borrowed_with_format<R>(
             format: Format,
             reader: &mut R,
         ) -> core::result::Result<Self::Value, decode::Error<R::Error>>
         where
             R: crate::io::IoRead<'de>,
         {
-            let ext = ExtensionRef::decode_with_format(format, reader)?;
+            let ext = ExtensionRef::decode_borrowed_with_format(format, reader)?;
             Ok(ExtensionOwned {
                 r#type: ext.r#type,
                 data: ext.data.to_vec(),
@@ -361,6 +361,7 @@ pub use owned::ExtensionOwned;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::decode::Decode;
     use rstest::rstest;
 
     #[rstest]

@@ -1,14 +1,14 @@
-use super::{Decode, Error, NbyteReader};
+use super::{DecodeBorrowed, Error, NbyteReader};
 use crate::{
     Format,
     io::IoRead,
     timestamp::{TIMESTAMP_EXTENSION_TYPE, Timestamp32, Timestamp64, Timestamp96},
 };
 
-impl<'de> Decode<'de> for Timestamp32 {
+impl<'de> DecodeBorrowed<'de> for Timestamp32 {
     type Value = Timestamp32;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: crate::Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
@@ -41,10 +41,10 @@ impl<'de> Decode<'de> for Timestamp32 {
     }
 }
 
-impl<'de> Decode<'de> for Timestamp64 {
+impl<'de> DecodeBorrowed<'de> for Timestamp64 {
     type Value = Timestamp64;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: crate::Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
@@ -77,10 +77,10 @@ impl<'de> Decode<'de> for Timestamp64 {
     }
 }
 
-impl<'de> Decode<'de> for Timestamp96 {
+impl<'de> DecodeBorrowed<'de> for Timestamp96 {
     type Value = Timestamp96;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: crate::Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
@@ -120,6 +120,7 @@ impl<'de> Decode<'de> for Timestamp96 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::decode::Decode;
     const TIMESTAMP_EXT_TYPE: u8 = 255; // -1
 
     #[test]

@@ -1,15 +1,15 @@
 //! Nil and `Option` decoding helpers.
 
-use super::{Decode, Error};
+use super::{Decode, DecodeBorrowed, Error};
 use crate::{formats::Format, io::IoRead};
 
 /// Decode the MessagePack `nil` value.
 pub struct NilDecoder;
 
-impl<'de> Decode<'de> for NilDecoder {
+impl<'de> DecodeBorrowed<'de> for NilDecoder {
     type Value = ();
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         _reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
@@ -23,17 +23,17 @@ impl<'de> Decode<'de> for NilDecoder {
     }
 }
 
-impl<'de> Decode<'de> for () {
+impl<'de> DecodeBorrowed<'de> for () {
     type Value = ();
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
-        NilDecoder::decode_with_format(format, reader)
+        NilDecoder::decode_borrowed_with_format(format, reader)
     }
 }
 
@@ -41,14 +41,18 @@ impl<'de, V> Decode<'de> for Option<V>
 where
     V: Decode<'de>,
 {
-    type Value = Option<V::Value>;
-
-    fn decode_with_format<R>(
+    type Value<'a>
+        = Option<V::Value<'a>>
+    where
+        Self: 'a,
+        'de: 'a;
+    fn decode_with_format<'a, R>(
         format: Format,
-        reader: &mut R,
-    ) -> core::result::Result<Self::Value, Error<R::Error>>
+        reader: &'a mut R,
+    ) -> Result<Self::Value<'a>, Error<R::Error>>
     where
         R: IoRead<'de>,
+        'de: 'a,
     {
         match format {
             Format::Nil => Ok(None),

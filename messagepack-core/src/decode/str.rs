@@ -1,20 +1,67 @@
 //! String decoding helpers.
 
-use super::{Decode, Error, NbyteReader};
-use crate::{formats::Format, io::IoRead};
+use super::{DecodeBorrowed, Error, NbyteReader};
+use crate::{Decode, formats::Format, io::IoRead};
 
 /// Decode a MessagePack string and return a borrowed `&str`.
 pub struct StrDecoder;
 
-impl<'de> Decode<'de> for StrDecoder {
+impl<'de> DecodeBorrowed<'de> for StrDecoder {
     type Value = &'de str;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
+    {
+        let str_ref = ReferenceStrDecoder::decode_with_format(format, reader)?;
+        match str_ref {
+            ReferenceStr::Borrowed(s) => Ok(s),
+            ReferenceStr::Copied(_) => Err(Error::InvalidData),
+        }
+    }
+}
+
+impl<'de> DecodeBorrowed<'de> for &'de str {
+    type Value = &'de str;
+
+    fn decode_borrowed_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        StrDecoder::decode_borrowed_with_format(format, reader)
+    }
+}
+
+/// Borrowed or copied UTF‑8 string reference
+pub enum ReferenceStr<'de, 'a> {
+    /// Borrowed from the input (`'de`).
+    Borrowed(&'de str),
+    /// Copied into a transient buffer bound to `'a`.
+    Copied(&'a str),
+}
+
+/// Decode a MessagePack string and return a [ReferenceStr]
+pub struct ReferenceStrDecoder;
+
+impl<'de> Decode<'de> for ReferenceStrDecoder {
+    type Value<'a>
+        = ReferenceStr<'de, 'a>
+    where
+        Self: 'a,
+        'de: 'a;
+    fn decode_with_format<'a, R>(
+        format: Format,
+        reader: &'a mut R,
+    ) -> Result<Self::Value<'a>, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+        'de: 'a,
     {
         let len = match format {
             Format::FixStr(n) => n.into(),
@@ -24,33 +71,23 @@ impl<'de> Decode<'de> for StrDecoder {
             _ => return Err(Error::UnexpectedFormat),
         };
         let data = reader.read_slice(len).map_err(Error::Io)?;
-        // Lifetime-sensitive: return only if Borrowed
-        let bytes = match data {
-            crate::io::Reference::Borrowed(b) => b,
-            crate::io::Reference::Copied(_) => return Err(Error::InvalidData),
-        };
-        let s = core::str::from_utf8(bytes).map_err(|_| Error::InvalidData)?;
-        Ok(s)
-    }
-}
-
-impl<'de> Decode<'de> for &'de str {
-    type Value = &'de str;
-
-    fn decode_with_format<R>(
-        format: Format,
-        reader: &mut R,
-    ) -> core::result::Result<Self::Value, Error<R::Error>>
-    where
-        R: IoRead<'de>,
-    {
-        StrDecoder::decode_with_format(format, reader)
+        match data {
+            crate::io::Reference::Borrowed(items) => {
+                let s = str::from_utf8(items).map_err(|_| Error::InvalidData)?;
+                Ok(ReferenceStr::Borrowed(s))
+            }
+            crate::io::Reference::Copied(items) => {
+                let s = str::from_utf8(items).map_err(|_| Error::InvalidData)?;
+                Ok(ReferenceStr::Copied(s))
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::decode::Decode;
 
     #[test]
     fn decode_str() {

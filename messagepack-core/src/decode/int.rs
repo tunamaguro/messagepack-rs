@@ -1,10 +1,10 @@
-use super::{Decode, Error};
+use super::{DecodeBorrowed, Error};
 use crate::{formats::Format, io::IoRead};
 
-impl<'de> Decode<'de> for u8 {
+impl<'de> DecodeBorrowed<'de> for u8 {
     type Value = Self;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
@@ -23,10 +23,10 @@ impl<'de> Decode<'de> for u8 {
     }
 }
 
-impl<'de> Decode<'de> for i8 {
+impl<'de> DecodeBorrowed<'de> for i8 {
     type Value = Self;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
@@ -47,10 +47,10 @@ impl<'de> Decode<'de> for i8 {
 
 macro_rules! impl_decode_int {
     ($ty:ty,$format:path) => {
-        impl<'de> Decode<'de> for $ty {
+        impl<'de> DecodeBorrowed<'de> for $ty {
             type Value = Self;
 
-            fn decode_with_format<R>(
+            fn decode_borrowed_with_format<R>(
                 format: Format,
                 reader: &mut R,
             ) -> core::result::Result<Self::Value, Error<R::Error>>
@@ -81,69 +81,69 @@ impl_decode_int!(i16, Format::Int16);
 impl_decode_int!(i32, Format::Int32);
 impl_decode_int!(i64, Format::Int64);
 
-impl<'de> Decode<'de> for u128 {
+impl<'de> DecodeBorrowed<'de> for u128 {
     type Value = Self;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
-        let val = u64::decode_with_format(format, reader)?;
+        let val = u64::decode_borrowed_with_format(format, reader)?;
         Ok(Self::from(val))
     }
 }
 
-impl<'de> Decode<'de> for i128 {
+impl<'de> DecodeBorrowed<'de> for i128 {
     type Value = Self;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
-        let val = i64::decode_with_format(format, reader)?;
+        let val = i64::decode_borrowed_with_format(format, reader)?;
         Ok(Self::from(val))
     }
 }
 
-impl<'de> Decode<'de> for usize {
+impl<'de> DecodeBorrowed<'de> for usize {
     type Value = Self;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
-        let val = u64::decode_with_format(format, reader)?;
+        let val = u64::decode_borrowed_with_format(format, reader)?;
         usize::try_from(val).map_err(|_| Error::InvalidData)
     }
 }
 
-impl<'de> Decode<'de> for isize {
+impl<'de> DecodeBorrowed<'de> for isize {
     type Value = Self;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
-        let val = i64::decode_with_format(format, reader)?;
+        let val = i64::decode_borrowed_with_format(format, reader)?;
         isize::try_from(val).map_err(|_| Error::InvalidData)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::decode::Decode;
 
     #[test]
     fn decode_u8_fix_pos_int() {
