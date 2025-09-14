@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-messagepack-serde = { workspace = true, features = ["std"] }
+messagepack-serde = { workspace = true }
 rmp-serde = { version = "1.3.0", default-features = false }
 rmpv = { version = "1.3.0", default-features = false, features = [
     "with-serde",
