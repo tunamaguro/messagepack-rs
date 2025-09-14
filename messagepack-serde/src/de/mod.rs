@@ -153,6 +153,7 @@ where
 {
     type Error = Error<R::Error>;
 
+    #[inline]
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
