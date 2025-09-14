@@ -551,8 +551,8 @@ mod tests {
     // strings (fixstr/str8)
     #[case([0xa1, 0x61],"a".to_string())]
     #[case([0xd9, 0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f],"hello".to_string())]
-    // binary (bin8)
-    #[case([0xc4, 0x03, 0x01, 0x02, 0x03],vec![1u8, 2, 3])]
+    // binary (bin8) `bin` family need like `serde_bytes`
+    #[case([0xc4, 0x03, 0x01, 0x02, 0x03],serde_bytes::ByteBuf::from(vec![1u8, 2, 3]))]
     // array (fixarray)
     #[case([0x93, 0x01, 0x02, 0x03],vec![1u8, 2, 3])]
     // map (fixmap) with 2 entries: {"a":1, "b":2}
