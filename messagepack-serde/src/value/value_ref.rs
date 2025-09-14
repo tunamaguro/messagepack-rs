@@ -204,10 +204,10 @@ impl<'de> serde::Deserialize<'de> for ValueRef<'de> {
             where
                 A: serde::de::SeqAccess<'de>,
             {
-                let mut buf = Vec::new();
-                if let Some(size) = seq.size_hint() {
-                    buf.reserve(size);
-                }
+                let mut buf = match seq.size_hint() {
+                    Some(size) => Vec::with_capacity(size),
+                    None => Vec::new(),
+                };
 
                 while let Some(v) = seq.next_element::<ValueRef>()? {
                     buf.push(v);
@@ -220,10 +220,10 @@ impl<'de> serde::Deserialize<'de> for ValueRef<'de> {
             where
                 A: serde::de::MapAccess<'de>,
             {
-                let mut buf = Vec::new();
-                if let Some(size) = map.size_hint() {
-                    buf.reserve(size);
-                }
+                let mut buf = match map.size_hint() {
+                    Some(size) => Vec::with_capacity(size),
+                    None => Vec::new(),
+                };
 
                 while let Some(v) = map.next_entry()? {
                     buf.push(v);
