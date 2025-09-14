@@ -112,38 +112,38 @@ const COMPLEX: &[u8] = &[
     0x72, 0x6f, 0x72, 0x80, 0x91, 0x93, 0x50, 0x51, 0x52,
 ];
 
-#[divan::bench]
-fn deserialize_complex_messagepack_serde_from_slice(
-    #[allow(unused_mut)] mut bencher: divan::Bencher,
-) {
-    use messagepack_serde::{ValueRef, from_slice};
+// #[divan::bench]
+// fn deserialize_complex_messagepack_serde_from_slice(
+//     #[allow(unused_mut)] mut bencher: divan::Bencher,
+// ) {
+//     use messagepack_serde::{ValueRef, from_slice};
 
-    #[cfg(not(codspeed))]
-    {
-        bencher = bencher.counter(BytesCount::of_slice(&COMPLEX))
-    }
+//     #[cfg(not(codspeed))]
+//     {
+//         bencher = bencher.counter(BytesCount::of_slice(&COMPLEX))
+//     }
 
-    bencher.bench_local(|| {
-        let input = core::hint::black_box(COMPLEX);
-        let _val = from_slice::<ValueRef<'_>>(input).unwrap();
-    });
-}
+//     bencher.bench_local(|| {
+//         let input = core::hint::black_box(COMPLEX);
+//         let _val = from_slice::<ValueRef<'_>>(input).unwrap();
+//     });
+// }
 
-#[divan::bench]
-fn deserialize_complex_rmp_serde_from_slice(#[allow(unused_mut)] mut bencher: divan::Bencher) {
-    use rmp_serde::from_slice;
-    use rmpv::ValueRef;
+// #[divan::bench]
+// fn deserialize_complex_rmp_serde_from_slice(#[allow(unused_mut)] mut bencher: divan::Bencher) {
+//     use rmp_serde::from_slice;
+//     use rmpv::ValueRef;
 
-    #[cfg(not(codspeed))]
-    {
-        bencher = bencher.counter(BytesCount::of_slice(&COMPLEX))
-    }
+//     #[cfg(not(codspeed))]
+//     {
+//         bencher = bencher.counter(BytesCount::of_slice(&COMPLEX))
+//     }
 
-    bencher.bench_local(|| {
-        let input = core::hint::black_box(COMPLEX);
-        let _val: ValueRef<'_> = from_slice(input).unwrap();
-    });
-}
+//     bencher.bench_local(|| {
+//         let input = core::hint::black_box(COMPLEX);
+//         let _val: ValueRef<'_> = from_slice(input).unwrap();
+//     });
+// }
 
 // #[divan::bench]
 // fn deserialize_complex_messagepack_serde_from_reader(
