@@ -46,7 +46,6 @@ impl<'a> SliceWriter<'a> {
 impl IoWrite for SliceWriter<'_> {
     type Error = WError;
 
-    #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         if self.len() >= buf.len() {
             let to = &mut self.buf[self.cursor..self.cursor + buf.len()];
@@ -63,7 +62,6 @@ impl IoWrite for SliceWriter<'_> {
 impl IoWrite for &mut [u8] {
     type Error = WError;
 
-    #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         SliceWriter::from_slice(self).write(buf)
     }
@@ -73,7 +71,6 @@ impl IoWrite for &mut [u8] {
 impl IoWrite for alloc::vec::Vec<u8> {
     type Error = core::convert::Infallible;
 
-    #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         VecRefWriter::new(self).write(buf)
     }
@@ -98,7 +95,6 @@ mod vec_writer {
     impl IoWrite for VecRefWriter<'_> {
         type Error = core::convert::Infallible;
 
-        #[inline]
         fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
             self.vec.extend_from_slice(buf);
             Ok(())
@@ -147,7 +143,6 @@ where
 {
     type Error = std::io::Error;
 
-    #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         self.write_all(buf)
     }
@@ -163,7 +158,6 @@ pub enum Reference<'de, 'a> {
 
 impl Reference<'_, '_> {
     /// Borrow the underlying bytes regardless of `Borrowed` or `Copied`.
-    #[inline]
     pub fn as_bytes(&self) -> &[u8] {
         match self {
             Reference::Borrowed(b) => b,
@@ -258,7 +252,6 @@ mod std_reader {
     {
         type Error = std::io::Error;
 
-        #[inline]
         fn read_slice<'a>(
             &'a mut self,
             len: usize,
