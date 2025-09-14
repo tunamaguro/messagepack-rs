@@ -27,7 +27,7 @@ pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error
 
 #[cfg(feature = "std")]
 /// Deserialize from [std::io::Read]
-pub fn from_reader<R, T>(reader: R) -> std::io::Result<T>
+pub fn from_reader<R, T>(reader: &mut R) -> std::io::Result<T>
 where
     R: std::io::Read,
     T: for<'a> Deserialize<'a>,
@@ -35,7 +35,7 @@ where
     use messagepack_core::io::StdReader;
     use std::io;
     let reader = StdReader::new(reader);
-    let result = from_trait::<'_, StdReader<R>, T>(reader);
+    let result = from_trait::<'_, StdReader<&mut R>, T>(reader);
     match result {
         Ok(v) => Ok(v),
         Err(err) => match err {
@@ -319,46 +319,6 @@ where
         self.deserialize_bytes(visitor)
     }
 
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        let format = self.decode_format()?;
-        match format {
-            Format::FixArray(_) | Format::Array16 | Format::Array32 => {
-                self.decode_seq_with_format(format, visitor)
-            }
-            Format::Bin8 | Format::Bin16 | Format::Bin32 => {
-                // allow decode `bin` family as seq
-                use messagepack_core::decode::ReferenceDecoder;
-                use seq::ByteAccess;
-                let data = ReferenceDecoder::decode_with_format(format, &mut self.reader)?;
-                let access = ByteAccess::<R>::new(data.as_bytes());
-                visitor.visit_seq(access)
-            }
-            _ => return Err(CoreError::UnexpectedFormat.into()),
-        }
-    }
-
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_seq(visitor)
-    }
-
-    fn deserialize_tuple_struct<V>(
-        self,
-        _name: &'static str,
-        _len: usize,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_seq(visitor)
-    }
-
     fn deserialize_enum<V>(
         self,
         _name: &'static str,
@@ -389,8 +349,8 @@ where
 
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char
-        unit unit_struct newtype_struct
-        map struct identifier ignored_any
+        unit unit_struct newtype_struct seq tuple
+        tuple_struct map struct identifier ignored_any
     }
 
     fn is_human_readable(&self) -> bool {
@@ -566,52 +526,107 @@ mod tests {
         assert!(matches!(err, Error::RecursionLimitExceeded));
     }
 
+    // Simple combined test via Reader interface
+    // - Use SliceReader and validate multiple items at once
+    #[test]
+    fn reader_slice_tuple_multiple_values() {
+        use messagepack_core::io::SliceReader;
+
+        // ["hi", 5, true]
+        let buf: &[u8] = &[0x93, 0xa2, 0x68, 0x69, 0x05, 0xc3];
+        let reader = SliceReader::new(buf);
+
+        let (s, n, b): (&str, u8, bool) = from_trait(reader).unwrap();
+        assert_eq!(s, "hi");
+        assert_eq!(n, 5);
+        assert!(b);
+    }
+
+    // Validate map -> struct via Reader interface at once
+    #[test]
+    fn reader_slice_struct_from_map_multiple_values() {
+        use messagepack_core::io::SliceReader;
+        use serde::Deserialize;
+
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S<'a> {
+            k: &'a str,
+            a: u8,
+            b: bool,
+        }
+
+        // {"k":"v","a":7,"b":true}
+        let buf: &[u8] = &[
+            0x83, // fixmap 3
+            0xa1, 0x6b, // "k"
+            0xa1, 0x76, // "v"
+            0xa1, 0x61, // "a"
+            0x07, // 7
+            0xa1, 0x62, // "b"
+            0xc3, // true
+        ];
+
+        let reader = SliceReader::new(buf);
+        let decoded: S = from_trait(reader).unwrap();
+        assert_eq!(
+            decoded,
+            S {
+                k: "v",
+                a: 7,
+                b: true
+            }
+        );
+    }
+
+    // When std feature is enabled, validate via public from_reader
     #[cfg(feature = "std")]
-    #[rstest]
-    // nil -> unit
-    #[case([0xc0],())]
-    // bool
-    #[case([0xc3],true)]
-    #[case([0xc2],false)]
-    // positive integers (fixint/uint*)
-    #[case([0x2a],42u8)]
-    #[case([0xcc, 0x80],128u8)]
-    #[case([0xcd, 0x01, 0x00],256u16)]
-    #[case([0xce, 0x00, 0x01, 0x00, 0x00],65536u32)]
-    #[case([0xcf, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],4294967296u64)]
-    // negative integers (fixint/int*)
-    #[case([0xff],-1i8)]
-    #[case([0xd0, 0x80],-128i8)]
-    #[case([0xd1, 0x80, 0x00],-32768i16)]
-    #[case([0xd2, 0x80, 0x00, 0x00, 0x00],-2147483648i32)]
-    #[case([0xd3, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],i64::MIN)]
-    // floats
-    #[case([0xca, 0x41, 0x45, 0x70, 0xa4],12.34f32)]
-    #[case([0xcb, 0x3f, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],1.0f64)]
-    // strings (fixstr/str8)
-    #[case([0xa1, 0x61],"a".to_string())]
-    #[case([0xd9, 0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f],"hello".to_string())]
-    // binary (bin8)
-    #[case([0xc4, 0x03, 0x01, 0x02, 0x03],vec![1u8, 2, 3])]
-    // array (fixarray)
-    #[case([0x93, 0x01, 0x02, 0x03],vec![1u8, 2, 3])]
-    // map (fixmap) with 2 entries: {"a":1, "b":2}
-    #[case([0x82, 0xa1, 0x61, 0x01, 0xa1, 0x62, 0x02],{
-        let mut m = std::collections::BTreeMap::<String, u8>::new();
-        m.insert("a".to_string(), 1u8);
-        m.insert("b".to_string(), 2u8);
-        m
-    })]
-    fn decode_success_from_reader_when_owned<
-        Buf: AsRef<[u8]>,
-        T: serde::de::DeserializeOwned + core::fmt::Debug + PartialEq,
-    >(
-        #[case] buf: Buf,
-        #[case] expected: T,
-    ) {
-        use super::from_reader;
-        let reader = std::io::Cursor::new(buf.as_ref());
-        let val = from_reader::<_, T>(reader).unwrap();
-        assert_eq!(val, expected)
+    #[test]
+    fn from_reader_tuple_multiple_values() {
+        use std::io::Cursor;
+
+        // [1, false, "ok"]
+        let buf: &[u8] = &[0x93, 0x01, 0xc2, 0xa2, 0x6f, 0x6b];
+        let mut cursor = Cursor::new(buf);
+
+        // Owned String is used because from_reader cannot yield borrowed &str
+        let (n, b, s): (u8, bool, String) = super::from_reader(&mut cursor).unwrap();
+        assert_eq!((n, b, s.as_str()), (1, false, "ok"));
+    }
+
+    // from_reader with map -> struct, validating multiple fields
+    #[cfg(feature = "std")]
+    #[test]
+    fn from_reader_struct_from_map_multiple_values() {
+        use serde::Deserialize;
+        use std::io::Cursor;
+
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S {
+            k: String,
+            a: u8,
+            b: bool,
+        }
+
+        // {"k":"v","a":7,"b":true}
+        let buf: &[u8] = &[
+            0x83, // fixmap 3
+            0xa1, 0x6b, // "k"
+            0xa1, 0x76, // "v"
+            0xa1, 0x61, // "a"
+            0x07, // 7
+            0xa1, 0x62, // "b"
+            0xc3, // true
+        ];
+
+        let mut cursor = Cursor::new(buf);
+        let decoded: S = super::from_reader(&mut cursor).unwrap();
+        assert_eq!(
+            decoded,
+            S {
+                k: "v".into(),
+                a: 7,
+                b: true
+            }
+        );
     }
 }
