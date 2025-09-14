@@ -142,6 +142,7 @@ where
 }
 
 impl<R> AsMut<Self> for Deserializer<R> {
+    #[inline(always)]
     fn as_mut(&mut self) -> &mut Self {
         self
     }
