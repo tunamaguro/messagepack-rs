@@ -56,14 +56,22 @@ where
     }
 }
 
-/// A type that can be decoded using an `IoRead` input.
+/// Decode a value from MessagePack that may borrow from the reader's
+/// transient internal buffer.
+///
+/// Lifetime semantics:
+/// - The associated `Value<'a>` may borrow with lifetime `'a`.
+/// - `'a` is tied to the borrow of the provided `&'a mut R` and is further
+///   constrained not to outlive `'de` (i.e. `'a: 'de`).
+/// - Implementations are allowed to return values that contain references
+///   into the `IoRead`'s temporary buffer; such references are valid only for `'a`.
 pub trait Decode<'de> {
-    /// The materialised value type.
+    /// The decoded value. It may borrow for `'a` (bounded by `'de`).
     type Value<'a>: Sized
     where
         Self: 'a,
         'de: 'a;
-    /// Decode a value from `reader`.
+    /// Decode a value from `reader`
     fn decode<'a, R>(reader: &'a mut R) -> Result<Self::Value<'a>, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -73,9 +81,11 @@ pub trait Decode<'de> {
         Self::decode_with_format(format, reader)
     }
 
-    /// Decode a value assuming the leading MessagePack format has already been
-    /// read by the caller. Implementations must validate that `format` is
-    /// appropriate for the type and return an error otherwise.
+    /// Decode values from `Format` and `reader`.
+    ///
+    /// This function assumes the caller has just read the leading format byte
+    /// (via `Format::decode`) and now provides that `format` together with the
+    /// same `reader` positioned at the start of the payload. 
     fn decode_with_format<'a, R>(
         format: Format,
         reader: &'a mut R,
@@ -85,11 +95,13 @@ pub trait Decode<'de> {
         'de: 'a;
 }
 
-/// a
+/// Decode a value whose borrows, if any, are bounded strictly by `'de` and
+/// must never reference the reader's transient internal buffer.
 pub trait DecodeBorrowed<'de> {
-    /// a
+    /// The decoded value.
     type Value;
-    /// a
+
+    /// Decode a value from `reader`
     fn decode_borrowed<R>(
         reader: &mut R,
     ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
@@ -100,7 +112,8 @@ pub trait DecodeBorrowed<'de> {
         Self::decode_borrowed_with_format(format, reader)
     }
 
-    /// a
+
+    /// Decode values from `Format` and `reader`.
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
