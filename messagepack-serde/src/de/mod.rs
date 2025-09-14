@@ -206,7 +206,7 @@ where
             }
             Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
                 use messagepack_core::decode::ReferenceStrDecoder;
-                let data = ReferenceStrDecoder::decode(&mut self.reader)?;
+                let data = ReferenceStrDecoder::decode_with_format(format, &mut self.reader)?;
                 match data {
                     messagepack_core::decode::ReferenceStr::Borrowed(s) => {
                         visitor.visit_borrowed_str(s)
@@ -219,7 +219,7 @@ where
             }
             Format::Bin8 | Format::Bin16 | Format::Bin32 => {
                 use messagepack_core::decode::ReferenceDecoder;
-                let data = ReferenceDecoder::decode(&mut self.reader)?;
+                let data = ReferenceDecoder::decode_with_format(format, &mut self.reader)?;
                 match data {
                     messagepack_core::io::Reference::Borrowed(items) => {
                         visitor.visit_borrowed_bytes(items)

@@ -72,7 +72,9 @@ pub trait Decode<'de> {
         R: IoRead<'de>,
         'de: 'a,
     {
-        let format = Format::decode(reader)?;
+        // Avoid recursive call when `Self = Format` by decoding the marker
+        // via `DecodeBorrowed` explicitly.
+        let format = <Format as DecodeBorrowed<'de>>::decode_borrowed(reader)?;
         Self::decode_with_format(format, reader)
     }
 
@@ -100,7 +102,7 @@ pub trait DecodeBorrowed<'de> {
     where
         R: IoRead<'de>,
     {
-        let format = Format::decode(reader)?;
+        let format = <Format as DecodeBorrowed<'de>>::decode_borrowed(reader)?;
         Self::decode_borrowed_with_format(format, reader)
     }
 
