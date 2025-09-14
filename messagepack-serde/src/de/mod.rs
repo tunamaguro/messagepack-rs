@@ -298,7 +298,7 @@ where
     {
         let format = self.decode_format()?;
         match format {
-            Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
+            Format::Bin8 | Format::Bin16 | Format::Bin32 => {
                 use messagepack_core::decode::ReferenceDecoder;
                 let data = ReferenceDecoder::decode_with_format(format, &mut self.reader)?;
                 match data {
