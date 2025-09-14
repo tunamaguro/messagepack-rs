@@ -1,7 +1,7 @@
 //! String decoding helpers.
 
 use super::{DecodeBorrowed, Error, NbyteReader};
-use crate::{formats::Format, io::IoRead};
+use crate::{Decode, formats::Format, io::IoRead};
 
 /// Decode a MessagePack string and return a borrowed `&str`.
 pub struct StrDecoder;
@@ -16,21 +16,11 @@ impl<'de> DecodeBorrowed<'de> for StrDecoder {
     where
         R: IoRead<'de>,
     {
-        let len = match format {
-            Format::FixStr(n) => n.into(),
-            Format::Str8 => NbyteReader::<1>::read(reader)?,
-            Format::Str16 => NbyteReader::<2>::read(reader)?,
-            Format::Str32 => NbyteReader::<4>::read(reader)?,
-            _ => return Err(Error::UnexpectedFormat),
-        };
-        let data = reader.read_slice(len).map_err(Error::Io)?;
-        // Lifetime-sensitive: return only if Borrowed
-        let bytes = match data {
-            crate::io::Reference::Borrowed(b) => b,
-            crate::io::Reference::Copied(_) => return Err(Error::InvalidData),
-        };
-        let s = core::str::from_utf8(bytes).map_err(|_| Error::InvalidData)?;
-        Ok(s)
+        let str_ref = ReferenceStrDecoder::decode_with_format(format, reader)?;
+        match str_ref {
+            ReferenceStr::Borrowed(s) => Ok(s),
+            ReferenceStr::Copied(_) => Err(Error::InvalidData),
+        }
     }
 }
 
@@ -45,6 +35,52 @@ impl<'de> DecodeBorrowed<'de> for &'de str {
         R: IoRead<'de>,
     {
         StrDecoder::decode_borrowed_with_format(format, reader)
+    }
+}
+
+/// Borrowed or copied UTF‑8 string reference
+pub enum ReferenceStr<'de, 'a> {
+    /// Borrowed from the input (`'de`).
+    Borrowed(&'de str),
+    /// Copied into a transient buffer bound to `'a`.
+    Copied(&'a str),
+}
+
+/// Decode a MessagePack string and return a [ReferenceStr]
+pub struct ReferenceStrDecoder;
+
+impl<'de> Decode<'de> for ReferenceStrDecoder {
+    type Value<'a>
+        = ReferenceStr<'de, 'a>
+    where
+        Self: 'a,
+        'de: 'a;
+    fn decode_with_format<'a, R>(
+        format: Format,
+        reader: &'a mut R,
+    ) -> Result<Self::Value<'a>, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+        'de: 'a,
+    {
+        let len = match format {
+            Format::FixStr(n) => n.into(),
+            Format::Str8 => NbyteReader::<1>::read(reader)?,
+            Format::Str16 => NbyteReader::<2>::read(reader)?,
+            Format::Str32 => NbyteReader::<4>::read(reader)?,
+            _ => return Err(Error::UnexpectedFormat),
+        };
+        let data = reader.read_slice(len).map_err(Error::Io)?;
+        match data {
+            crate::io::Reference::Borrowed(items) => {
+                let s = str::from_utf8(items).map_err(|_| Error::InvalidData)?;
+                Ok(ReferenceStr::Borrowed(s))
+            }
+            crate::io::Reference::Copied(items) => {
+                let s = str::from_utf8(items).map_err(|_| Error::InvalidData)?;
+                Ok(ReferenceStr::Copied(s))
+            }
+        }
     }
 }
 

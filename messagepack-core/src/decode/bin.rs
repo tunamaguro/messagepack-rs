@@ -1,7 +1,7 @@
 //! Binary (bin8/16/32) decoding helpers.
 
 use super::{Error, NbyteReader};
-use crate::{decode::DecodeBorrowed, formats::Format, io::IoRead};
+use crate::{Decode, decode::DecodeBorrowed, formats::Format, io::IoRead};
 
 /// Decode a MessagePack binary blob and return a borrowed byte slice.
 pub struct BinDecoder;
@@ -16,13 +16,7 @@ impl<'de> DecodeBorrowed<'de> for BinDecoder {
     where
         R: IoRead<'de>,
     {
-        let len = match format {
-            Format::Bin8 => NbyteReader::<1>::read(reader)?,
-            Format::Bin16 => NbyteReader::<2>::read(reader)?,
-            Format::Bin32 => NbyteReader::<4>::read(reader)?,
-            _ => return Err(Error::UnexpectedFormat),
-        };
-        let data = reader.read_slice(len).map_err(Error::Io)?;
+        let data = ReferenceDecoder::decode_with_format(format, reader)?;
         match data {
             crate::io::Reference::Borrowed(b) => Ok(b),
             crate::io::Reference::Copied(_) => Err(Error::InvalidData),
@@ -41,6 +35,34 @@ impl<'de> DecodeBorrowed<'de> for &'de [u8] {
         R: IoRead<'de>,
     {
         BinDecoder::decode_borrowed_with_format(format, reader)
+    }
+}
+
+/// Decode a MessagePack binary and return a `Reference` to its bytes
+pub struct ReferenceDecoder;
+
+impl<'de> super::Decode<'de> for ReferenceDecoder {
+    type Value<'a>
+        = crate::io::Reference<'de, 'a>
+    where
+        Self: 'a,
+        'de: 'a;
+    fn decode_with_format<'a, R>(
+        format: Format,
+        reader: &'a mut R,
+    ) -> Result<Self::Value<'a>, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+        'de: 'a,
+    {
+        let len = match format {
+            Format::Bin8 => NbyteReader::<1>::read(reader)?,
+            Format::Bin16 => NbyteReader::<2>::read(reader)?,
+            Format::Bin32 => NbyteReader::<4>::read(reader)?,
+            _ => return Err(Error::UnexpectedFormat),
+        };
+        let data = reader.read_slice(len).map_err(Error::Io)?;
+        Ok(data)
     }
 }
 
