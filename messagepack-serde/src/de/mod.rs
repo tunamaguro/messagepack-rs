@@ -265,6 +265,60 @@ where
         }
     }
 
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        let format = self.decode_format()?;
+        match format {
+            Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
+                use messagepack_core::decode::ReferenceStrDecoder;
+                let data = ReferenceStrDecoder::decode_with_format(format, &mut self.reader)?;
+                match data {
+                    messagepack_core::decode::ReferenceStr::Borrowed(s) => {
+                        visitor.visit_borrowed_str(s)
+                    }
+                    messagepack_core::decode::ReferenceStr::Copied(s) => visitor.visit_str(s),
+                }
+            }
+            _ => Err(CoreError::UnexpectedFormat.into()),
+        }
+    }
+
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.deserialize_str(visitor)
+    }
+
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        let format = self.decode_format()?;
+        match format {
+            Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
+                use messagepack_core::decode::ReferenceDecoder;
+                let data = ReferenceDecoder::decode_with_format(format, &mut self.reader)?;
+                match data {
+                    messagepack_core::io::Reference::Borrowed(items) => {
+                        visitor.visit_borrowed_bytes(items)
+                    }
+                    messagepack_core::io::Reference::Copied(items) => visitor.visit_bytes(items),
+                }
+            }
+            _ => Err(CoreError::UnexpectedFormat.into()),
+        }
+    }
+
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.deserialize_bytes(visitor)
+    }
+
     fn deserialize_enum<V>(
         self,
         _name: &'static str,
@@ -294,8 +348,8 @@ where
     }
 
     forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf unit unit_struct newtype_struct seq tuple
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char
+        unit unit_struct newtype_struct seq tuple
         tuple_struct map struct identifier ignored_any
     }
 
