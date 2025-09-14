@@ -300,7 +300,7 @@ dependencies = [
 
 [[package]]
 name = "messagepack-core"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "num-traits",
  "rstest",
@@ -308,7 +308,7 @@ dependencies = [
 
 [[package]]
 name = "messagepack-serde"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "messagepack-core",
  "num-traits",
@@ -489,21 +489,20 @@ dependencies = [
 
 [[package]]
 name = "rstest"
-version = "0.25.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fc39292f8613e913f7df8fa892b8944ceb47c247b78e1b1ae2f09e019be789d"
+checksum = "f5a3193c063baaa2a95a33f03035c8a72b83d97a54916055ba22d35ed3839d49"
 dependencies = [
  "futures-timer",
  "futures-util",
  "rstest_macros",
- "rustc_version",
 ]
 
 [[package]]
 name = "rstest_macros"
-version = "0.25.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f168d99749d307be9de54d23fd226628d99768225ef08f6ffb52e0182a27746"
+checksum = "9c845311f0ff7951c5506121a9ad75aec44d083c31583b2ea5a30bcb0b0abba0"
 dependencies = [
  "cfg-if",
  "glob",
