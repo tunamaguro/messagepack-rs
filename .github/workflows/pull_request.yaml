@@ -56,13 +56,12 @@ jobs:
         with:
           components: clippy
           cache-base: main
+          bins: cargo-hack
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run lint
         run: |
-          cargo clippy --workspace --all-targets --no-default-features -- -D clippy::all
-          cargo clippy --workspace --all-targets --features alloc -- -D clippy::all
-          cargo clippy --workspace --all-targets --features std -- -D clippy::all
+          cargo hack --each-feature --no-dev-deps clippy -- -D warnings
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -73,10 +72,9 @@ jobs:
         uses: moonrepo/setup-rust@ede6de059f8046a5e236c94046823e2af11ca670 # v1.2.2
         with:
           cache-base: main
+          bins: cargo-hack
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run test
         run: |
-          cargo test --workspace --no-default-features
-          cargo test --workspace --features alloc
-          cargo test --workspace --features std
+          cargo hack --each-feature test
