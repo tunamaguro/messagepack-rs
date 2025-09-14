@@ -59,11 +59,15 @@ where
 /// A type that can be decoded using an `IoRead` input.
 pub trait Decode<'de> {
     /// The materialised value type.
-    type Value: Sized;
+    type Value<'a>: Sized
+    where
+        Self: 'a,
+        'de: 'a;
     /// Decode a value from `reader`.
-    fn decode<R>(reader: &mut R) -> Result<Self::Value, Error<R::Error>>
+    fn decode<'a, R>(reader: &'a mut R) -> Result<Self::Value<'a>, Error<R::Error>>
     where
         R: IoRead<'de>,
+        'de: 'a,
     {
         let format = Format::decode(reader)?;
         Self::decode_with_format(format, reader)
@@ -72,17 +76,65 @@ pub trait Decode<'de> {
     /// Decode a value assuming the leading MessagePack format has already been
     /// read by the caller. Implementations must validate that `format` is
     /// appropriate for the type and return an error otherwise.
-    fn decode_with_format<R>(
+    fn decode_with_format<'a, R>(
+        format: Format,
+        reader: &'a mut R,
+    ) -> Result<Self::Value<'a>, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+        'de: 'a;
+}
+
+/// a
+pub trait DecodeBorrowed<'de> {
+    /// a
+    type Value;
+    /// a
+    fn decode_borrowed<R>(
+        reader: &mut R,
+    ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let format = Format::decode(reader)?;
+        Self::decode_borrowed_with_format(format, reader)
+    }
+
+    /// a
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
-    ) -> Result<Self::Value, Error<R::Error>>
+    ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
     where
         R: IoRead<'de>;
 }
 
-impl<'de> Decode<'de> for Format {
+impl<'de, T> Decode<'de> for T
+where
+    T: DecodeBorrowed<'de>,
+    T: 'de,
+{
+    type Value<'a>
+        = <T as DecodeBorrowed<'de>>::Value
+    where
+        Self: 'a,
+        'de: 'a;
+
+    fn decode_with_format<'a, R>(
+        format: Format,
+        reader: &'a mut R,
+    ) -> Result<Self::Value<'a>, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+        'de: 'a,
+    {
+        <T as DecodeBorrowed<'de>>::decode_borrowed_with_format(format, reader)
+    }
+}
+
+impl<'de> DecodeBorrowed<'de> for Format {
     type Value = Self;
-    fn decode<R>(reader: &mut R) -> Result<Self::Value, Error<R::Error>>
+    fn decode_borrowed<R>(reader: &mut R) -> Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -94,7 +146,7 @@ impl<'de> Decode<'de> for Format {
         Ok(Self::from_byte(byte))
     }
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         _reader: &mut R,
     ) -> Result<Self::Value, Error<R::Error>>

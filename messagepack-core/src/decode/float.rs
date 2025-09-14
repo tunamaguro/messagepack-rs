@@ -1,12 +1,12 @@
-use super::{Decode, Error};
+use super::{DecodeBorrowed, Error};
 use crate::{formats::Format, io::IoRead};
 
 macro_rules! impl_decode_float {
     ($ty:ty,$format:path) => {
-        impl<'de> Decode<'de> for $ty {
+        impl<'de> DecodeBorrowed<'de> for $ty {
             type Value = Self;
 
-            fn decode_with_format<R>(
+            fn decode_borrowed_with_format<R>(
                 format: Format,
                 reader: &mut R,
             ) -> core::result::Result<Self::Value, Error<R::Error>>
@@ -35,7 +35,7 @@ impl_decode_float!(f64, Format::Float64);
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::decode::Decode;
 
     #[test]
     fn decode_f32() {

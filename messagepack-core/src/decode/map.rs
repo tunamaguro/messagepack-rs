@@ -2,7 +2,7 @@
 
 use core::marker::PhantomData;
 
-use super::{Decode, Error, NbyteReader};
+use super::{DecodeBorrowed, Error, NbyteReader};
 use crate::{formats::Format, io::IoRead};
 
 /// Decode a MessagePack map of `K -> V` into `Map` collecting iterator.
@@ -12,23 +12,26 @@ pub struct MapDecoder<Map, K, V>(PhantomData<(Map, K, V)>);
 fn decode_kv<'de, R, K, V>(reader: &mut R) -> Result<(K::Value, V::Value), Error<R::Error>>
 where
     R: IoRead<'de>,
-    K: Decode<'de>,
-    V: Decode<'de>,
+    K: DecodeBorrowed<'de>,
+    V: DecodeBorrowed<'de>,
 {
-    let k = K::decode(reader)?;
-    let v = V::decode(reader)?;
+    let k = K::decode_borrowed(reader)?;
+    let v = V::decode_borrowed(reader)?;
     Ok((k, v))
 }
 
-impl<'de, Map, K, V> Decode<'de> for MapDecoder<Map, K, V>
+impl<'de, Map, K, V> DecodeBorrowed<'de> for MapDecoder<Map, K, V>
 where
-    K: Decode<'de>,
-    V: Decode<'de>,
+    K: DecodeBorrowed<'de>,
+    V: DecodeBorrowed<'de>,
     Map: FromIterator<(K::Value, V::Value)>,
 {
     type Value = Map;
 
-    fn decode_with_format<R>(format: Format, reader: &mut R) -> Result<Self::Value, Error<R::Error>>
+    fn decode_borrowed_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
@@ -58,6 +61,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::decode::Decode;
     use rstest::rstest;
 
     #[rstest]

@@ -1,10 +1,10 @@
-use super::{Decode, Error};
+use super::{DecodeBorrowed, Error};
 use crate::{formats::Format, io::IoRead};
 
-impl<'de> Decode<'de> for bool {
+impl<'de> DecodeBorrowed<'de> for bool {
     type Value = Self;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         _reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
@@ -23,7 +23,7 @@ impl<'de> Decode<'de> for bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::decode::Decode;
 
     #[test]
     fn decode_true() {

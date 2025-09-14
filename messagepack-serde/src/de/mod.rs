@@ -106,14 +106,6 @@ where
         }
     }
 
-    fn decode_with_format<V: Decode<'de>>(
-        &mut self,
-        format: Format,
-    ) -> Result<V::Value, Error<R::Error>> {
-        let decoded = V::decode_with_format(format, &mut self.reader)?;
-        Ok(decoded)
-    }
-
     fn decode_seq_with_format<V>(
         &mut self,
         format: Format,
@@ -172,44 +164,44 @@ where
             Format::True => visitor.visit_bool(true),
             Format::PositiveFixInt(v) => visitor.visit_u8(v),
             Format::Uint8 => {
-                let v = self.decode_with_format::<u8>(format)?;
+                let v = u8::decode_with_format(format, &mut self.reader)?;
                 visitor.visit_u8(v)
             }
             Format::Uint16 => {
-                let v = self.decode_with_format::<u16>(format)?;
+                let v = u16::decode_with_format(format, &mut self.reader)?;
                 visitor.visit_u16(v)
             }
             Format::Uint32 => {
-                let v = self.decode_with_format::<u32>(format)?;
+                let v = u32::decode_with_format(format, &mut self.reader)?;
                 visitor.visit_u32(v)
             }
             Format::Uint64 => {
-                let v = self.decode_with_format::<u64>(format)?;
+                let v = u64::decode_with_format(format, &mut self.reader)?;
                 visitor.visit_u64(v)
             }
             Format::NegativeFixInt(v) => visitor.visit_i8(v),
             Format::Int8 => {
-                let v = self.decode_with_format::<i8>(format)?;
+                let v = i8::decode_with_format(format, &mut self.reader)?;
                 visitor.visit_i8(v)
             }
             Format::Int16 => {
-                let v = self.decode_with_format::<i16>(format)?;
+                let v = i16::decode_with_format(format, &mut self.reader)?;
                 visitor.visit_i16(v)
             }
             Format::Int32 => {
-                let v = self.decode_with_format::<i32>(format)?;
+                let v = i32::decode_with_format(format, &mut self.reader)?;
                 visitor.visit_i32(v)
             }
             Format::Int64 => {
-                let v = self.decode_with_format::<i64>(format)?;
+                let v = i64::decode_with_format(format, &mut self.reader)?;
                 visitor.visit_i64(v)
             }
             Format::Float32 => {
-                let v = self.decode_with_format::<f32>(format)?;
+                let v = f32::decode_with_format(format, &mut self.reader)?;
                 visitor.visit_f32(v)
             }
             Format::Float64 => {
-                let v = self.decode_with_format::<f64>(format)?;
+                let v = f64::decode_with_format(format, &mut self.reader)?;
                 visitor.visit_f64(v)
             }
             Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
@@ -300,7 +292,7 @@ where
         let format = self.decode_format()?;
         match format {
             Format::FixStr(_) | Format::Str8 | Format::Str16 | Format::Str32 => {
-                let s = self.decode_with_format::<&str>(format)?;
+                let s = <&str>::decode_with_format(format, &mut self.reader)?;
                 visitor.visit_enum(s.into_deserializer())
             }
             Format::FixMap(_)
@@ -493,5 +485,109 @@ mod tests {
 
         let err = from_slice::<IgnoredAny>(&buf).unwrap_err();
         assert!(matches!(err, Error::RecursionLimitExceeded));
+    }
+
+    // Simple combined test via Reader interface
+    // - Use SliceReader and validate multiple items at once
+    #[test]
+    fn reader_slice_tuple_multiple_values() {
+        use messagepack_core::io::SliceReader;
+
+        // ["hi", 5, true]
+        let buf: &[u8] = &[0x93, 0xa2, 0x68, 0x69, 0x05, 0xc3];
+        let reader = SliceReader::new(buf);
+
+        let (s, n, b): (&str, u8, bool) = from_trait(reader).unwrap();
+        assert_eq!(s, "hi");
+        assert_eq!(n, 5);
+        assert!(b);
+    }
+
+    // Validate map -> struct via Reader interface at once
+    #[test]
+    fn reader_slice_struct_from_map_multiple_values() {
+        use messagepack_core::io::SliceReader;
+        use serde::Deserialize;
+
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S<'a> {
+            k: &'a str,
+            a: u8,
+            b: bool,
+        }
+
+        // {"k":"v","a":7,"b":true}
+        let buf: &[u8] = &[
+            0x83, // fixmap 3
+            0xa1, 0x6b, // "k"
+            0xa1, 0x76, // "v"
+            0xa1, 0x61, // "a"
+            0x07, // 7
+            0xa1, 0x62, // "b"
+            0xc3, // true
+        ];
+
+        let reader = SliceReader::new(buf);
+        let decoded: S = from_trait(reader).unwrap();
+        assert_eq!(
+            decoded,
+            S {
+                k: "v",
+                a: 7,
+                b: true
+            }
+        );
+    }
+
+    // When std feature is enabled, validate via public from_reader
+    #[cfg(feature = "std")]
+    #[test]
+    fn from_reader_tuple_multiple_values() {
+        use std::io::Cursor;
+
+        // [1, false, "ok"]
+        let buf: &[u8] = &[0x93, 0x01, 0xc2, 0xa2, 0x6f, 0x6b];
+        let mut cursor = Cursor::new(buf);
+
+        // Owned String is used because from_reader cannot yield borrowed &str
+        let (n, b, s): (u8, bool, String) = super::from_reader(&mut cursor).unwrap();
+        assert_eq!((n, b, s.as_str()), (1, false, "ok"));
+    }
+
+    // from_reader with map -> struct, validating multiple fields
+    #[cfg(feature = "std")]
+    #[test]
+    fn from_reader_struct_from_map_multiple_values() {
+        use serde::Deserialize;
+        use std::io::Cursor;
+
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S {
+            k: String,
+            a: u8,
+            b: bool,
+        }
+
+        // {"k":"v","a":7,"b":true}
+        let buf: &[u8] = &[
+            0x83, // fixmap 3
+            0xa1, 0x6b, // "k"
+            0xa1, 0x76, // "v"
+            0xa1, 0x61, // "a"
+            0x07, // 7
+            0xa1, 0x62, // "b"
+            0xc3, // true
+        ];
+
+        let mut cursor = Cursor::new(buf);
+        let decoded: S = super::from_reader(&mut cursor).unwrap();
+        assert_eq!(
+            decoded,
+            S {
+                k: "v".into(),
+                a: 7,
+                b: true
+            }
+        );
     }
 }

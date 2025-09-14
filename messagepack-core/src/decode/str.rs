@@ -1,15 +1,15 @@
 //! String decoding helpers.
 
-use super::{Decode, Error, NbyteReader};
+use super::{DecodeBorrowed, Error, NbyteReader};
 use crate::{formats::Format, io::IoRead};
 
 /// Decode a MessagePack string and return a borrowed `&str`.
 pub struct StrDecoder;
 
-impl<'de> Decode<'de> for StrDecoder {
+impl<'de> DecodeBorrowed<'de> for StrDecoder {
     type Value = &'de str;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
@@ -34,23 +34,24 @@ impl<'de> Decode<'de> for StrDecoder {
     }
 }
 
-impl<'de> Decode<'de> for &'de str {
+impl<'de> DecodeBorrowed<'de> for &'de str {
     type Value = &'de str;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
-        StrDecoder::decode_with_format(format, reader)
+        StrDecoder::decode_borrowed_with_format(format, reader)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::decode::Decode;
 
     #[test]
     fn decode_str() {

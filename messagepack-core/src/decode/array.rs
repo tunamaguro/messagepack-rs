@@ -2,20 +2,20 @@
 
 use core::marker::PhantomData;
 
-use super::{Decode, Error, NbyteReader};
+use super::{DecodeBorrowed, Error, NbyteReader};
 use crate::{formats::Format, io::IoRead};
 
 /// Decode a MessagePack array of `V` into `Array` collecting iterator.
 pub struct ArrayDecoder<Array, V>(PhantomData<(Array, V)>);
 
-impl<'de, Array, V> Decode<'de> for ArrayDecoder<Array, V>
+impl<'de, Array, V> DecodeBorrowed<'de> for ArrayDecoder<Array, V>
 where
-    V: Decode<'de>,
+    V: DecodeBorrowed<'de>,
     Array: FromIterator<V::Value>,
 {
     type Value = Array;
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
@@ -30,19 +30,19 @@ where
         };
 
         let out = (0..len)
-            .map(|_| V::decode(reader))
+            .map(|_| V::decode_borrowed(reader))
             .collect::<core::result::Result<Array, Error<R::Error>>>()?;
         Ok(out)
     }
 }
 
-impl<'de, const N: usize, V> Decode<'de> for [V; N]
+impl<'de, const N: usize, V> DecodeBorrowed<'de> for [V; N]
 where
-    V: Decode<'de>,
+    V: DecodeBorrowed<'de>,
 {
     type Value = [V::Value; N];
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
@@ -61,7 +61,7 @@ where
 
         let mut tmp: [Option<V::Value>; N] = core::array::from_fn(|_| None);
         for item in tmp.iter_mut() {
-            *item = Some(V::decode(reader)?);
+            *item = Some(V::decode_borrowed(reader)?);
         }
         // NOTE: This `expect` cannot fire given the invariant established above.
         // - We allocate a temporary `[Option<V::Value>; N]` initialized to `None`.
@@ -89,13 +89,13 @@ where
 macro_rules! tuple_decode_impls {
     ($($len:expr => ($($name:ident)+))+ $(,)?) => {
         $(
-            impl<'de, $($name),+> Decode<'de> for ($($name,)+)
+            impl<'de, $($name),+> DecodeBorrowed<'de> for ($($name,)+)
             where
-                $($name: Decode<'de>,)+
+                $($name: DecodeBorrowed<'de>,)+
             {
-                type Value = ($(<$name as Decode<'de>>::Value,)+);
+                type Value = ($(<$name as DecodeBorrowed<'de>>::Value,)+);
 
-                fn decode_with_format<R>(format: Format, reader: &mut R) -> core::result::Result<Self::Value, Error<R::Error>>
+                fn decode_borrowed_with_format<R>(format: Format, reader: &mut R) -> core::result::Result<Self::Value, Error<R::Error>>
                 where
                     R: IoRead<'de>,
                 {
@@ -111,7 +111,7 @@ macro_rules! tuple_decode_impls {
 
                     let value = (
                         $({
-                            let v = <$name as Decode<'de>>::decode(reader)?;
+                            let v = <$name as DecodeBorrowed<'de>>::decode_borrowed(reader)?;
                             v
                         },)+
                     );
@@ -144,6 +144,7 @@ tuple_decode_impls! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::decode::Decode;
     use rstest::rstest;
 
     #[rstest]

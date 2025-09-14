@@ -1,15 +1,15 @@
 //! Binary (bin8/16/32) decoding helpers.
 
-use super::{Decode, Error, NbyteReader};
-use crate::{formats::Format, io::IoRead};
+use super::{Error, NbyteReader};
+use crate::{decode::DecodeBorrowed, formats::Format, io::IoRead};
 
 /// Decode a MessagePack binary blob and return a borrowed byte slice.
 pub struct BinDecoder;
 
-impl<'de> Decode<'de> for BinDecoder {
+impl<'de> DecodeBorrowed<'de> for BinDecoder {
     type Value = &'de [u8];
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
@@ -30,23 +30,24 @@ impl<'de> Decode<'de> for BinDecoder {
     }
 }
 
-impl<'de> Decode<'de> for &'de [u8] {
+impl<'de> DecodeBorrowed<'de> for &'de [u8] {
     type Value = &'de [u8];
 
-    fn decode_with_format<R>(
+    fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
     ) -> core::result::Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
-        BinDecoder::decode_with_format(format, reader)
+        BinDecoder::decode_borrowed_with_format(format, reader)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::decode::Decode;
     #[test]
     fn decode_bin8() {
         let expect = r#"
