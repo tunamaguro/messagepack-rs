@@ -85,7 +85,7 @@ impl TryFrom<core::time::Duration> for Timestamp32 {
     type Error = core::num::TryFromIntError;
     fn try_from(value: core::time::Duration) -> Result<Self, Self::Error> {
         let sec = value.as_secs();
-        u32::try_from(sec).map(|v| Self::new(v))
+        u32::try_from(sec).map(Self::new)
     }
 }
 
