@@ -291,11 +291,7 @@ impl<'de, const N: usize> DecodeBorrowed<'de> for FixedExtension<N> {
             .map_err(|_| decode::Error::UnexpectedEof)?;
         let ext_type = ext_type[0] as i8;
 
-        // Capacity check before reading full payload
         if len > N {
-            // still need to consume the payload to keep stream consistent but we avoid complicating control flow: read and then error
-            let payload = reader.read_slice(len).map_err(decode::Error::Io)?;
-            let _ = payload.as_bytes();
             return Err(decode::Error::InvalidData);
         }
 
