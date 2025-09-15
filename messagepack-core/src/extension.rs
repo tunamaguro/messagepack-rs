@@ -1,6 +1,6 @@
 //! MessagePack extension helpers.
 
-use crate::decode::{self, DecodeBorrowed, NbyteReader};
+use crate::decode::{self, DecodeBorrowed};
 use crate::encode;
 use crate::{
     Encode,
@@ -13,6 +13,37 @@ const U16_MAX: usize = u16::MAX as usize;
 const U32_MAX: usize = u32::MAX as usize;
 const U8_MAX_PLUS_ONE: usize = U8_MAX + 1;
 const U16_MAX_PLUS_ONE: usize = U16_MAX + 1;
+
+fn read_ext_header<'de, R>(
+    format: Format,
+    reader: &mut R,
+) -> Result<(usize, i8), decode::Error<R::Error>>
+where
+    R: IoRead<'de>,
+{
+    use crate::decode::NbyteReader;
+    let len = match format {
+        Format::FixExt1 => 1,
+        Format::FixExt2 => 2,
+        Format::FixExt4 => 4,
+        Format::FixExt8 => 8,
+        Format::FixExt16 => 16,
+        Format::Ext8 => NbyteReader::<1>::read(reader)?,
+        Format::Ext16 => NbyteReader::<2>::read(reader)?,
+        Format::Ext32 => NbyteReader::<4>::read(reader)?,
+        _ => return Err(decode::Error::UnexpectedFormat),
+    };
+
+    let ext_type: [u8; 1] = reader
+        .read_slice(1)
+        .map_err(decode::Error::Io)?
+        .as_bytes()
+        .try_into()
+        .map_err(|_| decode::Error::UnexpectedEof)?;
+    let ty = ext_type[0] as i8;
+
+    Ok((len, ty))
+}
 
 /// A borrowed view of a MessagePack extension value.
 ///
@@ -123,24 +154,7 @@ impl<'de> DecodeBorrowed<'de> for ExtensionRef<'de> {
     where
         R: IoRead<'de>,
     {
-        let len = match format {
-            Format::FixExt1 => 1,
-            Format::FixExt2 => 2,
-            Format::FixExt4 => 4,
-            Format::FixExt8 => 8,
-            Format::FixExt16 => 16,
-            Format::Ext8 => NbyteReader::<1>::read(reader)?,
-            Format::Ext16 => NbyteReader::<2>::read(reader)?,
-            Format::Ext32 => NbyteReader::<4>::read(reader)?,
-            _ => return Err(decode::Error::UnexpectedFormat),
-        };
-        let ext_type: [u8; 1] = reader
-            .read_slice(1)
-            .map_err(decode::Error::Io)?
-            .as_bytes()
-            .try_into()
-            .map_err(|_| decode::Error::UnexpectedEof)?;
-        let ext_type = ext_type[0] as i8;
+        let (len, ext_type) = read_ext_header(format, reader)?;
 
         let data_ref = reader.read_slice(len).map_err(decode::Error::Io)?;
         let data = match data_ref {
@@ -270,26 +284,7 @@ impl<'de, const N: usize> DecodeBorrowed<'de> for FixedExtension<N> {
     where
         R: IoRead<'de>,
     {
-        let len = match format {
-            Format::FixExt1 => 1,
-            Format::FixExt2 => 2,
-            Format::FixExt4 => 4,
-            Format::FixExt8 => 8,
-            Format::FixExt16 => 16,
-            Format::Ext8 => NbyteReader::<1>::read(reader)?,
-            Format::Ext16 => NbyteReader::<2>::read(reader)?,
-            Format::Ext32 => NbyteReader::<4>::read(reader)?,
-            _ => return Err(decode::Error::UnexpectedFormat),
-        };
-
-        // Read type code
-        let ext_type: [u8; 1] = reader
-            .read_slice(1)
-            .map_err(decode::Error::Io)?
-            .as_bytes()
-            .try_into()
-            .map_err(|_| decode::Error::UnexpectedEof)?;
-        let ext_type = ext_type[0] as i8;
+        let (len, ext_type) = read_ext_header(format, reader)?;
 
         if len > N {
             return Err(decode::Error::InvalidData);
@@ -374,30 +369,15 @@ mod owned {
         where
             R: crate::io::IoRead<'de>,
         {
-            let len = match format {
-                Format::FixExt1 => 1,
-                Format::FixExt2 => 2,
-                Format::FixExt4 => 4,
-                Format::FixExt8 => 8,
-                Format::FixExt16 => 16,
-                Format::Ext8 => super::NbyteReader::<1>::read(reader)?,
-                Format::Ext16 => super::NbyteReader::<2>::read(reader)?,
-                Format::Ext32 => super::NbyteReader::<4>::read(reader)?,
-                _ => return Err(decode::Error::UnexpectedFormat),
-            };
-
-            let ext_type: [u8; 1] = reader
-                .read_slice(1)
-                .map_err(decode::Error::Io)?
-                .as_bytes()
-                .try_into()
-                .map_err(|_| decode::Error::UnexpectedEof)?;
-            let ty = ext_type[0] as i8;
+            let (len, ext_type) = read_ext_header(format, reader)?;
 
             let payload = reader.read_slice(len).map_err(decode::Error::Io)?;
             let data = payload.as_bytes().to_vec();
 
-            Ok(ExtensionOwned { r#type: ty, data })
+            Ok(ExtensionOwned {
+                r#type: ext_type,
+                data,
+            })
         }
     }
 }
