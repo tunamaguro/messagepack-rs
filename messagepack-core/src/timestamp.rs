@@ -5,6 +5,7 @@ use crate::extension::{ExtensionRef, FixedExtension};
 pub(crate) const TIMESTAMP_EXTENSION_TYPE: i8 = -1;
 
 /// The error type returned when a checked extension conversion fails
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TryFromTimeStampError {
     /// The format is not a valid timestamp type
     InvalidType,
@@ -13,6 +14,18 @@ pub enum TryFromTimeStampError {
     /// The payload contains invalid field values (e.g. nanoseconds overflow)
     InvalidData,
 }
+
+impl core::fmt::Display for TryFromTimeStampError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            TryFromTimeStampError::InvalidType => write!(f, "invalid timestamp extension type"),
+            TryFromTimeStampError::InvalidDataLength => write!(f, "invalid timestamp data length"),
+            TryFromTimeStampError::InvalidData => write!(f, "invalid timestamp data fields"),
+        }
+    }
+}
+
+impl core::error::Error for TryFromTimeStampError {}
 
 /// Represents timestamp 32 extension type.
 /// This stores 32bit unsigned seconds
@@ -111,6 +124,17 @@ pub enum ConstructTimestampError {
     /// Requested nanoseconds that exceeded 999999999.
     ExceedNanos,
 }
+
+impl core::fmt::Display for ConstructTimestampError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            ConstructTimestampError::ExceedSeconds => write!(f, "seconds exceed representable range"),
+            ConstructTimestampError::ExceedNanos => write!(f, "nanoseconds exceed {}", TIMESTAMP_NANO_MAX),
+        }
+    }
+}
+
+impl core::error::Error for ConstructTimestampError {}
 
 impl Timestamp64 {
     /// Create a 64‑bit timestamp storing 34‑bit seconds and 30‑bit nanoseconds.
