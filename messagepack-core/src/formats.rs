@@ -168,10 +168,10 @@ impl Format {
     /// Parse a marker byte into a [`Format`] value.
     pub const fn from_byte(byte: u8) -> Self {
         match byte {
-            0x00..=0x7f => Self::PositiveFixInt(byte & !POSITIVE_FIXINT),
-            0x80..=0x8f => Self::FixMap(byte & !FIX_MAP),
-            0x90..=0x9f => Self::FixArray(byte & !FIX_ARRAY),
-            0xa0..=0xbf => Self::FixStr(byte & !FIX_STR),
+            0x00..=0x7f => Self::PositiveFixInt(byte - POSITIVE_FIXINT),
+            0x80..=0x8f => Self::FixMap(byte - FIX_MAP),
+            0x90..=0x9f => Self::FixArray(byte - FIX_ARRAY),
+            0xa0..=0xbf => Self::FixStr(byte - FIX_STR),
             NIL => Self::Nil,
             NEVER_USED => Self::NeverUsed,
             FALSE => Self::False,

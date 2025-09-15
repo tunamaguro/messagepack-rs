@@ -63,7 +63,7 @@ mod tests {
 
     #[test]
     fn encode_timestamp96() {
-        let ts = Timestamp96::new(123456, 789);
+        let ts = Timestamp96::new(123456, 789).unwrap();
         let mut buf = vec![];
 
         let n = ts.encode(&mut buf).unwrap();

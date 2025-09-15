@@ -19,4 +19,4 @@ rstest = { workspace = true }
 [features]
 default = []
 alloc = []
-std = []
+std = ["alloc"]
