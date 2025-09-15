@@ -149,6 +149,7 @@ where
 }
 
 /// Types used by decoder
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Reference<'de, 'a> {
     /// Reference to a byte sequence that survives at least as long as the de
     Borrowed(&'de [u8]),
@@ -223,6 +224,56 @@ impl<'de> IoRead<'de> for SliceReader<'de> {
     }
 }
 
+#[cfg(feature = "alloc")]
+mod iter_reader {
+    use crate::io::RError;
+
+    use super::IoRead;
+
+    /// Reader that reads from a iterator
+    pub struct IterReader<I> {
+        it: I,
+        buf: alloc::vec::Vec<u8>,
+    }
+
+    impl<I> IterReader<I>
+    where
+        I: Iterator<Item = u8>,
+    {
+        /// create new reader
+        pub fn new(it: I) -> Self {
+            Self {
+                it: it.into_iter(),
+                buf: alloc::vec::Vec::new(),
+            }
+        }
+    }
+    impl<'de, I> IoRead<'de> for IterReader<I>
+    where
+        I: Iterator<Item = u8>,
+    {
+        type Error = RError;
+        fn read_slice<'a>(
+            &'a mut self,
+            len: usize,
+        ) -> Result<super::Reference<'de, 'a>, Self::Error> {
+            self.buf.clear();
+            if self.buf.capacity() < len {
+                self.buf.reserve(len - self.buf.capacity());
+            }
+
+            self.buf.extend(self.it.by_ref().take(len));
+            if self.buf.len() != len {
+                return Err(RError::BufferEmpty);
+            };
+
+            Ok(super::Reference::Copied(&self.buf[..len]))
+        }
+    }
+}
+#[cfg(feature = "alloc")]
+pub use iter_reader::IterReader;
+
 #[cfg(feature = "std")]
 mod std_reader {
     use super::IoRead;
@@ -278,5 +329,66 @@ mod tests {
         let buf: &mut [u8] = &mut [0u8];
         let mut writer = SliceWriter::from_slice(buf);
         writer.write(&[1, 2]).unwrap();
+    }
+
+    #[test]
+    fn slice_reader_reads_and_advances() {
+        // Arrange: make a reader over a fixed slice
+        let input: &[u8] = &[1, 2, 3, 4, 5];
+        let mut reader = SliceReader::new(input);
+
+        // Act: read exact 2 bytes, then 3 bytes
+        {
+            // Keep the first borrow in a narrower scope
+            let a = reader.read_slice(2).expect("read 2 bytes");
+            assert_eq!(a.as_bytes(), &[1, 2]);
+        }
+        let b = reader.read_slice(3).expect("read 3 bytes");
+        // Assert: returned slices match and rest is empty
+        assert_eq!(b.as_bytes(), &[3, 4, 5]);
+        assert_eq!(reader.rest(), &[]);
+    }
+
+    #[test]
+    fn slice_reader_returns_error_on_overshoot() {
+        // Arrange
+        let input: &[u8] = &[10, 20];
+        let mut reader = SliceReader::new(input);
+
+        // Act: first read consumes all bytes
+        let first = reader.read_slice(2).expect("read 2 bytes");
+        assert_eq!(first.as_bytes(), &[10, 20]);
+
+        // Assert: second read fails with BufferEmpty
+        assert!(matches!(reader.read_slice(1), Err(RError::BufferEmpty)));
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn iter_reader_reads_exact_length() {
+        // Arrange: iterator with 4 items
+        let it = [7u8, 8, 9, 10].into_iter();
+        let mut reader = IterReader::new(it);
+
+        // Act: read 3 then 1
+        {
+            let part1 = reader.read_slice(3).expect("read 3 bytes");
+            assert_eq!(part1.as_bytes(), &[7, 8, 9]);
+        }
+        let part2 = reader.read_slice(1).expect("read 1 byte");
+
+        // Assert
+        assert_eq!(part2.as_bytes(), &[10]);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn iter_reader_returns_error_when_insufficient() {
+        // Arrange: iterator shorter than requested length
+        let it = [1u8, 2].into_iter();
+        let mut reader = IterReader::new(it);
+
+        // Act + Assert: request more than available -> error
+        assert!(matches!(reader.read_slice(3), Err(RError::BufferEmpty)));
     }
 }
