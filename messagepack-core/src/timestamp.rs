@@ -75,6 +75,20 @@ impl From<Timestamp32> for FixedExtension<4> {
     }
 }
 
+impl From<Timestamp32> for core::time::Duration {
+    fn from(value: Timestamp32) -> Self {
+        core::time::Duration::from_secs(value.seconds().into())
+    }
+}
+
+impl TryFrom<core::time::Duration> for Timestamp32 {
+    type Error = core::num::TryFromIntError;
+    fn try_from(value: core::time::Duration) -> Result<Self, Self::Error> {
+        let sec = value.as_secs();
+        u32::try_from(sec).map(|v| Self::new(v))
+    }
+}
+
 /// Represents timestamp 64 extension type.
 /// This stores 34bit unsigned seconds and 30bit nanoseconds
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -177,6 +191,24 @@ impl From<Timestamp64> for FixedExtension<8> {
     }
 }
 
+impl From<Timestamp64> for core::time::Duration {
+    fn from(value: Timestamp64) -> Self {
+        let sec = value.seconds();
+        let nano = value.nanos();
+        core::time::Duration::from_secs(sec) + core::time::Duration::from_nanos(nano.into())
+    }
+}
+
+impl TryFrom<core::time::Duration> for Timestamp64 {
+    type Error = Timestamp64Error;
+
+    fn try_from(value: core::time::Duration) -> Result<Self, Self::Error> {
+        let secs = value.as_secs();
+        let nanos = value.subsec_nanos();
+        Timestamp64::new(secs, nanos)
+    }
+}
+
 /// Represents timestamp 96 extension type.
 /// This stores 64bit signed seconds and 32bit nanoseconds
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -257,5 +289,70 @@ impl From<Timestamp96> for FixedExtension<12> {
     fn from(value: Timestamp96) -> Self {
         let buf = value.to_buf();
         FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, buf.len(), buf)
+    }
+}
+
+impl TryFrom<Timestamp96> for core::time::Duration {
+    type Error = core::num::TryFromIntError;
+
+    fn try_from(value: Timestamp96) -> Result<Self, Self::Error> {
+        let secs = u64::try_from(value.seconds())?;
+        let nanos = value.nanos();
+
+        Ok(core::time::Duration::from_secs(secs) + core::time::Duration::from_nanos(nanos.into()))
+    }
+}
+
+impl TryFrom<core::time::Duration> for Timestamp96 {
+    type Error = core::num::TryFromIntError;
+
+    fn try_from(value: core::time::Duration) -> Result<Self, Self::Error> {
+        let secs = i64::try_from(value.as_secs())?;
+        let nanos = value.subsec_nanos();
+        Ok(Timestamp96::new(secs, nanos))
+    }
+}
+
+#[cfg(test)]
+mod duration_tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    fn duration_to_timestamp32_roundtrip_within_range() {
+        let d = core::time::Duration::from_secs(123);
+        let ts32 = Timestamp32::try_from(d).unwrap();
+        assert_eq!(ts32.seconds(), 123);
+        let back: core::time::Duration = ts32.into();
+        assert_eq!(back.as_secs(), 123);
+        assert_eq!(back.subsec_nanos(), 0);
+    }
+
+    #[rstest]
+    fn duration_to_timestamp64_roundtrip() {
+        let d = core::time::Duration::from_secs(1_234_567) + core::time::Duration::from_nanos(890);
+        let ts64 = Timestamp64::try_from(d).unwrap();
+        assert_eq!(ts64.seconds(), 1_234_567);
+        assert_eq!(ts64.nanos(), 890);
+        let back: core::time::Duration = ts64.into();
+        assert_eq!(back, d);
+    }
+
+    #[rstest]
+    fn timestamp96_to_duration_fails_on_negative() {
+        let ts96 = Timestamp96::new(-1, 0);
+        let res: Result<core::time::Duration, core::num::TryFromIntError> =
+            core::time::Duration::try_from(ts96);
+        assert!(res.is_err());
+    }
+
+    #[rstest]
+    fn duration_to_timestamp96_roundtrip() {
+        let d = core::time::Duration::from_secs(12_345) + core::time::Duration::from_nanos(678_901);
+        let ts = Timestamp96::try_from(d).unwrap();
+        assert_eq!(ts.seconds(), 12_345);
+        assert_eq!(ts.nanos(), 678_901);
+        let back = core::time::Duration::try_from(ts).unwrap();
+        assert_eq!(back, d);
     }
 }
