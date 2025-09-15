@@ -6,7 +6,7 @@ pub(crate) const TIMESTAMP_EXTENSION_TYPE: i8 = -1;
 
 /// The error type returned when a checked extension conversion fails
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum TryFromTimeStampError {
+pub enum TryFromTimestampError {
     /// The format is not a valid timestamp type
     InvalidType,
     /// The data length is not valid for timestamp format
@@ -15,17 +15,17 @@ pub enum TryFromTimeStampError {
     InvalidData,
 }
 
-impl core::fmt::Display for TryFromTimeStampError {
+impl core::fmt::Display for TryFromTimestampError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            TryFromTimeStampError::InvalidType => write!(f, "invalid timestamp extension type"),
-            TryFromTimeStampError::InvalidDataLength => write!(f, "invalid timestamp data length"),
-            TryFromTimeStampError::InvalidData => write!(f, "invalid timestamp data fields"),
+            TryFromTimestampError::InvalidType => write!(f, "invalid timestamp extension type"),
+            TryFromTimestampError::InvalidDataLength => write!(f, "invalid timestamp data length"),
+            TryFromTimestampError::InvalidData => write!(f, "invalid timestamp data fields"),
         }
     }
 }
 
-impl core::error::Error for TryFromTimeStampError {}
+impl core::error::Error for TryFromTimestampError {}
 
 /// Represents timestamp 32 extension type.
 /// This stores 32bit unsigned seconds
@@ -57,17 +57,17 @@ impl Timestamp32 {
 }
 
 impl TryFrom<ExtensionRef<'_>> for Timestamp32 {
-    type Error = TryFromTimeStampError;
+    type Error = TryFromTimestampError;
 
     fn try_from(value: ExtensionRef<'_>) -> Result<Self, Self::Error> {
         if value.r#type != TIMESTAMP_EXTENSION_TYPE {
-            return Err(TryFromTimeStampError::InvalidType);
+            return Err(TryFromTimestampError::InvalidType);
         }
 
         let data = value.data;
         let mut buf = [0u8; 4];
         if data.len() != buf.len() {
-            return Err(TryFromTimeStampError::InvalidDataLength);
+            return Err(TryFromTimestampError::InvalidDataLength);
         }
 
         buf.copy_from_slice(data);
@@ -76,7 +76,7 @@ impl TryFrom<ExtensionRef<'_>> for Timestamp32 {
 }
 
 impl TryFrom<FixedExtension<4>> for Timestamp32 {
-    type Error = TryFromTimeStampError;
+    type Error = TryFromTimestampError;
 
     fn try_from(value: FixedExtension<4>) -> Result<Self, Self::Error> {
         value.as_ref().try_into()
@@ -193,29 +193,29 @@ impl Timestamp64 {
 }
 
 impl TryFrom<ExtensionRef<'_>> for Timestamp64 {
-    type Error = TryFromTimeStampError;
+    type Error = TryFromTimestampError;
 
     fn try_from(value: ExtensionRef<'_>) -> Result<Self, Self::Error> {
         if value.r#type != TIMESTAMP_EXTENSION_TYPE {
-            return Err(TryFromTimeStampError::InvalidType);
+            return Err(TryFromTimestampError::InvalidType);
         }
 
         let data = value.data;
         let mut buf = [0u8; 8];
         if data.len() != buf.len() {
-            return Err(TryFromTimeStampError::InvalidDataLength);
+            return Err(TryFromTimestampError::InvalidDataLength);
         }
 
         buf.copy_from_slice(data);
         let decoded = Self::from_buf(buf);
         // Validate fields via constructor to enforce invariants
         Self::new(decoded.seconds(), decoded.nanos())
-            .map_err(|_| TryFromTimeStampError::InvalidData)
+            .map_err(|_| TryFromTimestampError::InvalidData)
     }
 }
 
 impl TryFrom<FixedExtension<8>> for Timestamp64 {
-    type Error = TryFromTimeStampError;
+    type Error = TryFromTimestampError;
 
     fn try_from(value: FixedExtension<8>) -> Result<Self, Self::Error> {
         value.as_ref().try_into()
@@ -300,29 +300,29 @@ impl Timestamp96 {
 }
 
 impl TryFrom<ExtensionRef<'_>> for Timestamp96 {
-    type Error = TryFromTimeStampError;
+    type Error = TryFromTimestampError;
 
     fn try_from(value: ExtensionRef<'_>) -> Result<Self, Self::Error> {
         if value.r#type != TIMESTAMP_EXTENSION_TYPE {
-            return Err(TryFromTimeStampError::InvalidType);
+            return Err(TryFromTimestampError::InvalidType);
         }
 
         let data = value.data;
         let mut buf = [0u8; 12];
         if data.len() != buf.len() {
-            return Err(TryFromTimeStampError::InvalidDataLength);
+            return Err(TryFromTimestampError::InvalidDataLength);
         }
 
         buf.copy_from_slice(data);
         let decoded = Self::from_buf(buf);
         // Validate fields via constructor to enforce invariants
         Self::new(decoded.seconds(), decoded.nanos())
-            .map_err(|_| TryFromTimeStampError::InvalidData)
+            .map_err(|_| TryFromTimestampError::InvalidData)
     }
 }
 
 impl TryFrom<FixedExtension<12>> for Timestamp96 {
-    type Error = TryFromTimeStampError;
+    type Error = TryFromTimestampError;
 
     fn try_from(value: FixedExtension<12>) -> Result<Self, Self::Error> {
         value.as_ref().try_into()
