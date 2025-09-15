@@ -10,6 +10,8 @@ pub enum TryFromTimeStampError {
     InvalidType,
     /// The data length is not valid for timestamp format
     InvalidDataLength,
+    /// The payload contains invalid field values (e.g. nanoseconds overflow)
+    InvalidData,
 }
 
 /// Represents timestamp 32 extension type.
@@ -89,6 +91,11 @@ impl TryFrom<core::time::Duration> for Timestamp32 {
     }
 }
 
+/// MessagePack spec says timestamp64/96 nanoseconds must not be larger than 999_999_999.
+///
+/// > In timestamp 64 and timestamp 96 formats, nanoseconds must not be larger than 999999999.
+pub(crate) const TIMESTAMP_NANO_MAX: u32 = 999_999_999;
+
 /// Represents timestamp 64 extension type.
 /// This stores 34bit unsigned seconds and 30bit nanoseconds
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -98,25 +105,24 @@ pub struct Timestamp64 {
 
 /// `seconds` or `nanos` cannot be represented
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Timestamp64Error {
-    /// Requested seconds that exceeded the 34‑bit range.
-    pub seconds: u64,
-    /// Requested nanoseconds that exceeded the 30‑bit range.
-    pub nanos: u32,
+pub enum ConstructTimestampError {
+    /// Requested seconds that exceeded the timestamp bit range.
+    ExceedSeconds,
+    /// Requested nanoseconds that exceeded 999999999.
+    ExceedNanos,
 }
 
 impl Timestamp64 {
     /// Create a 64‑bit timestamp storing 34‑bit seconds and 30‑bit nanoseconds.
-    pub fn new(seconds: u64, nanos: u32) -> Result<Self, Timestamp64Error> {
+    pub fn new(seconds: u64, nanos: u32) -> Result<Self, ConstructTimestampError> {
         const SECONDS_MAX_LIMIT: u64 = 1 << 34;
 
         if seconds >= SECONDS_MAX_LIMIT {
-            return Err(Timestamp64Error { seconds, nanos });
+            return Err(ConstructTimestampError::ExceedSeconds);
         }
 
-        const NANOS_MAX_LIMIT: u32 = 1 << 30;
-        if nanos >= NANOS_MAX_LIMIT {
-            return Err(Timestamp64Error { seconds, nanos });
+        if nanos > TIMESTAMP_NANO_MAX {
+            return Err(ConstructTimestampError::ExceedNanos);
         }
 
         let mut buf = [0u8; 8];
@@ -124,7 +130,8 @@ impl Timestamp64 {
 
         let nano = (nanos << 2).to_be_bytes();
         buf[..3].copy_from_slice(&nano[..3]);
-        buf[3] |= nano[3];
+        // Keep lower 2 bits of seconds; overlay top 6 bits from nanos
+        buf[3] = (buf[3] & 0b0000_0011) | (nano[3] & 0b1111_1100);
 
         Ok(Self::from_buf(buf))
     }
@@ -172,7 +179,10 @@ impl TryFrom<ExtensionRef<'_>> for Timestamp64 {
         }
 
         buf.copy_from_slice(data);
-        Ok(Self::from_buf(buf))
+        let decoded = Self::from_buf(buf);
+        // Validate fields via constructor to enforce invariants
+        Self::new(decoded.seconds(), decoded.nanos())
+            .map_err(|_| TryFromTimeStampError::InvalidData)
     }
 }
 
@@ -200,7 +210,7 @@ impl From<Timestamp64> for core::time::Duration {
 }
 
 impl TryFrom<core::time::Duration> for Timestamp64 {
-    type Error = Timestamp64Error;
+    type Error = ConstructTimestampError;
 
     fn try_from(value: core::time::Duration) -> Result<Self, Self::Error> {
         let secs = value.as_secs();
@@ -219,11 +229,14 @@ pub struct Timestamp96 {
 
 impl Timestamp96 {
     /// Create a 96‑bit timestamp storing signed seconds and nanoseconds.
-    pub fn new(seconds: i64, nanoseconds: u32) -> Self {
-        Self {
+    pub fn new(seconds: i64, nanoseconds: u32) -> Result<Self, ConstructTimestampError> {
+        if nanoseconds > TIMESTAMP_NANO_MAX {
+            return Err(ConstructTimestampError::ExceedNanos);
+        }
+        Ok(Self {
             nanos: nanoseconds,
             secs: seconds,
-        }
+        })
     }
 
     /// Get the nanoseconds component.
@@ -273,7 +286,10 @@ impl TryFrom<ExtensionRef<'_>> for Timestamp96 {
         }
 
         buf.copy_from_slice(data);
-        Ok(Self::from_buf(buf))
+        let decoded = Self::from_buf(buf);
+        // Validate fields via constructor to enforce invariants
+        Self::new(decoded.seconds(), decoded.nanos())
+            .map_err(|_| TryFromTimeStampError::InvalidData)
     }
 }
 
@@ -304,12 +320,13 @@ impl TryFrom<Timestamp96> for core::time::Duration {
 }
 
 impl TryFrom<core::time::Duration> for Timestamp96 {
-    type Error = core::num::TryFromIntError;
+    type Error = ConstructTimestampError;
 
     fn try_from(value: core::time::Duration) -> Result<Self, Self::Error> {
-        let secs = i64::try_from(value.as_secs())?;
+        let secs =
+            i64::try_from(value.as_secs()).map_err(|_| ConstructTimestampError::ExceedSeconds)?;
         let nanos = value.subsec_nanos();
-        Ok(Timestamp96::new(secs, nanos))
+        Self::new(secs, nanos)
     }
 }
 
@@ -340,7 +357,7 @@ mod duration_tests {
 
     #[rstest]
     fn timestamp96_to_duration_fails_on_negative() {
-        let ts96 = Timestamp96::new(-1, 0);
+        let ts96 = Timestamp96::new(-1, 0).unwrap();
         let res: Result<core::time::Duration, core::num::TryFromIntError> =
             core::time::Duration::try_from(ts96);
         assert!(res.is_err());
@@ -354,5 +371,17 @@ mod duration_tests {
         assert_eq!(ts.nanos(), 678_901);
         let back = core::time::Duration::try_from(ts).unwrap();
         assert_eq!(back, d);
+    }
+
+    #[rstest]
+    fn timestamp64_new_rejects_invalid_nanos() {
+        let err = Timestamp64::new(0, 1_000_000_000).unwrap_err();
+        assert_eq!(err, ConstructTimestampError::ExceedNanos);
+    }
+
+    #[rstest]
+    fn timestamp96_new_rejects_invalid_nanos() {
+        let err = Timestamp96::new(0, 1_000_000_000).unwrap_err();
+        assert_eq!(err, ConstructTimestampError::ExceedNanos);
     }
 }

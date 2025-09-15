@@ -764,7 +764,7 @@ pub mod timestamp64 {
 /// );
 ///
 /// # fn main() {
-/// let v = Wrap(Timestamp96::new(123456, 789));
+/// let v = Wrap(Timestamp96::new(123456, 789).unwrap());
 /// let mut buf = [0u8; 32];
 /// let n = messagepack_serde::to_slice(&v, &mut buf).unwrap();
 /// let back = messagepack_serde::from_slice::<Wrap>(&buf[..n]).unwrap();
@@ -918,7 +918,7 @@ mod tests {
 
     #[rstest]
     fn encode_timestamp96() {
-        let ts = WrapTs96(Timestamp96::new(123456, 789));
+        let ts = WrapTs96(Timestamp96::new(123456, 789).unwrap());
         let mut buf = [0u8; 32];
         let n = crate::to_slice(&ts, &mut buf).unwrap();
 
