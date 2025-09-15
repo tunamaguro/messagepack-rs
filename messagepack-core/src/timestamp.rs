@@ -128,8 +128,12 @@ pub enum ConstructTimestampError {
 impl core::fmt::Display for ConstructTimestampError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            ConstructTimestampError::ExceedSeconds => write!(f, "seconds exceed representable range"),
-            ConstructTimestampError::ExceedNanos => write!(f, "nanoseconds exceed {}", TIMESTAMP_NANO_MAX),
+            ConstructTimestampError::ExceedSeconds => {
+                write!(f, "seconds exceed representable range")
+            }
+            ConstructTimestampError::ExceedNanos => {
+                write!(f, "nanoseconds exceed {}", TIMESTAMP_NANO_MAX)
+            }
         }
     }
 }
