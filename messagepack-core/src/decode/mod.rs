@@ -145,11 +145,9 @@ impl<'de> DecodeBorrowed<'de> for Format {
         R: IoRead<'de>,
     {
         let b = reader.read_slice(1).map_err(Error::Io)?;
-        let byte = match b {
-            crate::io::Reference::Borrowed(b) => b[0],
-            crate::io::Reference::Copied(b) => b[0],
-        };
-        Ok(Self::from_byte(byte))
+        let byte: [u8; 1] = b.as_bytes().try_into().map_err(|_| Error::UnexpectedEof)?;
+
+        Ok(Self::from_byte(byte[0]))
     }
 
     fn decode_borrowed_with_format<R>(
