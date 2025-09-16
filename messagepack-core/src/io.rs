@@ -58,21 +58,40 @@ impl IoWrite for SliceWriter<'_> {
     }
 }
 
-#[cfg(not(any(test, feature = "std")))]
+#[cfg(all(not(test), not(feature = "std")))]
 impl IoWrite for &mut [u8] {
     type Error = WError;
 
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        SliceWriter::from_slice(self).write(buf)
+        let this = core::mem::replace(self, &mut []);
+
+        let (written, rest) = this
+            .split_at_mut_checked(buf.len())
+            .ok_or(WError::BufferFull)?;
+        written.copy_from_slice(buf);
+        *self = rest;
+
+        Ok(())
     }
 }
 
 #[cfg(all(not(test), feature = "alloc", not(feature = "std")))]
-impl IoWrite for alloc::vec::Vec<u8> {
-    type Error = core::convert::Infallible;
+mod alloc_without_std {
+    use super::{IoWrite, vec_writer::VecRefWriter};
+    impl IoWrite for alloc::vec::Vec<u8> {
+        type Error = core::convert::Infallible;
 
-    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        VecRefWriter::new(self).write(buf)
+        fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+            VecRefWriter::new(self).write(buf)
+        }
+    }
+
+    impl IoWrite for &mut alloc::vec::Vec<u8> {
+        type Error = core::convert::Infallible;
+
+        fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+            VecRefWriter::new(self).write(buf)
+        }
     }
 }
 
