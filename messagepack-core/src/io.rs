@@ -63,7 +63,7 @@ impl IoWrite for &mut [u8] {
     type Error = WError;
 
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        let this = core::mem::replace(self, &mut []);
+        let this = core::mem::take(self);
 
         let (written, rest) = this
             .split_at_mut_checked(buf.len())
