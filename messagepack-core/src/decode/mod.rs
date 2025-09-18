@@ -6,6 +6,8 @@ mod array;
 pub use array::ArrayDecoder;
 mod bin;
 pub use bin::ReferenceDecoder;
+#[cfg(feature = "alloc")]
+pub use bin::BinOwnedDecoder;
 mod bool;
 mod float;
 mod int;

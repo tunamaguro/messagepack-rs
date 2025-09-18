@@ -84,6 +84,26 @@ impl<'de> Decode<'de> for ReferenceStrDecoder {
     }
 }
 
+#[cfg(feature = "alloc")]
+impl<'de> DecodeBorrowed<'de> for alloc::string::String {
+    type Value = alloc::string::String;
+
+    fn decode_borrowed_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let sref = ReferenceStrDecoder::decode_with_format(format, reader)?;
+        let owned = match sref {
+            ReferenceStr::Borrowed(s) => alloc::string::String::from(s),
+            ReferenceStr::Copied(s) => alloc::string::String::from(s),
+        };
+        Ok(owned)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,5 +133,15 @@ mod tests {
         let mut r = crate::io::SliceReader::new(buf);
         let err = StrDecoder::decode(&mut r).unwrap_err();
         assert_eq!(err, Error::InvalidData);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn decode_string_owned() {
+        let buf: &[u8] = &[0xa3, b'f', b'o', b'o'];
+        let mut r = crate::io::SliceReader::new(buf);
+        let s = <alloc::string::String as Decode>::decode(&mut r).unwrap();
+        assert_eq!(s.as_str(), "foo");
+        assert!(r.rest().is_empty());
     }
 }

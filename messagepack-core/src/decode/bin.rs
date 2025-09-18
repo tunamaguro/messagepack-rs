@@ -66,6 +66,26 @@ impl<'de> super::Decode<'de> for ReferenceDecoder {
     }
 }
 
+/// Owned `Vec<u8>` decoder for MessagePack bin8/16/32.
+#[cfg(feature = "alloc")]
+pub struct BinOwnedDecoder;
+
+#[cfg(feature = "alloc")]
+impl<'de> super::DecodeBorrowed<'de> for BinOwnedDecoder {
+    type Value = alloc::vec::Vec<u8>;
+
+    fn decode_borrowed_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let val = ReferenceDecoder::decode_with_format(format, reader)?;
+        Ok(val.as_bytes().to_vec())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -127,5 +147,16 @@ Deserialization is conversion from MessagePack formats into application objects 
         let decoded = BinDecoder::decode(&mut r).unwrap();
         assert_eq!(decoded, expect);
         assert_eq!(r.rest().len(), 0);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn decode_vec_u8_owned() {
+        // bin8 with 3 bytes
+        let buf = [0xc4, 0x03, 0x01, 0x02, 0x03];
+        let mut r = crate::io::SliceReader::new(&buf);
+        let v = <BinOwnedDecoder as Decode>::decode(&mut r).unwrap();
+        assert_eq!(v, alloc::vec![1u8, 2, 3]);
+        assert!(r.rest().is_empty());
     }
 }
