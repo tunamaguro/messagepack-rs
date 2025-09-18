@@ -284,7 +284,7 @@ impl ser::Serialize for ExtInner<'_> {
             .to_format::<core::convert::Infallible>()
             .map_err(|_| ser::Error::custom("Invalid data length"))?;
 
-        let mut seq = serializer.serialize_seq(Some(4))?;
+        let mut seq = serializer.serialize_seq(None)?;
 
         seq.serialize_element(&Bytes(&format.as_slice()))?;
 
@@ -633,9 +633,10 @@ pub mod ext_fixed {
                     .next_element::<Data<N>>()?
                     .ok_or(de::Error::missing_field("extension data missing"))?;
 
-                let ext = messagepack_core::extension::FixedExtension::new_fixed(
+                let ext = messagepack_core::extension::FixedExtension::new_fixed_with_prefix(
                     kind, data.len, data.buf,
-                );
+                )
+                .map_err(|_| de::Error::invalid_length(data.len, &"length is too long"))?;
                 Ok(ext)
             }
         }
@@ -844,7 +845,7 @@ mod tests {
         let mut buf = [0u8; 3];
         let kind: i8 = 123;
 
-        let ext = WrapFixed(FixedExtension::new_fixed(kind, 1, [0x12]));
+        let ext = WrapFixed(FixedExtension::new_fixed(kind, [0x12]));
         let length = crate::to_slice(&ext, &mut buf).unwrap();
 
         assert_eq!(length, 3);

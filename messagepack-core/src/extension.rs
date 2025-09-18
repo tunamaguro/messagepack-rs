@@ -204,9 +204,17 @@ impl<const N: usize> FixedExtension<N> {
             data: buf,
         })
     }
+    /// Construct with an exact `N`-byte payload
+    pub fn new_fixed(r#type: i8, data: [u8; N]) -> Self {
+        Self {
+            r#type,
+            len: N,
+            data,
+        }
+    }
 
-    /// Construct with an exact `N`-byte payload (or a logical prefix of it).
-    pub fn try_new_fixed(
+    /// Construct with a logical prefix
+    pub fn new_fixed_with_prefix(
         r#type: i8,
         len: usize,
         data: [u8; N],
