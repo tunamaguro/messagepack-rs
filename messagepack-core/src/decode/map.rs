@@ -58,6 +58,46 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
+impl<'de, K, V> DecodeBorrowed<'de> for alloc::collections::BTreeMap<K, V>
+where
+    K: DecodeBorrowed<'de>,
+    V: DecodeBorrowed<'de>,
+    K::Value: Ord,
+{
+    type Value = alloc::collections::BTreeMap<K::Value, V::Value>;
+
+    fn decode_borrowed_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        MapDecoder::<Self::Value, K, V>::decode_borrowed_with_format(format, reader)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<'de, K, V> DecodeBorrowed<'de> for std::collections::HashMap<K, V>
+where
+    K: DecodeBorrowed<'de>,
+    V: DecodeBorrowed<'de>,
+    K::Value: Eq + core::hash::Hash,
+{
+    type Value = std::collections::HashMap<K::Value, V::Value>;
+
+    fn decode_borrowed_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        MapDecoder::<Self::Value, K, V>::decode_borrowed_with_format(format, reader)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,5 +153,31 @@ mod tests {
         let err = MapDecoder::<Vec<(u8, u8)>, u8, u8>::decode(&mut r).unwrap_err();
         // read_slice should fail while decoding second value
         assert!(matches!(err, Error::Io(_)));
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn btreemap_decode_success() {
+        // {1:10, 2:20}
+        let buf = &[0x82, 0x01, 0x0a, 0x02, 0x14];
+        let mut r = crate::io::SliceReader::new(buf);
+        let m = <alloc::collections::BTreeMap<u8, u8> as Decode>::decode(&mut r).unwrap();
+        assert_eq!(m.len(), 2);
+        assert_eq!(m.get(&1), Some(&10));
+        assert_eq!(m.get(&2), Some(&20));
+        assert!(r.rest().is_empty());
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn hashmap_decode_success() {
+        // {1: true, 3: false}
+        let buf = &[0x82, 0x01, 0xc3, 0x03, 0xc2];
+        let mut r = crate::io::SliceReader::new(buf);
+        let m = <std::collections::HashMap<u8, bool> as Decode>::decode(&mut r).unwrap();
+        assert_eq!(m.len(), 2);
+        assert_eq!(m.get(&1), Some(&true));
+        assert_eq!(m.get(&3), Some(&false));
+        assert!(r.rest().is_empty());
     }
 }

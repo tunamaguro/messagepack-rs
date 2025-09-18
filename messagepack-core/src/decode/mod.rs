@@ -5,6 +5,8 @@ use crate::{Format, io::IoRead};
 mod array;
 pub use array::ArrayDecoder;
 mod bin;
+#[cfg(feature = "alloc")]
+pub use bin::BinOwnedDecoder;
 pub use bin::ReferenceDecoder;
 mod bool;
 mod float;

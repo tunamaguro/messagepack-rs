@@ -100,6 +100,19 @@ where
     }
 }
 
+fn encode_iter<W, I>(writer: &mut W, len: usize, it: I) -> Result<usize, W::Error>
+where
+    W: IoWrite,
+    I: Iterator,
+    I::Item: KVEncode<W>,
+{
+    let format_len = MapFormatEncoder::new(len).encode(writer)?;
+    let data_len = it
+        .map(|kv| kv.encode(writer))
+        .try_fold(0, |acc, v| v.map(|n| acc + n))?;
+    Ok(format_len + data_len)
+}
+
 /// Encode a slice of key-value pairs.
 pub struct MapSliceEncoder<'data, KV> {
     data: &'data [KV],
@@ -129,11 +142,32 @@ where
     KV: KVEncode<W>,
 {
     fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
-        let self_len = self.data.len();
-        let format_len = MapFormatEncoder::new(self_len).encode(writer)?;
-        let map_len = MapDataEncoder::new(self.data.iter()).encode(writer)?;
+        encode_iter(writer, self.data.len(), self.data.iter())
+    }
+}
 
-        Ok(format_len + map_len)
+#[cfg(feature = "alloc")]
+impl<W, K, V> Encode<W> for alloc::collections::BTreeMap<K, V>
+where
+    W: IoWrite,
+    K: Encode<W> + Ord,
+    V: Encode<W>,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        encode_iter(writer, self.len(), self.iter())
+    }
+}
+
+#[cfg(feature = "std")]
+impl<W, K, V, S> Encode<W> for std::collections::HashMap<K, V, S>
+where
+    W: IoWrite,
+    K: Encode<W> + Eq + core::hash::Hash,
+    V: Encode<W>,
+    S: std::hash::BuildHasher,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        encode_iter(writer, self.len(), self.iter())
     }
 }
 
@@ -213,5 +247,42 @@ mod tests {
         let n = encoder.encode(&mut buf).unwrap();
         assert_eq!(buf, expected);
         assert_eq!(n, expected.len());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn encode_btreemap_sorted() {
+        let mut m = alloc::collections::BTreeMap::new();
+        m.insert(2u8, 20u8);
+        m.insert(1u8, 10u8);
+
+        let mut buf = alloc::vec::Vec::new();
+        let n = m.encode(&mut buf).unwrap();
+
+        // Expect keys encoded in sorted order: 1, 2
+        assert_eq!(
+            &buf[..n],
+            &[0x82, 0x01, 0x0a, 0x02, 0x14] // fixmap(2) {1:10, 2:20}
+        );
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn encode_hashmap_roundtrip() {
+        use crate::decode::Decode;
+
+        let mut m = std::collections::HashMap::<u8, bool>::new();
+        m.insert(1, true);
+        m.insert(3, false);
+
+        let mut buf = Vec::new();
+        let _ = m.encode(&mut buf).unwrap();
+
+        // Roundtrip decode to HashMap and check contents regardless of order
+        let mut r = crate::io::SliceReader::new(&buf);
+        let back = <std::collections::HashMap<u8, bool> as Decode>::decode(&mut r).unwrap();
+        assert_eq!(back.len(), 2);
+        assert_eq!(back.get(&1), Some(&true));
+        assert_eq!(back.get(&3), Some(&false));
     }
 }

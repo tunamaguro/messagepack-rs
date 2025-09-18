@@ -25,7 +25,7 @@ impl<T: core::fmt::Display> core::fmt::Display for Error<T> {
             Error::Custom => write!(f, "Not match serializer format"),
             #[cfg(feature = "std")]
             Error::Message(msg) => f.write_str(msg),
-            Error::SeqLenNone => write!(f, "We should know seq length"),
+            Error::SeqLenNone => write!(f, "array/map family must be provided length"),
         }
     }
 }

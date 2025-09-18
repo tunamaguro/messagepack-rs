@@ -183,6 +183,10 @@ pub struct FixedExtension<const N: usize> {
     data: [u8; N],
 }
 
+/// Error indicating that extension payload exceeds the fixed capacity `N`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ExtensionCapacityError(());
+
 impl<const N: usize> FixedExtension<N> {
     /// Construct from a slice whose length must be `<= N`.
     ///
@@ -200,14 +204,26 @@ impl<const N: usize> FixedExtension<N> {
             data: buf,
         })
     }
+    /// Construct with an exact `N`-byte payload
+    pub fn new_fixed(r#type: i8, data: [u8; N]) -> Self {
+        Self {
+            r#type,
+            len: N,
+            data,
+        }
+    }
 
-    /// Construct with an exact `N`-byte payload.
-    ///
-    /// Note: Even when constructed with a fixed-size buffer, the encoder will
-    /// emit `FixExtN` only if `N` is one of {1, 2, 4, 8, 16}. For any other
-    /// `N`, the encoder uses `Ext8/16/32` as appropriate.
-    pub fn new_fixed(r#type: i8, len: usize, data: [u8; N]) -> Self {
-        Self { r#type, len, data }
+    /// Construct with a logical prefix
+    pub fn new_fixed_with_prefix(
+        r#type: i8,
+        len: usize,
+        data: [u8; N],
+    ) -> core::result::Result<Self, ExtensionCapacityError> {
+        if len <= N {
+            Ok(Self { r#type, len, data })
+        } else {
+            Err(ExtensionCapacityError(()))
+        }
     }
 
     /// Borrow as [`ExtensionRef`] for encoding.
@@ -239,24 +255,20 @@ impl<const N: usize> FixedExtension<N> {
     }
 }
 
-/// The error type returned when a checked conversion from [`ExtensionRef`] fails
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct TryFromExtensionRefError(());
-
-impl core::fmt::Display for TryFromExtensionRefError {
+impl core::fmt::Display for ExtensionCapacityError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "extension data exceeds capacity")
     }
 }
 
-impl core::error::Error for TryFromExtensionRefError {}
+impl core::error::Error for ExtensionCapacityError {}
 
 impl<const N: usize> TryFrom<ExtensionRef<'_>> for FixedExtension<N> {
-    type Error = TryFromExtensionRefError;
+    type Error = ExtensionCapacityError;
 
     fn try_from(value: ExtensionRef<'_>) -> Result<Self, Self::Error> {
         if value.data.len() > N {
-            return Err(TryFromExtensionRefError(()));
+            return Err(ExtensionCapacityError(()));
         }
         let mut buf = [0u8; N];
         buf[..value.data.len()].copy_from_slice(value.data);

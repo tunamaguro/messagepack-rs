@@ -105,6 +105,17 @@ tuple_impls! {
     16 => (0 V0 1 V1 2 V2 3 V3 4 V4 5 V5 6 V6 7 V7 8 V8 9 V9 10 V10 11 V11 12 V12 13 V13 14 V14 15 V15)
 }
 
+#[cfg(feature = "alloc")]
+impl<W, V> Encode<W> for alloc::vec::Vec<V>
+where
+    W: IoWrite,
+    V: Encode<W>,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        self.as_slice().encode(writer)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -155,5 +166,14 @@ mod tests {
         let mut buf = Vec::new();
         let _ = v.encode(&mut buf).unwrap();
         assert_eq!(buf, expected);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn encode_vec_via_slice() {
+        let v = alloc::vec![1u8, 2, 3];
+        let mut buf = alloc::vec::Vec::new();
+        let _ = v.encode(&mut buf).unwrap();
+        assert_eq!(buf, alloc::vec![0x93, 0x01, 0x02, 0x03]);
     }
 }
