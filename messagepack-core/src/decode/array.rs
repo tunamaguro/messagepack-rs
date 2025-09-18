@@ -141,6 +141,36 @@ tuple_decode_impls! {
     16 => (V0 V1 V2 V3 V4 V5 V6 V7 V8 V9 V10 V11 V12 V13 V14 V15)
 }
 
+#[cfg(feature = "alloc")]
+impl<'de, V> DecodeBorrowed<'de> for alloc::vec::Vec<V>
+where
+    V: DecodeBorrowed<'de>,
+{
+    type Value = alloc::vec::Vec<V::Value>;
+
+    fn decode_borrowed_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let len = match format {
+            Format::FixArray(len) => len.into(),
+            Format::Array16 => NbyteReader::<2>::read(reader)?,
+            Format::Array32 => NbyteReader::<4>::read(reader)?,
+            _ => return Err(Error::UnexpectedFormat),
+        };
+
+        let mut out: alloc::vec::Vec<<V as DecodeBorrowed<'de>>::Value> =
+            alloc::vec::Vec::with_capacity(len);
+        for _ in 0..len {
+            out.push(V::decode_borrowed(reader)?);
+        }
+        Ok(out)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -239,5 +269,15 @@ mod tests {
         let mut r = crate::io::SliceReader::new(buf);
         let err = <(u8,) as Decode>::decode(&mut r).unwrap_err();
         assert!(matches!(err, Error::UnexpectedFormat));
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn vec_of_u8_success() {
+        let buf = &[0x92, 0x2a, 0x2b]; // [42,43]
+        let mut r = crate::io::SliceReader::new(buf);
+        let v = <alloc::vec::Vec<u8> as Decode>::decode(&mut r).unwrap();
+        assert_eq!(v, alloc::vec![42u8, 43]);
+        assert!(r.rest().is_empty());
     }
 }
