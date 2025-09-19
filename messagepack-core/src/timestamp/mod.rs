@@ -1,5 +1,7 @@
 //! MessagePack timestamp extension values.
 
+mod decode;
+mod encode;
 use crate::extension::{ExtensionRef, FixedExtension};
 
 pub(crate) const TIMESTAMP_EXTENSION_TYPE: i8 = -1;
@@ -413,3 +415,6 @@ mod duration_tests {
         assert_eq!(err, ConstructTimestampError::ExceedNanos);
     }
 }
+
+// Submodules provide Encode/Decode impls and their tests.
+// tests are colocated in submodules

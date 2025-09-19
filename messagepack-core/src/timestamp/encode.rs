@@ -1,26 +1,28 @@
-use super::{Encode, Result};
+//! Timestamp encoding implementations and tests.
+
+use super::{TIMESTAMP_EXTENSION_TYPE, Timestamp32, Timestamp64, Timestamp96};
 use crate::{
+    encode::{self, Encode},
     extension::FixedExtension,
     io::IoWrite,
-    timestamp::{TIMESTAMP_EXTENSION_TYPE, Timestamp32, Timestamp64, Timestamp96},
 };
 
 impl<W: IoWrite> Encode<W> for Timestamp32 {
-    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+    fn encode(&self, writer: &mut W) -> core::result::Result<usize, encode::Error<W::Error>> {
         let buf = self.to_buf();
         FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, buf).encode(writer)
     }
 }
 
 impl<W: IoWrite> Encode<W> for Timestamp64 {
-    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+    fn encode(&self, writer: &mut W) -> core::result::Result<usize, encode::Error<W::Error>> {
         let buf = self.to_buf();
         FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, buf).encode(writer)
     }
 }
 
 impl<W: IoWrite> Encode<W> for Timestamp96 {
-    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+    fn encode(&self, writer: &mut W) -> core::result::Result<usize, encode::Error<W::Error>> {
         let buf = self.to_buf();
         FixedExtension::new_fixed(TIMESTAMP_EXTENSION_TYPE, buf).encode(writer)
     }
@@ -30,16 +32,16 @@ impl<W: IoWrite> Encode<W> for Timestamp96 {
 mod tests {
     use super::*;
 
-    const TIMESTAMP_EXT_TYPE: u8 = 255; // -1
+    const TIMESTAMP_EXT_TYPE_U8: u8 = 255; // -1
 
     #[test]
     fn encode_timestamp32() {
         let ts = Timestamp32::new(123456);
         let mut buf = vec![];
 
-        let n = ts.encode(&mut buf).unwrap();
+        let n = Encode::encode(&ts, &mut buf).unwrap();
 
-        let mut expected = vec![0xd6, TIMESTAMP_EXT_TYPE];
+        let mut expected = vec![0xd6, TIMESTAMP_EXT_TYPE_U8];
         expected.extend_from_slice(&123456_u32.to_be_bytes());
 
         assert_eq!(buf, expected);
@@ -51,9 +53,9 @@ mod tests {
         let ts = Timestamp64::new(123456, 789).unwrap();
         let mut buf = vec![];
 
-        let n = ts.encode(&mut buf).unwrap();
+        let n = Encode::encode(&ts, &mut buf).unwrap();
 
-        let mut expected = vec![0xd7, TIMESTAMP_EXT_TYPE];
+        let mut expected = vec![0xd7, TIMESTAMP_EXT_TYPE_U8];
         let data = (789u64 << 34) | 123456;
         expected.extend_from_slice(&data.to_be_bytes());
 
@@ -66,9 +68,9 @@ mod tests {
         let ts = Timestamp96::new(123456, 789).unwrap();
         let mut buf = vec![];
 
-        let n = ts.encode(&mut buf).unwrap();
+        let n = Encode::encode(&ts, &mut buf).unwrap();
 
-        let mut expected = vec![0xc7, 12, TIMESTAMP_EXT_TYPE];
+        let mut expected = vec![0xc7, 12, TIMESTAMP_EXT_TYPE_U8];
         expected.extend_from_slice(&789_u32.to_be_bytes());
         expected.extend_from_slice(&123456_u64.to_be_bytes());
 
