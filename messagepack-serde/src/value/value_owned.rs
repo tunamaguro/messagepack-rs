@@ -98,7 +98,7 @@ impl serde::Serialize for Value {
             Value::Nil => serializer.serialize_none(),
             Value::Bool(v) => serializer.serialize_bool(*v),
             Value::Bin(b) => serializer.serialize_bytes(b),
-            Value::Extension(ext) => super::ext_ref::serialize(&ext.as_ref(), serializer),
+            Value::Extension(ext) => crate::extension::ext_ref::serialize(&ext.as_ref(), serializer),
             Value::Number(n) => n.serialize(serializer),
             Value::String(s) => serializer.serialize_str(s),
             Value::Array(vs) => vs.serialize(serializer),
@@ -190,7 +190,7 @@ impl<'de> serde::Deserialize<'de> for Value {
             where
                 D: serde::Deserializer<'de>,
             {
-                let ext = super::ext_owned::deserialize(deserializer)?;
+                let ext = crate::extension::ext_owned::deserialize(deserializer)?;
                 Ok(Value::Extension(ext))
             }
 

@@ -97,7 +97,7 @@ impl serde::Serialize for ValueRef<'_> {
             ValueRef::Bool(v) => serializer.serialize_bool(*v),
             ValueRef::Bin(items) => serializer.serialize_bytes(items),
             ValueRef::Extension(extension_ref) => {
-                super::ext_ref::serialize(extension_ref, serializer)
+                crate::extension::ext_ref::serialize(extension_ref, serializer)
             }
             ValueRef::Number(number) => number.serialize(serializer),
             ValueRef::String(s) => serializer.serialize_str(s),
@@ -196,7 +196,7 @@ impl<'de> serde::Deserialize<'de> for ValueRef<'de> {
             where
                 D: serde::Deserializer<'de>,
             {
-                let ext = super::ext_ref::deserialize(deserializer)?;
+                let ext = crate::extension::ext_ref::deserialize(deserializer)?;
                 Ok(ValueRef::Extension(ext))
             }
 
