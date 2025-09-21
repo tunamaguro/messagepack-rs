@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use messagepack_core::extension::ExtensionRef;
 use serde::{de::Visitor, ser::SerializeMap};
 
-/// Represents any messagepack value. `alloc` needed.
+/// Represents any messagepack value.
 /// 
 /// ## Note
 /// 

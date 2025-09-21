@@ -692,7 +692,7 @@ mod value_owned {
         }
 
         fn size_hint(&self) -> Option<usize> {
-            Some(self.it.as_slice().len())
+            Some(self.it.len())
         }
     }
 
@@ -729,8 +729,7 @@ mod value_owned {
         }
 
         fn size_hint(&self) -> Option<usize> {
-            let plus_one = if self.pending_value.is_some() { 1 } else { 0 };
-            Some(self.it.as_slice().len() + plus_one)
+            Some(self.it.len())
         }
     }
 
@@ -770,7 +769,7 @@ mod value_owned {
                 }
                 _other => Err(de::Error::invalid_type(
                     de::Unexpected::Other("non-enum value"),
-                    &"string, array, or map for enum",
+                    &"string, or map for enum",
                 )),
             }
         }
