@@ -18,3 +18,6 @@ pub use number::Number;
 
 #[cfg(feature = "alloc")]
 mod de;
+
+#[cfg(feature = "alloc")]
+mod ser;
