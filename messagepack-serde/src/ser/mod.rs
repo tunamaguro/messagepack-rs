@@ -40,7 +40,6 @@ pub use num::{AggressiveMinimize, Exact, LosslessMinimize, NumEncoder};
 
 use core::marker::PhantomData;
 
-use crate::value::extension::{EXTENSION_STRUCT_NAME, SerializeExt};
 pub use error::Error;
 
 use messagepack_core::{
@@ -291,8 +290,8 @@ where
         T: ?Sized + ser::Serialize,
     {
         match name {
-            EXTENSION_STRUCT_NAME => {
-                let mut ser = SerializeExt::new(self.writer);
+            crate::extension::EXTENSION_STRUCT_NAME => {
+                let mut ser = crate::extension::ser::SerializeExt::new(self.writer);
                 value.serialize(&mut ser)?;
                 self.current_length += ser.length();
                 Ok(())

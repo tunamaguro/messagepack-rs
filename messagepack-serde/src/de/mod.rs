@@ -6,7 +6,6 @@ mod seq;
 use error::CoreError;
 pub use error::Error;
 
-use crate::value::extension::DeserializeExt;
 use messagepack_core::{
     Decode, Format,
     decode::NbyteReader,
@@ -238,10 +237,11 @@ where
             | Format::FixExt4
             | Format::FixExt8
             | Format::FixExt16 => {
-                let mut de_ext = DeserializeExt::new(format, &mut self.reader)?;
+                let mut de_ext =
+                    crate::extension::de::DeserializeExt::new(format, &mut self.reader)?;
                 let val = de::Deserializer::deserialize_newtype_struct(
                     &mut de_ext,
-                    crate::value::extension::EXTENSION_STRUCT_NAME,
+                    crate::extension::EXTENSION_STRUCT_NAME,
                     visitor,
                 )?;
 

@@ -9,7 +9,7 @@
 /// #[derive(Debug, Serialize, Deserialize, PartialEq)]
 /// #[serde(transparent)]
 /// struct WrapOwned(
-///     #[serde(with = "messagepack_serde::value::ext_owned")] ExtensionOwned,
+///     #[serde(with = "messagepack_serde::extension::ext_owned")] ExtensionOwned,
 /// );
 ///
 /// # fn main() {
@@ -26,7 +26,7 @@
 /// # }
 /// ```
 pub mod ext_owned {
-    use crate::value::extension::ext_ref;
+    use crate::extension::ext_ref;
     use serde::{
         Deserialize,
         de::{self, Visitor},

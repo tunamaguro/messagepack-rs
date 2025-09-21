@@ -11,7 +11,6 @@ pub mod int;
 pub mod map;
 pub mod nil;
 pub mod str;
-mod timestamp;
 
 /// Helper to encode raw binary blobs using `bin8/16/32` formats.
 pub use bin::BinaryEncoder;

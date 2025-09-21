@@ -27,3 +27,5 @@ pub use ser::{to_writer, to_writer_with_config};
 
 #[cfg(feature = "alloc")]
 pub use value::{Value, ValueRef};
+
+pub mod extension;

@@ -98,7 +98,9 @@ impl serde::Serialize for Value {
             Value::Nil => serializer.serialize_none(),
             Value::Bool(v) => serializer.serialize_bool(*v),
             Value::Bin(b) => serializer.serialize_bytes(b),
-            Value::Extension(ext) => super::ext_ref::serialize(&ext.as_ref(), serializer),
+            Value::Extension(ext) => {
+                crate::extension::ext_ref::serialize(&ext.as_ref(), serializer)
+            }
             Value::Number(n) => n.serialize(serializer),
             Value::String(s) => serializer.serialize_str(s),
             Value::Array(vs) => vs.serialize(serializer),
@@ -136,34 +138,41 @@ impl<'de> serde::Deserialize<'de> for Value {
             where
                 E: serde::de::Error,
             {
-                Ok(Value::from(Number::from(v)))
+                Ok(Value::from(v))
             }
 
             fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(Value::from(Number::from(v)))
+                Ok(Value::from(v))
             }
 
             fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(Value::from(Number::from(v)))
+                Ok(Value::from(v))
             }
             fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(Value::from(Number::from(v)))
+                Ok(Value::from(v))
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(Value::String(v.to_string()))
+                Ok(Value::from(v))
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(Value::from(v))
             }
 
             fn visit_none<E>(self) -> Result<Self::Value, E>
@@ -186,11 +195,18 @@ impl<'de> serde::Deserialize<'de> for Value {
                 Ok(Value::Bin(v.to_vec()))
             }
 
+            fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(Value::Bin(v))
+            }
+
             fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
             where
                 D: serde::Deserializer<'de>,
             {
-                let ext = super::ext_owned::deserialize(deserializer)?;
+                let ext = crate::extension::ext_owned::deserialize(deserializer)?;
                 Ok(Value::Extension(ext))
             }
 
