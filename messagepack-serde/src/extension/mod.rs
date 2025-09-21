@@ -53,15 +53,15 @@ impl Serialize for ExtInner<'_> {
             | messagepack_core::Format::FixExt16 => {}
 
             messagepack_core::Format::Ext8 => {
-                let len = (self.data.len() as u8);
+                let len = self.data.len() as u8;
                 seq.serialize_element(&len)?;
             }
             messagepack_core::Format::Ext16 => {
-                let len = (self.data.len() as u16);
+                let len = self.data.len() as u16;
                 seq.serialize_element(&len)?;
             }
             messagepack_core::Format::Ext32 => {
-                let len = (self.data.len() as u32);
+                let len = self.data.len() as u32;
                 seq.serialize_element(&len)?;
             }
             _ => return Err(ser::Error::custom("unexpected format")),

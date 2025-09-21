@@ -28,7 +28,7 @@ mod value_ref {
             match self {
                 Value::Nil => visitor.visit_unit(),
                 Value::Bool(v) => visitor.visit_bool(*v),
-                Value::Bin(items) => visitor.visit_borrowed_bytes(&items),
+                Value::Bin(items) => visitor.visit_borrowed_bytes(items),
                 Value::Extension(extension_owned) => {
                     // Bridge to the extension helper using a newtype struct
                     let ext = extension_owned.as_ref();
@@ -200,11 +200,11 @@ mod value_ref {
                 }
                 // Map-tagged enum: { tag: content }
                 Value::Map(items) => match items.split_first() {
-                    Some((content, rest)) if rest.len() == 0 => {
+                    Some((content, [])) => {
                         let id = seed.deserialize(&content.0)?;
                         Ok((id, EnumRefVariant::Value(&content.1)))
                     }
-                    _ => return Err(de::Error::invalid_length(items.len(), &"expect 1 element")),
+                    _ => Err(de::Error::invalid_length(items.len(), &"expect 1 element")),
                 },
                 _ => Err(de::Error::invalid_type(
                     de::Unexpected::Other("non-enum value"),
@@ -377,7 +377,7 @@ mod value_ref {
         }
     }
 
-    impl<'a, 'de> de::Deserializer<'de> for &'a ValueRef<'de> {
+    impl<'de> de::Deserializer<'de> for &ValueRef<'de> {
         type Error = Error;
 
         fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -439,7 +439,7 @@ mod value_ref {
         }
     }
 
-    impl<'a, 'de> de::IntoDeserializer<'de, Error> for &'a ValueRef<'de> {
+    impl<'de> de::IntoDeserializer<'de, Error> for &ValueRef<'de> {
         type Deserializer = Self;
         fn into_deserializer(self) -> Self::Deserializer {
             self
@@ -523,7 +523,7 @@ mod value_ref {
                     Ok((id, VariantAccessBorrowedValueRef::String))
                 }
                 ValueRef::Map(items) => match items.as_slice().split_first() {
-                    Some((first, rest)) if rest.len() == 0 => {
+                    Some((first, [])) => {
                         let id = seed.deserialize(&first.0)?;
                         Ok((id, VariantAccessBorrowedValueRef::Value(&first.1)))
                     }

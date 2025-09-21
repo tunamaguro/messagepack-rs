@@ -1,5 +1,5 @@
 use super::Value;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use serde::ser::{self};
 
 type Error = crate::ser::Error<core::convert::Infallible>;
@@ -62,6 +62,7 @@ impl ser::Serializer for Serializer {
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
+        use crate::alloc::string::ToString;
         Ok(Value::String(v.to_string()))
     }
 
@@ -113,7 +114,7 @@ impl ser::Serializer for Serializer {
             crate::extension::EXTENSION_STRUCT_NAME => {
                 let mut ser = SerializeExt::new();
                 value.serialize(&mut ser)?;
-                ser.to_value()
+                ser.into_value()
             }
             _ => value.serialize(self),
         }
@@ -387,7 +388,7 @@ impl SerializeExt {
         }
     }
 
-    fn to_value(self) -> Result<Value, Error> {
+    fn into_value(self) -> Result<Value, Error> {
         let Self {
             format_seen: _,
             data_length: _,
@@ -442,7 +443,7 @@ impl<'a> ser::Serializer for &'a mut SerializeExt {
         Ok(())
     }
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        self.data_length = Some(u32::from(v));
+        self.data_length = Some(v);
         Ok(())
     }
 
@@ -458,7 +459,7 @@ impl<'a> ser::Serializer for &'a mut SerializeExt {
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        let seq = SerializeExtSeq { ser: self.as_mut() };
+        let seq = SerializeExtSeq { ser: self };
         Ok(seq)
     }
 
