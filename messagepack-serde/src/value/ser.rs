@@ -103,14 +103,16 @@ impl ser::Serializer for Serializer {
 
     fn serialize_newtype_struct<T>(
         self,
-        _name: &'static str,
+        name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: ?Sized + ser::Serialize,
     {
-        // TODO: need Extension impl
-        value.serialize(self)
+        match name {
+            crate::extension::EXTENSION_STRUCT_NAME => todo!(),
+            _ => value.serialize(self),
+        }
     }
 
     fn serialize_newtype_variant<T>(
@@ -361,5 +363,46 @@ impl ser::SerializeStructVariant for SerializeStructVariant {
         let map = ser::SerializeStruct::end(self.map)?;
         let key = Value::from(self.variant_name);
         Ok(Value::Map(vec![(key, map)]))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    enum Kind<'a> {
+        Unit,
+        New(u8),
+        Tup(u8, u16),
+        Str { a: bool, b: &'a str },
+    }
+
+    #[rstest]
+    #[case(Kind::Unit, Value::from("Unit"))]
+    #[case(Kind::New(5), Value::Map(
+        vec![(Value::from("New"), Value::from(5))]
+    ))]
+    #[case(Kind::Tup(1,2), Value::Map(
+        vec![(
+                Value::from("Tup"),
+                Value::Array(vec![Value::from(1), Value::from(2)])
+            )]
+    ))]
+    #[case(
+        Kind::Str { a: false, b: "hi" },
+        Value::Map(vec![(
+                Value::from("Str"),
+                Value::Map(vec![
+                    (Value::from("a"), Value::from(false)),
+                    (Value::from("b"), Value::from("hi")),
+                ]),
+        ),])
+    )]
+    fn serialize_enum(#[case] val: Kind, #[case] expected: Value) {
+        let serialized = val.serialize(Serializer).unwrap();
+        assert_eq!(serialized, expected);
     }
 }
