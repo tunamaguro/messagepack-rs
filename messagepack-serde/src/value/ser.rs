@@ -619,6 +619,7 @@ mod tests {
     use super::*;
     use rstest::rstest;
     use serde::Serialize;
+    use serde_bytes::ByteBuf;
 
     #[derive(Serialize)]
     enum Kind<'a> {
@@ -676,5 +677,265 @@ mod tests {
         ));
 
         assert_eq!(serialized, expected);
+    }
+
+    // primitives and simple composites
+    #[rstest]
+    #[case(true)]
+    #[case(false)]
+    fn serialize_bool_primitives(#[case] v: bool) {
+        let serialized = v.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::from(v));
+    }
+
+    #[rstest]
+    #[case(0i8)]
+    #[case(-1)]
+    #[case(127)]
+    fn serialize_i8_numbers(#[case] v: i8) {
+        let serialized = v.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::from(v));
+    }
+
+    #[rstest]
+    #[case(0i16)]
+    #[case(-128)]
+    #[case(1024)]
+    fn serialize_i16_numbers(#[case] v: i16) {
+        let serialized = v.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::from(v));
+    }
+
+    #[rstest]
+    #[case(0i32)]
+    #[case(-32768)]
+    #[case(1_000_000)]
+    fn serialize_i32_numbers(#[case] v: i32) {
+        let serialized = v.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::from(v));
+    }
+
+    #[rstest]
+    #[case(0i64)]
+    #[case(-2147483648)]
+    #[case(9_223_372_036_854_775_807i64)]
+    fn serialize_i64_numbers(#[case] v: i64) {
+        let serialized = v.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::from(v));
+    }
+
+    #[rstest]
+    #[case(0u8)]
+    #[case(255)]
+    fn serialize_u8_numbers(#[case] v: u8) {
+        let serialized = v.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::from(v));
+    }
+
+    #[rstest]
+    #[case(0u16)]
+    #[case(65_535)]
+    fn serialize_u16_numbers(#[case] v: u16) {
+        let serialized = v.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::from(v));
+    }
+
+    #[rstest]
+    #[case(0u32)]
+    #[case(4_294_967_295)]
+    fn serialize_u32_numbers(#[case] v: u32) {
+        let serialized = v.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::from(v));
+    }
+
+    #[rstest]
+    #[case(0u64)]
+    #[case(18_446_744_073_709_551_615u64)]
+    fn serialize_u64_numbers(#[case] v: u64) {
+        let serialized = v.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::from(v));
+    }
+
+    #[rstest]
+    #[case(0.0f32)]
+    #[case(-0.0)]
+    #[case(1.5)]
+    fn serialize_f32_numbers(#[case] v: f32) {
+        let serialized = v.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::from(v));
+    }
+
+    #[rstest]
+    #[case(0.0f64)]
+    #[case(-0.0)]
+    #[case(1.5)]
+    fn serialize_f64_numbers(#[case] v: f64) {
+        let serialized = v.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::from(v));
+    }
+
+    #[rstest]
+    #[case('a', Value::String("a".to_string()))]
+    #[case('😀', Value::String("😀".to_string()))]
+    fn serialize_char_as_string(#[case] ch: char, #[case] expected: Value) {
+        let serialized = ch.serialize(Serializer).unwrap();
+        assert_eq!(serialized, expected);
+    }
+
+    #[rstest]
+    #[case("")]
+    #[case("hello")]
+    fn serialize_strs(#[case] s: &str) {
+        let serialized = s.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::from(s));
+    }
+
+    #[rstest]
+    #[case(vec![])]
+    #[case(vec![9u8, 8, 7, 6])]
+    fn serialize_bytes_via_bytebuf(#[case] data: Vec<u8>) {
+        let bb = ByteBuf::from(data.clone());
+        let serialized = bb.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::Bin(data));
+    }
+
+    #[rstest]
+    #[case(vec![])]
+    #[case(vec![1u8, 2, 3])]
+    fn serialize_slice_u8_as_array(#[case] data: Vec<u8>) {
+        let s: &[u8] = &data;
+        let serialized = s.serialize(Serializer).unwrap();
+        assert_eq!(
+            serialized,
+            Value::Array(data.into_iter().map(Value::from).collect())
+        );
+    }
+
+    #[rstest]
+    #[case(vec![])]
+    #[case(vec![1u8, 2, 3])]
+    fn serialize_vec_u8_as_array(#[case] data: Vec<u8>) {
+        let serialized = data.serialize(Serializer).unwrap();
+        assert_eq!(
+            serialized,
+            Value::Array(data.into_iter().map(Value::from).collect())
+        );
+    }
+
+    #[rstest]
+    #[case(vec![])]
+    #[case(vec![1u8, 2, 3])]
+    fn serialize_bytes_via_bytes_wrapper(#[case] data: Vec<u8>) {
+        let bytes = serde_bytes::Bytes::new(&data);
+        let serialized = bytes.serialize(Serializer).unwrap();
+        assert_eq!(serialized, Value::Bin(data));
+    }
+
+    #[derive(Serialize)]
+    struct U;
+
+    #[rstest]
+    #[case(U)]
+    #[case(())]
+    #[case(Option::<u8>::None)]
+    fn serialize_option_unit_and_unit_struct<V>(#[case] val: V)
+    where
+        V: Serialize,
+    {
+        assert_eq!(val.serialize(Serializer).unwrap(), Value::Nil)
+    }
+
+    #[rstest]
+    fn serialize_newtype_struct_plain() {
+        #[derive(Serialize)]
+        struct Wrapper(u16);
+        let v = Wrapper(7);
+        // Should delegate to inner
+        assert_eq!(v.serialize(Serializer).unwrap(), Value::from(7));
+    }
+
+    #[derive(Serialize)]
+    struct Tup(u8, i16);
+
+    #[rstest]
+    #[case(
+        (1u8, 2u16, 3i32),
+        Value::Array(vec![Value::from(1), Value::from(2), Value::from(3)])
+    )]
+    #[case(
+        Tup(1, -2),
+        Value::Array(vec![Value::from(1), Value::from(-2)])
+    )]
+    fn serialize_tuple_and_tuple_struct<V>(#[case] val: V, #[case] expected: Value)
+    where
+        V: Serialize,
+    {
+        assert_eq!(val.serialize(Serializer).unwrap(), expected)
+    }
+
+    #[rstest]
+    fn serialize_struct_to_map() {
+        #[derive(Serialize)]
+        struct S<'a> {
+            a: u8,
+            #[serde(rename = "msg")]
+            b: &'a str,
+        }
+        let v = S { a: 7, b: "hi" };
+        let s = v.serialize(Serializer).unwrap();
+        assert_eq!(
+            s,
+            Value::Map(vec![
+                (Value::from("a"), Value::from(7u8)),
+                (Value::from("msg"), Value::from("hi")),
+            ])
+        );
+    }
+
+    #[test]
+    fn serialize_seq_and_map_with_unknown_len() {
+        // Serialize a seq with None length
+        struct DynSeq;
+        impl Serialize for DynSeq {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                use serde::ser::SerializeSeq;
+                let mut seq = serializer.serialize_seq(None)?;
+                seq.serialize_element(&1u8)?;
+                seq.serialize_element(&2u16)?;
+                seq.serialize_element(&3i32)?;
+                seq.end()
+            }
+        }
+        let seq_val = DynSeq.serialize(Serializer).unwrap();
+        assert_eq!(
+            seq_val,
+            Value::Array(vec![Value::from(1u8), Value::from(2u16), Value::from(3i32)])
+        );
+
+        // Serialize a map with None length
+        struct DynMap;
+        impl Serialize for DynMap {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                use serde::ser::SerializeMap;
+                let mut map = serializer.serialize_map(None)?;
+                map.serialize_entry(&"k1", &10u8)?;
+                map.serialize_entry(&2u8, &"v2")?;
+                map.end()
+            }
+        }
+        let map_val = DynMap.serialize(Serializer).unwrap();
+        assert_eq!(
+            map_val,
+            Value::Map(vec![
+                (Value::from("k1"), Value::from(10u8)),
+                (Value::from(2u8), Value::from("v2")),
+            ])
+        );
     }
 }
