@@ -15,3 +15,6 @@ pub use value_owned::Value;
 
 mod number;
 pub use number::Number;
+
+#[cfg(feature = "alloc")]
+mod de;
