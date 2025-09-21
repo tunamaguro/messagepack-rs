@@ -10,14 +10,14 @@ pub use messagepack_core;
 extern crate alloc;
 
 pub mod de;
-pub use de::from_slice;
 #[cfg(feature = "std")]
 pub use de::from_reader;
+pub use de::from_slice;
 
 pub mod ser;
-pub use ser::{to_slice, to_slice_with_config};
 #[cfg(feature = "alloc")]
 pub use ser::to_vec;
+pub use ser::{to_slice, to_slice_with_config};
 #[cfg(feature = "std")]
 pub use ser::{to_writer, to_writer_with_config};
 
