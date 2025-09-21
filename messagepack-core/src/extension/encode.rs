@@ -1,10 +1,8 @@
-// Extension encoding implementations and tests.
-
 use super::{ExtensionRef, FixedExtension};
+use super::{U16_MAX, U32_MAX};
 use crate::encode::{self, Encode};
 use crate::formats::Format;
 use crate::io::IoWrite;
-use super::{U16_MAX, U32_MAX};
 
 impl<'a, W: IoWrite> Encode<W> for ExtensionRef<'a> {
     fn encode(&self, writer: &mut W) -> core::result::Result<usize, encode::Error<W::Error>> {

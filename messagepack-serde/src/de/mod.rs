@@ -237,7 +237,8 @@ where
             | Format::FixExt4
             | Format::FixExt8
             | Format::FixExt16 => {
-                let mut de_ext = crate::extension::de::DeserializeExt::new(format, &mut self.reader)?;
+                let mut de_ext =
+                    crate::extension::de::DeserializeExt::new(format, &mut self.reader)?;
                 let val = de::Deserializer::deserialize_newtype_struct(
                     &mut de_ext,
                     crate::extension::EXTENSION_STRUCT_NAME,

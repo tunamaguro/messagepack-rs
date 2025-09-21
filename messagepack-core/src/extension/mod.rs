@@ -1,5 +1,8 @@
 //! MessagePack extension helpers.
 
+mod decode;
+mod encode;
+
 use crate::decode::Error as DecodeError;
 use crate::{formats::Format, io::IoRead};
 
@@ -78,9 +81,6 @@ impl<'a> ExtensionRef<'a> {
         Ok(format)
     }
 }
-
-mod encode;
-mod decode;
 
 /// A fixed-capacity container for extension payloads of up to `N` bytes.
 ///

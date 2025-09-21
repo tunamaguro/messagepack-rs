@@ -1,9 +1,7 @@
-// Extension decoding implementations and tests.
-
-use super::{read_ext_header, ExtensionRef, FixedExtension};
+use super::{ExtensionRef, FixedExtension, read_ext_header};
+use crate::Format;
 use crate::decode::{DecodeBorrowed, Error as DecodeError};
 use crate::io::IoRead;
-use crate::Format;
 
 impl<'de> DecodeBorrowed<'de> for ExtensionRef<'de> {
     type Value = ExtensionRef<'de>;
@@ -78,7 +76,10 @@ impl<'de> DecodeBorrowed<'de> for super::owned::ExtensionOwned {
         let payload = reader.read_slice(len).map_err(DecodeError::Io)?;
         let data = payload.as_bytes().to_vec();
 
-        Ok(super::owned::ExtensionOwned { r#type: ext_type, data })
+        Ok(super::owned::ExtensionOwned {
+            r#type: ext_type,
+            data,
+        })
     }
 }
 
