@@ -4,6 +4,14 @@ use serde::ser::{self};
 
 type Error = crate::ser::Error<core::convert::Infallible>;
 
+/// Convert `T` to [crate::value::Value]
+pub fn to_value<T>(value: T) -> Result<Value, Error>
+where
+    T: ser::Serialize,
+{
+    value.serialize(Serializer)
+}
+
 struct Serializer;
 
 impl ser::Serializer for Serializer {

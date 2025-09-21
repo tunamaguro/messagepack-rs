@@ -3,7 +3,11 @@ use alloc::vec::Vec;
 use messagepack_core::extension::ExtensionRef;
 use serde::{de::Visitor, ser::SerializeMap};
 
-/// Represents any messagepack value. `alloc` needed.
+/// Represents any messagepack value.
+///
+/// ## Note
+///
+/// Since [ValueRef] internally uses [alloc::vec::Vec], cloning may be computationally expensive.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum ValueRef<'a> {
     /// Represents nil format

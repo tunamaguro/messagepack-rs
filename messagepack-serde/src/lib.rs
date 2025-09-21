@@ -10,22 +10,19 @@ pub use messagepack_core;
 extern crate alloc;
 
 pub mod de;
-pub mod ser;
-pub mod value;
-
-pub use de::from_slice;
-pub use ser::{to_slice, to_slice_with_config};
-
 #[cfg(feature = "std")]
 pub use de::from_reader;
+pub use de::from_slice;
 
+pub mod ser;
 #[cfg(feature = "alloc")]
 pub use ser::to_vec;
-
+pub use ser::{to_slice, to_slice_with_config};
 #[cfg(feature = "std")]
 pub use ser::{to_writer, to_writer_with_config};
 
+pub mod value;
 #[cfg(feature = "alloc")]
-pub use value::{Value, ValueRef};
+pub use value::{Value, ValueRef, to_value};
 
 pub mod extension;
