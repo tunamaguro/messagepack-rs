@@ -1,4 +1,4 @@
-use crate::value::{Number, Value};
+use crate::value::{Number, Value, ValueRef};
 use serde::{
     de::{self},
     forward_to_deserialize_any,
@@ -367,6 +367,225 @@ mod value_ref {
             bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
             bytes byte_buf option unit unit_struct newtype_struct tuple tuple_struct
             map struct enum identifier ignored_any
+        }
+    }
+
+    impl<'a, 'de> de::Deserializer<'de> for &'a ValueRef<'de> {
+        type Error = Error;
+
+        fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+        where
+            V: de::Visitor<'de>,
+        {
+            match self {
+                ValueRef::Nil => visitor.visit_unit(),
+                ValueRef::Bool(b) => visitor.visit_bool(*b),
+                ValueRef::Bin(b) => visitor.visit_borrowed_bytes(b),
+                ValueRef::Extension(ext) => de::Deserializer::deserialize_newtype_struct(
+                    ExtRefDeserializer { ext: *ext },
+                    crate::extension::EXTENSION_STRUCT_NAME,
+                    visitor,
+                ),
+                ValueRef::Number(n) => visit_number(visitor, *n),
+                ValueRef::String(s) => visitor.visit_borrowed_str(s),
+                ValueRef::Array(items) => {
+                    let seq = SeqAccessValueRefBorrowed { it: items.iter() };
+                    visitor.visit_seq(seq)
+                }
+                ValueRef::Map(items) => {
+                    let map = MapAccessValueRefBorrowed {
+                        it: items.iter(),
+                        val: None,
+                    };
+                    visitor.visit_map(map)
+                }
+            }
+        }
+
+        fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+        where
+            V: de::Visitor<'de>,
+        {
+            match self {
+                ValueRef::Nil => visitor.visit_none(),
+                _ => visitor.visit_some(self),
+            }
+        }
+
+        fn deserialize_enum<V>(
+            self,
+            _name: &'static str,
+            _variants: &'static [&'static str],
+            visitor: V,
+        ) -> Result<V::Value, Self::Error>
+        where
+            V: de::Visitor<'de>,
+        {
+            let access = EnumAccessBorrowedValueRef { val: self };
+            visitor.visit_enum(access)
+        }
+
+        forward_to_deserialize_any! {
+            bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+            bytes byte_buf unit unit_struct newtype_struct seq tuple tuple_struct
+            map struct identifier ignored_any
+        }
+    }
+
+    struct SeqAccessValueRefBorrowed<'a, 'de> {
+        it: core::slice::Iter<'a, ValueRef<'de>>,
+    }
+
+    impl<'a, 'de> de::SeqAccess<'de> for SeqAccessValueRefBorrowed<'a, 'de> {
+        type Error = Error;
+
+        fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
+        where
+            T: de::DeserializeSeed<'de>,
+        {
+            match self.it.next() {
+                Some(v) => seed.deserialize(v).map(Some),
+                None => Ok(None),
+            }
+        }
+
+        fn size_hint(&self) -> Option<usize> {
+            Some(self.it.len())
+        }
+    }
+
+    struct MapAccessValueRefBorrowed<'a, 'de> {
+        it: core::slice::Iter<'a, (ValueRef<'de>, ValueRef<'de>)>,
+        val: Option<&'a ValueRef<'de>>,
+    }
+
+    impl<'a, 'de> de::MapAccess<'de> for MapAccessValueRefBorrowed<'a, 'de> {
+        type Error = Error;
+
+        fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
+        where
+            K: de::DeserializeSeed<'de>,
+        {
+            match self.it.next() {
+                Some((k, v)) => {
+                    self.val = Some(v);
+                    seed.deserialize(k).map(Some)
+                }
+                None => Ok(None),
+            }
+        }
+
+        fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
+        where
+            V: de::DeserializeSeed<'de>,
+        {
+            match self.val.take() {
+                Some(v) => seed.deserialize(v),
+                None => Err(<Error as de::Error>::custom("value is missing")),
+            }
+        }
+
+        fn size_hint(&self) -> Option<usize> {
+            Some(self.it.len())
+        }
+    }
+
+    struct EnumAccessBorrowedValueRef<'a, 'de> {
+        val: &'a ValueRef<'de>,
+    }
+
+    impl<'a, 'de> de::EnumAccess<'de> for EnumAccessBorrowedValueRef<'a, 'de> {
+        type Error = Error;
+        type Variant = VariantAccessBorrowedValueRef<'a, 'de>;
+
+        fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+        where
+            V: de::DeserializeSeed<'de>,
+        {
+            match self.val {
+                ValueRef::String(tag) => {
+                    let de = serde::de::value::BorrowedStrDeserializer::<Error>::new(tag);
+                    let id = seed.deserialize(de)?;
+                    Ok((id, VariantAccessBorrowedValueRef::String))
+                }
+                ValueRef::Map(items) => match items.as_slice().split_first() {
+                    Some((first, rest)) if rest.len() == 0 => {
+                        let id = seed.deserialize(&first.0)?;
+                        Ok((id, VariantAccessBorrowedValueRef::Value(&first.1)))
+                    }
+                    _ => Err(de::Error::invalid_length(items.len(), &"expect 1 element")),
+                },
+                _ => Err(de::Error::invalid_type(
+                    de::Unexpected::Other("non-enum value"),
+                    &"string or map for enum",
+                )),
+            }
+        }
+    }
+
+    enum VariantAccessBorrowedValueRef<'a, 'de> {
+        String,
+        Value(&'a ValueRef<'de>),
+    }
+
+    impl<'a, 'de> de::VariantAccess<'de> for VariantAccessBorrowedValueRef<'a, 'de> {
+        type Error = Error;
+
+        fn unit_variant(self) -> Result<(), Self::Error> {
+            match self {
+                VariantAccessBorrowedValueRef::String => Ok(()),
+                _ => Err(de::Error::invalid_type(
+                    de::Unexpected::Other("non-unit enum variant"),
+                    &"unit variant",
+                )),
+            }
+        }
+
+        fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
+        where
+            T: de::DeserializeSeed<'de>,
+        {
+            match self {
+                VariantAccessBorrowedValueRef::Value(v) => seed.deserialize(v),
+                _ => Err(de::Error::invalid_type(
+                    de::Unexpected::Other("non-newtype enum variant"),
+                    &"array or map",
+                )),
+            }
+        }
+
+        fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
+        where
+            V: de::Visitor<'de>,
+        {
+            match self {
+                VariantAccessBorrowedValueRef::Value(v) => {
+                    de::Deserializer::deserialize_seq(v, visitor)
+                }
+                _ => Err(de::Error::invalid_type(
+                    de::Unexpected::Other("non-newtype enum variant"),
+                    &"array or map",
+                )),
+            }
+        }
+
+        fn struct_variant<V>(
+            self,
+            _fields: &'static [&'static str],
+            visitor: V,
+        ) -> Result<V::Value, Self::Error>
+        where
+            V: de::Visitor<'de>,
+        {
+            match self {
+                VariantAccessBorrowedValueRef::Value(v) => {
+                    de::Deserializer::deserialize_map(v, visitor)
+                }
+                _ => Err(de::Error::invalid_type(
+                    de::Unexpected::Other("non-map variant content"),
+                    &"map",
+                )),
+            }
         }
     }
 }
@@ -991,5 +1210,132 @@ mod tests {
         assert_eq!(moved.len(), 128);
         assert_eq!(moved.capacity(), cap);
         assert_eq!(moved.as_ptr() as usize, ptr);
+    }
+
+    #[rstest]
+    #[case(true)]
+    #[case(false)]
+    fn vref_decode_bool(#[case] expected: bool) {
+        let v = ValueRef::Bool(expected);
+        let b = bool::deserialize(&v).unwrap();
+        assert_eq!(b, expected);
+    }
+
+    #[rstest]
+    #[case(5u64, 5u8)]
+    #[case(128u64, 128u8)]
+    fn vref_decode_u8(#[case] input: u64, #[case] expected: u8) {
+        let v = ValueRef::from(input);
+        let n = u8::deserialize(&v).unwrap();
+        assert_eq!(n, expected);
+    }
+
+    #[rstest]
+    #[case(1.5f64)]
+    #[case(0.0f64)]
+    fn vref_decode_f64(#[case] input: f64) {
+        let v = ValueRef::from(input);
+        let f = f64::deserialize(&v).unwrap();
+        assert_eq!(f, input);
+    }
+
+    #[rstest]
+    #[case("hello")]
+    #[case("")]
+    fn vref_decode_borrowed_str(#[case] s: &'static str) {
+        let v = ValueRef::String(s);
+        let out = <&str>::deserialize(&v).unwrap();
+        assert_eq!(out, s);
+        assert_eq!(out.as_ptr(), s.as_ptr());
+    }
+
+    #[rstest]
+    #[case(b"world".as_slice())]
+    #[case(b"".as_slice())]
+    fn vref_decode_borrowed_bytes(#[case] bytes: &'static [u8]) {
+        let v = ValueRef::Bin(bytes);
+        let out = <&[u8]>::deserialize(&v).unwrap();
+        assert_eq!(out, bytes);
+        assert_eq!(out.as_ptr(), bytes.as_ptr());
+    }
+
+    #[rstest]
+    fn vref_decode_vec_and_struct() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S {
+            compact: bool,
+            schema: u8,
+        }
+
+        let v = ValueRef::Array(vec![ValueRef::from(true), ValueRef::from(0u64)]);
+        let s = S::deserialize(&v).unwrap();
+        assert_eq!(
+            s,
+            S {
+                compact: true,
+                schema: 0,
+            }
+        );
+
+        let v = ValueRef::Array(vec![
+            ValueRef::from(1.1f64),
+            ValueRef::from(1.2f64),
+            ValueRef::from(1.3f64),
+        ]);
+        let out = Vec::<f64>::deserialize(&v).unwrap();
+        assert_eq!(out, vec![1.1, 1.2, 1.3]);
+    }
+
+    #[rstest]
+    #[case(ValueRef::from("Unit"), E::Unit)]
+    #[case(ValueRef::Map(vec![(ValueRef::from("Newtype"), ValueRef::from(27u64))]), E::Newtype(27))]
+    #[case(
+        ValueRef::Map(vec![(
+            ValueRef::from("Tuple"),
+            ValueRef::Array(vec![ValueRef::from(3u64), ValueRef::from(true)]),
+        )]),
+        E::Tuple(3, true)
+    )]
+    #[case(
+        ValueRef::Map(vec![(
+            ValueRef::from("Struct"),
+            ValueRef::Map(vec![(ValueRef::from("a"), ValueRef::from(false))]),
+        )]),
+        E::Struct { a: false }
+    )]
+    fn vref_decode_enum(#[case] v: ValueRef<'_>, #[case] expected: E) {
+        let decoded = E::deserialize(&v).unwrap();
+        assert_eq!(decoded, expected);
+    }
+
+    #[rstest]
+    #[case(5u64, Some(5u8))]
+    #[case(255u64, Some(255u8))]
+    fn vref_decode_option_some(#[case] input: u64, #[case] expected: Option<u8>) {
+        let v = ValueRef::from(input);
+        let o = Option::<u8>::deserialize(&v).unwrap();
+        assert_eq!(o, expected);
+    }
+
+    #[test]
+    fn vref_option_consumes_nil_in_sequence() {
+        let v = ValueRef::Array(vec![ValueRef::Nil, ValueRef::from(5u64)]);
+        let out = <(Option<u8>, u8)>::deserialize(&v).unwrap();
+        assert_eq!(out, (None, 5));
+    }
+
+    #[test]
+    fn vref_decode_extension_ref() {
+        use messagepack_core::extension::ExtensionRef;
+
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct WrapRef<'a>(#[serde(with = "crate::extension::ext_ref", borrow)] ExtensionRef<'a>);
+
+        let kind: i8 = 7;
+        let data: &'static [u8] = &[0x10, 0x20, 0x30];
+        let v = ValueRef::Extension(ExtensionRef::new(kind, data));
+        let WrapRef(ext) = WrapRef::deserialize(&v).unwrap();
+        assert_eq!(ext.r#type, kind);
+        assert_eq!(ext.data, data);
     }
 }
