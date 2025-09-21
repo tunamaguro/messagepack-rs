@@ -81,6 +81,13 @@ mod value_ref {
         }
     }
 
+    impl<'de> de::IntoDeserializer<'de, Error> for &'de Value {
+        type Deserializer = Self;
+        fn into_deserializer(self) -> Self::Deserializer {
+            self
+        }
+    }
+
     struct SeqRefAccess<'de, I>
     where
         I: Iterator<Item = &'de Value> + ExactSizeIterator,
@@ -432,6 +439,13 @@ mod value_ref {
         }
     }
 
+    impl<'a, 'de> de::IntoDeserializer<'de, Error> for &'a ValueRef<'de> {
+        type Deserializer = Self;
+        fn into_deserializer(self) -> Self::Deserializer {
+            self
+        }
+    }
+
     struct SeqAccessValueRefBorrowed<'a, 'de> {
         it: core::slice::Iter<'a, ValueRef<'de>>,
     }
@@ -651,6 +665,13 @@ mod value_owned {
             bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
             bytes byte_buf unit unit_struct newtype_struct seq tuple tuple_struct
             map struct identifier ignored_any
+        }
+    }
+
+    impl<'de> de::IntoDeserializer<'de, Error> for Value {
+        type Deserializer = Self;
+        fn into_deserializer(self) -> Self::Deserializer {
+            self
         }
     }
 
