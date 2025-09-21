@@ -412,4 +412,157 @@ mod tests {
         let decoded = E::deserialize(&v).unwrap();
         assert_eq!(decoded, expected);
     }
+
+    // ---- Non-enum decode coverage (based on de/mod.rs tests) ----
+    #[rstest]
+    #[case(Value::from(true), true)]
+    #[case(Value::from(false), false)]
+    fn decode_bool(#[case] v: Value, #[case] expected: bool) {
+        let decoded = bool::deserialize(&v).unwrap();
+        assert_eq!(decoded, expected);
+    }
+
+    #[rstest]
+    #[case(Value::from(5u64), 5u8)]
+    #[case(Value::from(128u64), 128u8)]
+    fn decode_uint8(#[case] v: Value, #[case] expected: u8) {
+        let decoded = u8::deserialize(&v).unwrap();
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn decode_float_vec() {
+        let v = Value::Array(vec![
+            Value::from(1.1f64),
+            Value::from(1.2f64),
+            Value::from(1.3f64),
+            Value::from(1.4f64),
+            Value::from(1.5f64),
+        ]);
+        let decoded = Vec::<f64>::deserialize(&v).unwrap();
+        assert_eq!(decoded, vec![1.1, 1.2, 1.3, 1.4, 1.5]);
+    }
+
+    #[test]
+    fn decode_struct() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S {
+            compact: bool,
+            schema: u8,
+        }
+        let v = Value::Map(vec![
+            (Value::from("compact"), Value::from(true)),
+            (Value::from("schema"), Value::from(0u64)),
+        ]);
+        let decoded = S::deserialize(&v).unwrap();
+        assert_eq!(decoded, S { compact: true, schema: 0 });
+    }
+
+    #[test]
+    fn decode_struct_from_array() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S {
+            compact: bool,
+            schema: u8,
+        }
+        let v = Value::Array(vec![Value::from(true), Value::from(0u64)]);
+        let decoded = S::deserialize(&v).unwrap();
+        assert_eq!(decoded, S { compact: true, schema: 0 });
+    }
+
+    #[test]
+    fn option_consumes_nil_in_sequence() {
+        let v = Value::Array(vec![Value::Nil, Value::from(5u64)]);
+        let decoded = <(Option<u8>, u8)>::deserialize(&v).unwrap();
+        assert_eq!(decoded, (None, 5));
+    }
+
+    #[test]
+    fn option_some_simple() {
+        let v = Value::from(5u64);
+        let decoded = Option::<u8>::deserialize(&v).unwrap();
+        assert_eq!(decoded, Some(5));
+    }
+
+    #[test]
+    fn unit_from_nil() {
+        let v = Value::Nil;
+        let _: () = <()>::deserialize(&v).unwrap();
+    }
+
+    #[test]
+    fn unit_struct() {
+        #[derive(Debug, Deserialize, PartialEq)]
+        struct U;
+        let v = Value::Nil;
+        let decoded = U::deserialize(&v).unwrap();
+        assert_eq!(decoded, U);
+    }
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    #[serde(untagged)]
+    enum Untagged {
+        Bool(bool),
+        U8(u8),
+        Pair(u8, bool),
+        Struct { a: bool },
+        Nested(E),
+    }
+
+    #[rstest]
+    #[case(Value::from(true), Untagged::Bool(true))]
+    #[case(Value::from(5u64), Untagged::U8(5))]
+    #[case(Value::Array(vec![Value::from(2u64), Value::from(true)]), Untagged::Pair(2,true))]
+    #[case(Value::Map(vec![(Value::from("a"), Value::from(false))]), Untagged::Struct { a: false })]
+    #[case(Value::from("Unit"), Untagged::Nested(E::Unit))]
+    fn decode_untagged(#[case] v: Value, #[case] expected: Untagged) {
+        let decoded = Untagged::deserialize(&v).unwrap();
+        assert_eq!(decoded, expected);
+    }
+
+    // -------- Extension tests --------
+    use messagepack_core::extension::{ExtensionOwned, ExtensionRef, FixedExtension};
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct WrapRef<'a>(
+        #[serde(with = "crate::extension::ext_ref", borrow)] ExtensionRef<'a>,
+    );
+
+    #[test]
+    fn decode_extension_ref_from_value() {
+        let kind: i8 = 7;
+        let data = vec![0x10, 0x20, 0x30];
+        let v = Value::Extension(ExtensionOwned { r#type: kind, data: data.clone() });
+        let WrapRef(ext) = WrapRef::deserialize(&v).unwrap();
+        assert_eq!(ext.r#type, kind);
+        assert_eq!(ext.data, &data[..]);
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct WrapOwned(#[serde(with = "crate::extension::ext_owned")] ExtensionOwned);
+
+    #[test]
+    fn decode_extension_owned_from_value() {
+        let kind: i8 = 10;
+        let data = vec![0xAA, 0xBB, 0xCC, 0xDD];
+        let v = Value::Extension(ExtensionOwned { r#type: kind, data: data.clone() });
+        let WrapOwned(ext) = WrapOwned::deserialize(&v).unwrap();
+        assert_eq!(ext.r#type, kind);
+        assert_eq!(ext.data, data);
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct WrapFixed<const N: usize>(
+        #[serde(with = "crate::extension::ext_fixed")] FixedExtension<N>,
+    );
+
+    #[test]
+    fn decode_extension_fixed_from_value() {
+        let kind: i8 = 12;
+        let data = vec![0xDE, 0xAD, 0xBE, 0xEF];
+        let v = Value::Extension(ExtensionOwned { r#type: kind, data: data.clone() });
+        let WrapFixed::<8>(ext) = WrapFixed::<8>::deserialize(&v).unwrap();
+        assert_eq!(ext.r#type, kind);
+        assert_eq!(ext.as_slice(), &data[..]);
+    }
 }
