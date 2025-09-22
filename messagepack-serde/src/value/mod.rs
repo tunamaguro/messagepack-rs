@@ -81,3 +81,15 @@ mod de;
 mod ser;
 #[cfg(feature = "alloc")]
 pub use ser::to_value;
+
+#[cfg(feature = "alloc")]
+fn cautiously_size_hint<T>(hint: Option<usize>) -> usize {
+    const MAX_ALLOC_BYTES: usize = 1024 * 1024;
+    let element_byte: usize = core::mem::size_of::<T>();
+    if element_byte == 0 {
+        0
+    } else {
+        let max_count = MAX_ALLOC_BYTES / element_byte;
+        hint.unwrap_or(0).min(max_count)
+    }
+}
