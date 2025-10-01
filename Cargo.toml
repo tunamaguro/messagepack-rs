@@ -3,14 +3,14 @@ members = ["messagepack-core", "messagepack-serde", "messagepack-bench"]
 resolver = "3"
 
 [workspace.package]
-version = "0.1.7"
+version = "0.2.0"
 edition = "2024"
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/tunamaguro/messagepack-rs"
 
 [workspace.dependencies]
 
-messagepack-core = { path = "messagepack-core", version = "0.1.7" }
-messagepack-serde = { path = "messagepack-serde", version = "0.1.7" }
+messagepack-core = { path = "messagepack-core", version = "0.2.0" }
+messagepack-serde = { path = "messagepack-serde", version = "0.2.0" }
 num-traits = { version = "0.2", default-features = false }
 rstest = "0.26"
