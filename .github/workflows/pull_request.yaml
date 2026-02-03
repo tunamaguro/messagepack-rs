@@ -41,7 +41,7 @@ jobs:
           components: rustfmt
           cache-base: main
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run format
         run: |
           cargo fmt --all --check
@@ -58,7 +58,7 @@ jobs:
           cache-base: main
           bins: cargo-hack
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run lint
         run: |
           cargo hack --each-feature --no-dev-deps clippy -- -D warnings
@@ -74,7 +74,7 @@ jobs:
           cache-base: main
           bins: cargo-hack
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run test
         run: |
           cargo hack --each-feature test
