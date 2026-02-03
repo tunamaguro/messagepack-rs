@@ -305,6 +305,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fuzz"
+version = "0.0.0"
+dependencies = [
+ "libfuzzer-sys",
+ "messagepack-serde",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -432,14 +440,6 @@ dependencies = [
  "num-traits",
  "proptest",
  "rstest",
-]
-
-[[package]]
-name = "messagepack-core-fuzz"
-version = "0.0.0"
-dependencies = [
- "libfuzzer-sys",
- "messagepack-serde",
 ]
 
 [[package]]
