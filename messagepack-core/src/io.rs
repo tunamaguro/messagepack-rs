@@ -119,41 +119,9 @@ mod vec_writer {
             Ok(())
         }
     }
-
-    /// Simple writer that writes into a `Vec<u8>`.
-    pub struct VecWriter {
-        vec: alloc::vec::Vec<u8>,
-    }
-
-    impl VecWriter {
-        /// Create a new writer
-        pub fn new() -> Self {
-            Self {
-                vec: alloc::vec::Vec::new(),
-            }
-        }
-        /// Get the inner vector
-        pub fn into_vec(self) -> alloc::vec::Vec<u8> {
-            self.vec
-        }
-    }
-
-    impl Default for VecWriter {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
-
-    impl IoWrite for VecWriter {
-        type Error = core::convert::Infallible;
-        fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-            self.vec.extend_from_slice(buf);
-            Ok(())
-        }
-    }
 }
 #[cfg(feature = "alloc")]
-pub use vec_writer::{VecRefWriter, VecWriter};
+pub use vec_writer::VecRefWriter;
 
 #[cfg(any(test, feature = "std"))]
 impl<W> IoWrite for W
