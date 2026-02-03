@@ -397,6 +397,7 @@ version = "0.2.0"
 dependencies = [
  "messagepack-core",
  "num-traits",
+ "proptest",
  "rmp-serde",
  "rstest",
  "serde",

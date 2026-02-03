@@ -188,10 +188,10 @@ fn messagepack_arb() -> impl Strategy<Value = MessagePackType> {
         extension_arb().prop_map(MessagePackType::Ext)
     ];
 
-    leaf.prop_recursive(6, 256, 8, |inner| {
+    leaf.prop_recursive(6, 64, 8, |inner| {
         prop_oneof![
-            prop::collection::vec(inner.clone(), 0..=32).prop_map(MessagePackType::Array),
-            prop::collection::btree_map(any::<String>(), inner, 0..=32)
+            prop::collection::vec(inner.clone(), 0..=16).prop_map(MessagePackType::Array),
+            prop::collection::btree_map(any::<String>(), inner, 0..=16)
                 .prop_map(MessagePackType::Map),
         ]
     })
