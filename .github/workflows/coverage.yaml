@@ -42,7 +42,7 @@ jobs:
           components: llvm-tools-preview
           bins: cargo-llvm-cov
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run test coverage
         run: |
           cargo llvm-cov --workspace --no-default-features --lcov --output-path lcov_no_default_feature.info
