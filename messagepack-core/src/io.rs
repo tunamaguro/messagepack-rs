@@ -34,7 +34,7 @@ pub struct SliceWriter<'a> {
 
 impl<'a> SliceWriter<'a> {
     /// Create a new writer over the given buffer.
-    pub fn from_slice(buf: &'a mut [u8]) -> Self {
+    pub fn new(buf: &'a mut [u8]) -> Self {
         Self { buf, cursor: 0 }
     }
 
@@ -346,7 +346,7 @@ mod tests {
     #[should_panic]
     fn buffer_full() {
         let buf: &mut [u8] = &mut [0u8];
-        let mut writer = SliceWriter::from_slice(buf);
+        let mut writer = SliceWriter::new(buf);
         writer.write(&[1, 2]).unwrap();
     }
 

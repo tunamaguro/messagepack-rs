@@ -22,6 +22,6 @@ rmp-serde = "1.3.0"
 rstest = { workspace = true }
 
 [features]
-default = []
+default = ["std"]
 alloc = ["serde/alloc", "messagepack-core/alloc"]
 std = ["alloc", "messagepack-core/std"]

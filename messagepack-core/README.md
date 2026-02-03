@@ -10,7 +10,7 @@ messagepack for `no_std`
 use messagepack_core::{Decode, Encode, io::{SliceWriter, SliceReader}};
 
 let mut buf = [0u8; 12];
-let mut writer = SliceWriter::from_slice(&mut buf);
+let mut writer = SliceWriter::new(&mut buf);
 let written = "MessagePack".encode(&mut writer).unwrap();
 
 assert_eq!(
@@ -29,10 +29,10 @@ assert_eq!(reader.rest().len(), 0);
 
 ## Installation
 
-Add this crate to `Cargo.toml`. `no_std` is supported by default.
+Add this crate to `Cargo.toml`. If you want use this crate in `no_std`, disable default feature.
 
 ```toml
-messagepack-core = { version = "0.2" }
+messagepack-core = { version = "0.2", default-features = false }
 ```
 
 ## License

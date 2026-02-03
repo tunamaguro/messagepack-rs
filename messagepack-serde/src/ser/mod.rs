@@ -43,9 +43,9 @@ use core::marker::PhantomData;
 pub use error::Error;
 
 use messagepack_core::{
-    Encode, SliceWriter,
+    Encode,
     encode::{BinaryEncoder, MapFormatEncoder, NilEncoder, array::ArrayFormatEncoder},
-    io::{IoWrite, WError},
+    io::{IoWrite, SliceWriter, WError},
 };
 
 use serde::ser;
@@ -95,7 +95,7 @@ where
     T: ser::Serialize + ?Sized,
     C: NumEncoder<SliceWriter<'a>>,
 {
-    let mut writer = SliceWriter::from_slice(buf);
+    let mut writer = SliceWriter::new(buf);
     let mut ser = Serializer::new(&mut writer, config);
     value.serialize(&mut ser)?;
     Ok(ser.current_length)

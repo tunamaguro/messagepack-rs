@@ -74,6 +74,17 @@ impl<W: IoWrite> Encode<W> for &str {
     }
 }
 
+#[cfg(feature = "alloc")]
+mod alloc_impl {
+    use super::*;
+
+    impl<W: IoWrite> Encode<W> for alloc::string::String {
+        fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+            self.as_str().encode(writer)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
