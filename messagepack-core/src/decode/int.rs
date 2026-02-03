@@ -141,6 +141,64 @@ impl<'de> DecodeBorrowed<'de> for isize {
     }
 }
 
+macro_rules! impl_nonzero_int {
+    ($ty:ty) => {
+        impl<'de> DecodeBorrowed<'de> for core::num::NonZero<$ty> {
+            type Value = Self;
+
+            fn decode_borrowed_with_format<R>(
+                format: Format,
+                reader: &mut R,
+            ) -> core::result::Result<Self::Value, Error<R::Error>>
+            where
+                R: IoRead<'de>,
+            {
+                let val = <$ty>::decode_borrowed_with_format(format, reader)?;
+                Self::new(val).ok_or(Error::InvalidData)
+            }
+        }
+    };
+}
+impl_nonzero_int!(u8);
+impl_nonzero_int!(u16);
+impl_nonzero_int!(u32);
+impl_nonzero_int!(u64);
+impl_nonzero_int!(usize);
+impl_nonzero_int!(i8);
+impl_nonzero_int!(i16);
+impl_nonzero_int!(i32);
+impl_nonzero_int!(i64);
+impl_nonzero_int!(isize);
+
+macro_rules! impl_atomic_int {
+    ($ty:ty, $base:ty) => {
+        impl<'de> DecodeBorrowed<'de> for $ty {
+            type Value = Self;
+
+            fn decode_borrowed_with_format<R>(
+                format: Format,
+                reader: &mut R,
+            ) -> Result<Self::Value, Error<R::Error>>
+            where
+                R: IoRead<'de>,
+            {
+                let val = <$base>::decode_borrowed_with_format(format, reader)?;
+                Ok(Self::new(val))
+            }
+        }
+    };
+}
+impl_atomic_int!(core::sync::atomic::AtomicU8, u8);
+impl_atomic_int!(core::sync::atomic::AtomicU16, u16);
+impl_atomic_int!(core::sync::atomic::AtomicU32, u32);
+impl_atomic_int!(core::sync::atomic::AtomicU64, u64);
+impl_atomic_int!(core::sync::atomic::AtomicUsize, usize);
+impl_atomic_int!(core::sync::atomic::AtomicI8, i8);
+impl_atomic_int!(core::sync::atomic::AtomicI16, i16);
+impl_atomic_int!(core::sync::atomic::AtomicI32, i32);
+impl_atomic_int!(core::sync::atomic::AtomicI64, i64);
+impl_atomic_int!(core::sync::atomic::AtomicIsize, isize);
+
 #[cfg(test)]
 mod tests {
     use crate::decode::Decode;

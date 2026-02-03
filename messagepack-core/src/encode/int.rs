@@ -69,21 +69,6 @@ where
     }
 }
 
-macro_rules! impl_encode_int {
-    ($ty:ty,  $format:expr, $size:expr) => {
-        impl<W> Encode<W> for $ty
-        where
-            W: IoWrite,
-        {
-            fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
-                writer.write(&$format.as_slice())?;
-                writer.write(&self.to_be_bytes())?;
-                Ok($size)
-            }
-        }
-    };
-}
-
 impl<W> Encode<W> for isize
 where
     W: IoWrite,
@@ -108,12 +93,73 @@ where
     }
 }
 
+macro_rules! impl_encode_int {
+    ($ty:ty,  $format:expr, $size:expr) => {
+        impl<W> Encode<W> for $ty
+        where
+            W: IoWrite,
+        {
+            fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+                writer.write(&$format.as_slice())?;
+                writer.write(&self.to_be_bytes())?;
+                Ok($size)
+            }
+        }
+    };
+}
 impl_encode_int!(u16, Format::Uint16, 3);
 impl_encode_int!(u32, Format::Uint32, 5);
 impl_encode_int!(u64, Format::Uint64, 9);
 impl_encode_int!(i16, Format::Int16, 3);
 impl_encode_int!(i32, Format::Int32, 5);
 impl_encode_int!(i64, Format::Int64, 9);
+
+macro_rules! impl_nonzero_int {
+    ($ty:ty) => {
+        impl<W> Encode<W> for $ty
+        where
+            W: IoWrite,
+        {
+            fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+                self.get().encode(writer)
+            }
+        }
+    };
+}
+impl_nonzero_int!(core::num::NonZeroU8);
+impl_nonzero_int!(core::num::NonZeroU16);
+impl_nonzero_int!(core::num::NonZeroU32);
+impl_nonzero_int!(core::num::NonZeroU64);
+impl_nonzero_int!(core::num::NonZeroUsize);
+impl_nonzero_int!(core::num::NonZeroI8);
+impl_nonzero_int!(core::num::NonZeroI16);
+impl_nonzero_int!(core::num::NonZeroI32);
+impl_nonzero_int!(core::num::NonZeroI64);
+impl_nonzero_int!(core::num::NonZeroIsize);
+
+macro_rules! impl_atomic_int {
+    ($ty:ty) => {
+        impl<W> Encode<W> for $ty
+        where
+            W: IoWrite,
+        {
+            fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+                self.load(core::sync::atomic::Ordering::Relaxed)
+                    .encode(writer)
+            }
+        }
+    };
+}
+impl_atomic_int!(core::sync::atomic::AtomicU8);
+impl_atomic_int!(core::sync::atomic::AtomicU16);
+impl_atomic_int!(core::sync::atomic::AtomicU32);
+impl_atomic_int!(core::sync::atomic::AtomicU64);
+impl_atomic_int!(core::sync::atomic::AtomicUsize);
+impl_atomic_int!(core::sync::atomic::AtomicI8);
+impl_atomic_int!(core::sync::atomic::AtomicI16);
+impl_atomic_int!(core::sync::atomic::AtomicI32);
+impl_atomic_int!(core::sync::atomic::AtomicI64);
+impl_atomic_int!(core::sync::atomic::AtomicIsize);
 
 /// encode minimum byte size
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]

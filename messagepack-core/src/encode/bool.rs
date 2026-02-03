@@ -18,6 +18,16 @@ impl<W: IoWrite> Encode<W> for bool {
     }
 }
 
+impl<W> Encode<W> for core::sync::atomic::AtomicBool
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+        self.load(core::sync::atomic::Ordering::Relaxed)
+            .encode(writer)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

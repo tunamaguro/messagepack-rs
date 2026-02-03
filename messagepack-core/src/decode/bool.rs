@@ -21,6 +21,21 @@ impl<'de> DecodeBorrowed<'de> for bool {
     }
 }
 
+impl<'de> DecodeBorrowed<'de> for core::sync::atomic::AtomicBool {
+    type Value = Self;
+
+    fn decode_borrowed_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        let val = bool::decode_borrowed_with_format(format, reader)?;
+        Ok(Self::new(val))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::decode::Decode;
