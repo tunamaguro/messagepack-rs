@@ -26,3 +26,8 @@ proptest = { workspace = true }
 default = ["std"]
 alloc = ["serde/alloc", "messagepack-core/alloc"]
 std = ["alloc", "messagepack-core/std"]
+
+[[test]]
+name = "value"
+path = "tests/value.rs"
+required-features = ["alloc"]
