@@ -1,5 +1,7 @@
 ## messagepack-core
 
+[![Crates.io Version](https://img.shields.io/crates/v/messagepack_core)](https://crates.io/crates/messagepack-core)
+
 messagepack for `no_std`
 
 ### Example
@@ -8,7 +10,7 @@ messagepack for `no_std`
 use messagepack_core::{Decode, Encode, io::{SliceWriter, SliceReader}};
 
 let mut buf = [0u8; 12];
-let mut writer = SliceWriter::from_slice(&mut buf);
+let mut writer = SliceWriter::new(&mut buf);
 let written = "MessagePack".encode(&mut writer).unwrap();
 
 assert_eq!(
@@ -23,6 +25,14 @@ let mut reader = SliceReader::new(&buf);
 let decoded = <&str as Decode>::decode(&mut reader).unwrap();
 assert_eq!(decoded, "MessagePack");
 assert_eq!(reader.rest().len(), 0);
+```
+
+## Installation
+
+Add this crate to `Cargo.toml`. If you want use this crate in `no_std`, disable default feature.
+
+```toml
+messagepack-core = { version = "0.2", default-features = false }
 ```
 
 ## License

@@ -1,7 +1,3 @@
-[profile.release]
-codegen-units = 1
-lto = true
-
 [alias]
 format = "fmt --all"
 lint = "clippy --workspace --tests --all-targets --all-features -- -D clippy::all"

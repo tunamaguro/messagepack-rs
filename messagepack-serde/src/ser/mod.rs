@@ -43,12 +43,109 @@ use core::marker::PhantomData;
 pub use error::Error;
 
 use messagepack_core::{
-    Encode, SliceWriter,
+    Encode,
     encode::{BinaryEncoder, MapFormatEncoder, NilEncoder, array::ArrayFormatEncoder},
-    io::{IoWrite, WError},
+    io::{IoWrite, SliceWriter, WError},
 };
 
 use serde::ser;
+
+/// Serialize value to [messagepack_core::io::IoWrite] with config.
+pub fn to_core_writer_with_config<T, W, C>(
+    value: &T,
+    writer: &mut W,
+    config: C,
+) -> Result<usize, Error<W::Error>>
+where
+    T: ser::Serialize + ?Sized,
+    W: IoWrite,
+    C: NumEncoder<W>,
+{
+    let mut ser = Serializer::new(writer, config);
+    value.serialize(&mut ser)?;
+    Ok(ser.current_length)
+}
+
+/// Serialize value to [messagepack_core::io::IoWrite].
+pub fn to_core_writer<T, W>(value: &T, writer: &mut W) -> Result<usize, Error<W::Error>>
+where
+    T: ser::Serialize + ?Sized,
+    W: IoWrite,
+{
+    to_core_writer_with_config(value, writer, num::LosslessMinimize)
+}
+
+/// Serialize value to slice with config.
+pub fn to_slice_with_config<'a, T, C>(
+    value: &T,
+    buf: &'a mut [u8],
+    config: C,
+) -> Result<usize, Error<WError>>
+where
+    T: ser::Serialize + ?Sized,
+    C: NumEncoder<SliceWriter<'a>>,
+{
+    let mut writer = SliceWriter::new(buf);
+    to_core_writer_with_config(value, &mut writer, config)
+}
+
+/// Serialize value to slice
+pub fn to_slice<T>(value: &T, buf: &mut [u8]) -> Result<usize, Error<WError>>
+where
+    T: ser::Serialize + ?Sized,
+{
+    to_slice_with_config(value, buf, num::LosslessMinimize)
+}
+
+/// Serialize value as messagepack byte vector with config
+#[cfg(feature = "alloc")]
+pub fn to_vec_with_config<T, C>(
+    value: &T,
+    config: C,
+) -> Result<alloc::vec::Vec<u8>, Error<core::convert::Infallible>>
+where
+    T: ser::Serialize + ?Sized,
+    C: for<'a> NumEncoder<messagepack_core::io::VecRefWriter<'a>>,
+{
+    let mut buf = alloc::vec::Vec::new();
+    let mut writer = messagepack_core::io::VecRefWriter::new(&mut buf);
+    to_core_writer_with_config(value, &mut writer, config)?;
+    Ok(buf)
+}
+
+/// Serialize value as messagepack byte vector
+#[cfg(feature = "alloc")]
+pub fn to_vec<T>(value: &T) -> Result<alloc::vec::Vec<u8>, Error<core::convert::Infallible>>
+where
+    T: ser::Serialize + ?Sized,
+{
+    to_vec_with_config(value, num::LosslessMinimize)
+}
+
+#[cfg(feature = "std")]
+/// Serialize value to [std::io::Write] with config.
+pub fn to_writer_with_config<T, W, C>(
+    value: &T,
+    writer: &mut W,
+    config: C,
+) -> Result<usize, Error<std::io::Error>>
+where
+    T: ser::Serialize + ?Sized,
+    W: std::io::Write,
+    C: NumEncoder<W>,
+{
+    to_core_writer_with_config(value, writer, config)
+}
+
+#[cfg(feature = "std")]
+/// Serialize value to [std::io::Write]
+pub fn to_writer<T, W>(value: &T, writer: &mut W) -> Result<usize, Error<std::io::Error>>
+where
+    T: ser::Serialize + ?Sized,
+    W: std::io::Write,
+{
+    to_writer_with_config(value, writer, num::LosslessMinimize)
+}
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
 struct Serializer<'a, W, Num> {
@@ -75,83 +172,6 @@ impl<W, Num> AsMut<Self> for Serializer<'_, W, Num> {
     fn as_mut(&mut self) -> &mut Self {
         self
     }
-}
-
-/// Serialize value as messagepack
-pub fn to_slice<T>(value: &T, buf: &mut [u8]) -> Result<usize, Error<WError>>
-where
-    T: ser::Serialize + ?Sized,
-{
-    to_slice_with_config(value, buf, num::LosslessMinimize)
-}
-
-/// Serialize value as messagepack with config.
-pub fn to_slice_with_config<'a, T, C>(
-    value: &T,
-    buf: &'a mut [u8],
-    config: C,
-) -> Result<usize, Error<WError>>
-where
-    T: ser::Serialize + ?Sized,
-    C: NumEncoder<SliceWriter<'a>>,
-{
-    let mut writer = SliceWriter::from_slice(buf);
-    let mut ser = Serializer::new(&mut writer, config);
-    value.serialize(&mut ser)?;
-    Ok(ser.current_length)
-}
-
-/// Serialize value as messagepack byte vector
-#[cfg(feature = "alloc")]
-pub fn to_vec<T>(value: &T) -> Result<alloc::vec::Vec<u8>, Error<core::convert::Infallible>>
-where
-    T: ser::Serialize + ?Sized,
-{
-    to_vec_with_config(value, num::LosslessMinimize)
-}
-
-/// Serialize value as messagepack byte vector with config
-#[cfg(feature = "alloc")]
-pub fn to_vec_with_config<T, C>(
-    value: &T,
-    config: C,
-) -> Result<alloc::vec::Vec<u8>, Error<core::convert::Infallible>>
-where
-    T: ser::Serialize + ?Sized,
-    C: NumEncoder<messagepack_core::io::VecWriter>,
-{
-    let mut writer = messagepack_core::io::VecWriter::new();
-    let mut ser = Serializer::new(&mut writer, config);
-    value.serialize(&mut ser)?;
-    let buf = writer.into_vec();
-    Ok(buf)
-}
-
-#[cfg(feature = "std")]
-/// Serialize value as messagepack
-pub fn to_writer<T, W>(value: &T, writer: &mut W) -> Result<usize, Error<std::io::Error>>
-where
-    T: ser::Serialize + ?Sized,
-    W: std::io::Write,
-{
-    to_writer_with_config(value, writer, num::LosslessMinimize)
-}
-
-#[cfg(feature = "std")]
-/// Serialize value as messagepack with config.
-pub fn to_writer_with_config<T, W, C>(
-    value: &T,
-    writer: &mut W,
-    config: C,
-) -> Result<usize, Error<std::io::Error>>
-where
-    T: ser::Serialize + ?Sized,
-    W: std::io::Write,
-    C: NumEncoder<W>,
-{
-    let mut ser = Serializer::new(writer, config);
-    value.serialize(&mut ser)?;
-    Ok(ser.current_length)
 }
 
 impl<'a, 'b: 'a, W, Num> ser::Serializer for &'a mut Serializer<'b, W, Num>

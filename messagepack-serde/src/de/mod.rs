@@ -17,11 +17,21 @@ use serde::{
     forward_to_deserialize_any,
 };
 
+/// Deserialize from [messagepack_core::io::IoRead]
+pub fn from_core_reader<'de, R, T>(reader: R) -> Result<T, Error<R::Error>>
+where
+    R: IoRead<'de>,
+    T: Deserialize<'de>,
+{
+    let mut deserializer = Deserializer::new(reader);
+    T::deserialize(&mut deserializer)
+}
+
 /// Deserialize from slice
 pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error<RError>> {
     use messagepack_core::io::SliceReader;
     let reader = SliceReader::new(input);
-    from_trait(reader)
+    from_core_reader(reader)
 }
 
 #[cfg(feature = "std")]
@@ -34,7 +44,7 @@ where
     use messagepack_core::io::StdReader;
     use std::io;
     let reader = StdReader::new(reader);
-    let result = from_trait::<'_, StdReader<R>, T>(reader);
+    let result = from_core_reader::<'_, StdReader<R>, T>(reader);
     match result {
         Ok(v) => Ok(v),
         Err(err) => match err {
@@ -53,15 +63,6 @@ where
     }
 }
 
-fn from_trait<'de, R, T>(reader: R) -> Result<T, Error<R::Error>>
-where
-    R: IoRead<'de>,
-    T: Deserialize<'de>,
-{
-    let mut deserializer = Deserializer::from_trait(reader);
-    T::deserialize(&mut deserializer)
-}
-
 const MAX_RECURSION_DEPTH: usize = 256;
 
 struct Deserializer<R> {
@@ -74,7 +75,7 @@ impl<'de, R> Deserializer<R>
 where
     R: IoRead<'de>,
 {
-    pub fn from_trait(reader: R) -> Self {
+    fn new(reader: R) -> Self {
         Deserializer {
             reader,
             depth: 0,

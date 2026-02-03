@@ -15,8 +15,44 @@ num-traits = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true }
+proptest = { workspace = true }
 
 [features]
-default = []
+default = ["std"]
 alloc = []
 std = ["alloc"]
+
+[[test]]
+name = "int"
+path = "tests/int.rs"
+required-features = ["alloc"]
+
+[[test]]
+name = "float"
+path = "tests/float.rs"
+required-features = ["alloc"]
+
+[[test]]
+name = "str"
+path = "tests/str.rs"
+required-features = ["alloc"]
+
+[[test]]
+name = "bin"
+path = "tests/bin.rs"
+required-features = ["alloc"]
+
+[[test]]
+name = "array"
+path = "tests/array.rs"
+required-features = ["alloc"]
+
+[[test]]
+name = "map"
+path = "tests/map.rs"
+required-features = ["alloc"]
+
+[[test]]
+name = "any"
+path = "tests/any.rs"
+required-features = ["alloc"]

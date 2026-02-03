@@ -40,10 +40,10 @@ assert_eq!(&serialized[..len], buf);
 
 ## Installation
 
-Add this crate to `Cargo.toml`. `no_std` is supported by default.
+Add this crate to `Cargo.toml`. If you want use this crate in `no_std`, disable default feature.
 
 ```toml
-messagepack-serde = { version = "0.1" }
+messagepack-serde = { version = "0.2", default-features = false }
 ```
 
 ## Features
