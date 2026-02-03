@@ -15,8 +15,9 @@ num-traits = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true }
+proptest = { workspace = true }
 
 [features]
-default = []
+default = ["std"]
 alloc = []
 std = ["alloc"]
