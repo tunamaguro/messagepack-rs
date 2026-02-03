@@ -43,7 +43,7 @@ assert_eq!(&serialized[..len], buf);
 Add this crate to `Cargo.toml`. `no_std` is supported by default.
 
 ```toml
-messagepack-serde = { version = "0.1" }
+messagepack-serde = { version = "0.2" }
 ```
 
 ## Features

@@ -1,5 +1,7 @@
 ## messagepack-core
 
+[![Crates.io Version](https://img.shields.io/crates/v/messagepack_core)](https://crates.io/crates/messagepack-core)
+
 messagepack for `no_std`
 
 ### Example
@@ -23,6 +25,14 @@ let mut reader = SliceReader::new(&buf);
 let decoded = <&str as Decode>::decode(&mut reader).unwrap();
 assert_eq!(decoded, "MessagePack");
 assert_eq!(reader.rest().len(), 0);
+```
+
+## Installation
+
+Add this crate to `Cargo.toml`. `no_std` is supported by default.
+
+```toml
+messagepack-core = { version = "0.2" }
 ```
 
 ## License
