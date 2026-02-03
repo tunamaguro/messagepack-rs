@@ -1,0 +1,20 @@
+[package]
+name = "messagepack-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+messagepack-serde = { path = "../messagepack-serde" }
+
+
+[[bin]]
+name = "fuzz_value_serde"
+path = "fuzz_targets/fuzz_value_serde.rs"
+test = false
+doc = false
+bench = false
