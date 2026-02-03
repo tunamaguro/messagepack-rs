@@ -23,7 +23,7 @@ jobs:
         id: auth
       - name: Publish crates.io
         run: |
-          cargo publish --workspace --exclude messagepack-bench
+          cargo publish --workspace
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         
