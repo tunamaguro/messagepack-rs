@@ -107,7 +107,7 @@ where
     T: ser::Serialize + ?Sized,
     C: for<'a> NumEncoder<messagepack_core::io::VecRefWriter<'a>>,
 {
-    let mut buf = Vec::new();
+    let mut buf = alloc::vec::Vec::new();
     let mut writer = messagepack_core::io::VecRefWriter::new(&mut buf);
     to_core_writer_with_config(value, &mut writer, config)?;
     Ok(buf)

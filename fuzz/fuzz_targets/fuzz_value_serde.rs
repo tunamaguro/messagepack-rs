@@ -12,7 +12,7 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
 
-    // Since `messagepack_serde::value::Number` doesn't preserve the original type information, encoding it again won't produce the same value. 
+    // Since [messagepack_serde::value::Number] doesn't preserve the original type information, encoding it again won't produce the same value.
     // Therefore, we won't perform tests involving re-encoding.
     let _buf = to_vec_with_config(&v, Exact).unwrap();
 });
