@@ -38,7 +38,7 @@ impl<'a> SliceWriter<'a> {
         Self { buf, cursor: 0 }
     }
 
-    fn len(&self) -> usize {
+    fn remaining(&self) -> usize {
         self.buf.len() - self.cursor
     }
 }
@@ -46,15 +46,17 @@ impl<'a> SliceWriter<'a> {
 impl IoWrite for SliceWriter<'_> {
     type Error = WError;
 
+    #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        if self.len() >= buf.len() {
-            let to = &mut self.buf[self.cursor..self.cursor + buf.len()];
-            to.copy_from_slice(buf);
-            self.cursor += buf.len();
-            Ok(())
-        } else {
-            Err(WError::BufferFull)
+        if buf.len() > self.remaining() {
+            return Err(WError::BufferFull);
         }
+
+        let start = self.cursor;
+        let end = start + buf.len();
+        self.buf[start..end].copy_from_slice(buf);
+        self.cursor = end;
+        Ok(())
     }
 }
 
