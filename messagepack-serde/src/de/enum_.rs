@@ -22,7 +22,6 @@ where
 
     type Variant = Self;
 
-    #[inline]
     fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
     where
         V: de::DeserializeSeed<'de>,
@@ -45,7 +44,6 @@ where
         Err(CoreError::UnexpectedFormat.into())
     }
 
-    #[inline]
     fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
     where
         T: de::DeserializeSeed<'de>,
@@ -53,7 +51,6 @@ where
         seed.deserialize(self.de.as_mut())
     }
 
-    #[inline]
     fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
@@ -61,7 +58,6 @@ where
         de::Deserializer::deserialize_seq(self.de, visitor)
     }
 
-    #[inline]
     fn struct_variant<V>(
         self,
         _fields: &'static [&'static str],
