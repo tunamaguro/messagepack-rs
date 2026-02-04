@@ -155,6 +155,7 @@ where
 {
     type Error = Error<R::Error>;
 
+    #[inline]
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
@@ -254,6 +255,7 @@ where
         }
     }
 
+    #[inline]
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
@@ -268,6 +270,7 @@ where
         }
     }
 
+    #[inline]
     fn deserialize_enum<V>(
         self,
         _name: &'static str,
