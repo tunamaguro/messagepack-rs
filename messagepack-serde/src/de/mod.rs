@@ -28,6 +28,7 @@ where
 }
 
 /// Deserialize from slice
+#[inline]
 pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error<RError>> {
     use messagepack_core::io::SliceReader;
     let reader = SliceReader::new(input);
@@ -36,6 +37,7 @@ pub fn from_slice<'de, T: Deserialize<'de>>(input: &'de [u8]) -> Result<T, Error
 
 #[cfg(feature = "std")]
 /// Deserialize from [std::io::Read]
+#[inline]
 pub fn from_reader<R, T>(reader: R) -> std::io::Result<T>
 where
     R: std::io::Read,
