@@ -67,6 +67,7 @@ where
 }
 
 /// Serialize value to [messagepack_core::io::IoWrite].
+#[inline]
 pub fn to_core_writer<T, W>(value: &T, writer: &mut W) -> Result<usize, Error<W::Error>>
 where
     T: ser::Serialize + ?Sized,
@@ -76,6 +77,7 @@ where
 }
 
 /// Serialize value to slice with config.
+#[inline]
 pub fn to_slice_with_config<'a, T, C>(
     value: &T,
     buf: &'a mut [u8],
@@ -90,6 +92,7 @@ where
 }
 
 /// Serialize value to slice
+#[inline]
 pub fn to_slice<T>(value: &T, buf: &mut [u8]) -> Result<usize, Error<WError>>
 where
     T: ser::Serialize + ?Sized,
@@ -99,6 +102,7 @@ where
 
 /// Serialize value as messagepack byte vector with config
 #[cfg(feature = "alloc")]
+#[inline]
 pub fn to_vec_with_config<T, C>(
     value: &T,
     config: C,
@@ -115,6 +119,7 @@ where
 
 /// Serialize value as messagepack byte vector
 #[cfg(feature = "alloc")]
+#[inline]
 pub fn to_vec<T>(value: &T) -> Result<alloc::vec::Vec<u8>, Error<core::convert::Infallible>>
 where
     T: ser::Serialize + ?Sized,
@@ -124,6 +129,7 @@ where
 
 #[cfg(feature = "std")]
 /// Serialize value to [std::io::Write] with config.
+#[inline]
 pub fn to_writer_with_config<T, W, C>(
     value: &T,
     writer: &mut W,
@@ -139,6 +145,7 @@ where
 
 #[cfg(feature = "std")]
 /// Serialize value to [std::io::Write]
+#[inline]
 pub fn to_writer<T, W>(value: &T, writer: &mut W) -> Result<usize, Error<std::io::Error>>
 where
     T: ser::Serialize + ?Sized,
