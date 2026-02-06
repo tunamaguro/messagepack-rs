@@ -7,31 +7,23 @@ use rand::{
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct PrimitiveTypes {
-    usize: usize,
-    i8: i8,
-    i16: i16,
-    i32: i32,
-    i64: i64,
-    u8: u8,
-    u16: u16,
-    u32: u32,
-    u64: u64,
-}
+pub struct PrimitiveTypes(usize, i8, i16, i32, i64, u8, u16, u32, u64, f32, f64);
 
 impl Distribution<PrimitiveTypes> for StandardUniform {
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> PrimitiveTypes {
-        PrimitiveTypes {
-            usize: rng.random_range(usize::MIN..usize::MAX),
-            i8: rng.random(),
-            i16: rng.random(),
-            i32: rng.random(),
-            i64: rng.random(),
-            u8: rng.random(),
-            u16: rng.random(),
-            u32: rng.random(),
-            u64: rng.random(),
-        }
+        PrimitiveTypes(
+            rng.random_range(usize::MIN..usize::MAX),
+            rng.random(),
+            rng.random(),
+            rng.random(),
+            rng.random(),
+            rng.random(),
+            rng.random(),
+            rng.random(),
+            rng.random(),
+            rng.random(),
+            rng.random(),
+        )
     }
 }
 
