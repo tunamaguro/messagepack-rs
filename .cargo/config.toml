@@ -6,3 +6,4 @@ lint-fix = "clippy --workspace --tests --all-targets --all-features --allow-dirt
 [profile.bench]
 lto="fat"
 codegen-units=1
+debug="full"
