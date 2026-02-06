@@ -23,6 +23,7 @@ where
     type Ok = ();
     type Error = Error<W::Error>;
 
+    #[inline]
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + ser::Serialize,
@@ -44,6 +45,7 @@ where
     type Ok = ();
     type Error = Error<W::Error>;
 
+    #[inline]
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + ser::Serialize,
@@ -51,6 +53,7 @@ where
         ser::SerializeSeq::serialize_element(self, value)
     }
 
+    #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
         ser::SerializeSeq::end(self)
     }
@@ -64,12 +67,16 @@ where
 {
     type Ok = ();
     type Error = Error<W::Error>;
+
+    #[inline]
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + ser::Serialize,
     {
         ser::SerializeSeq::serialize_element(self, value)
     }
+
+    #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
         ser::SerializeSeq::end(self)
     }
@@ -84,6 +91,7 @@ where
     type Ok = ();
     type Error = Error<W::Error>;
 
+    #[inline]
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + ser::Serialize,
@@ -91,6 +99,7 @@ where
         ser::SerializeSeq::serialize_element(self, value)
     }
 
+    #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
         ser::SerializeSeq::end(self)
     }

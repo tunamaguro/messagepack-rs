@@ -21,6 +21,7 @@ where
 {
     type Error = Error<R::Error>;
 
+    #[inline]
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
         T: de::DeserializeSeed<'de>,
@@ -36,6 +37,7 @@ where
         }
     }
 
+    #[inline]
     fn size_hint(&self) -> Option<usize> {
         Some(self.left)
     }
@@ -48,6 +50,7 @@ where
 {
     type Error = Error<R::Error>;
 
+    #[inline]
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
     where
         K: de::DeserializeSeed<'de>,
@@ -63,6 +66,7 @@ where
         }
     }
 
+    #[inline]
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
     where
         V: de::DeserializeSeed<'de>,
@@ -70,6 +74,7 @@ where
         seed.deserialize(self.de.as_mut())
     }
 
+    #[inline]
     fn size_hint(&self) -> Option<usize> {
         Some(self.left)
     }

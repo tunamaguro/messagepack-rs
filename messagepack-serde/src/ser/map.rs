@@ -23,6 +23,7 @@ where
     type Ok = ();
     type Error = Error<W::Error>;
 
+    #[inline]
     fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + ser::Serialize,
@@ -30,6 +31,7 @@ where
         key.serialize(self.ser.as_mut())
     }
 
+    #[inline]
     fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + ser::Serialize,
@@ -37,6 +39,7 @@ where
         value.serialize(self.ser.as_mut())
     }
 
+    #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
@@ -51,12 +54,14 @@ where
     type Ok = ();
     type Error = Error<W::Error>;
 
+    #[inline]
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + ser::Serialize,
     {
         ser::SerializeMap::serialize_entry(self, key, value)
     }
+
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
         ser::SerializeMap::end(self)
@@ -72,6 +77,7 @@ where
     type Ok = ();
     type Error = Error<W::Error>;
 
+    #[inline]
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + ser::Serialize,
@@ -79,6 +85,7 @@ where
         ser::SerializeMap::serialize_entry(self, key, value)
     }
 
+    #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
         ser::SerializeMap::end(self)
     }
