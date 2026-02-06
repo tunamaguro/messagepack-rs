@@ -38,7 +38,7 @@ fn deserialize_messagepack_serde<T: Serialize + DeserializeOwned + Default + Syn
 
     bencher.bench_local(|| {
         let buf = core::hint::black_box(&buf[..buf_len]);
-        messagepack_serde::from_slice::<Vec<T>>(buf).unwrap()
+        messagepack_serde::from_reader::<_, Vec<T>>(buf).unwrap()
     });
 }
 
@@ -78,7 +78,7 @@ fn deserialize_rmp_serde<T: Serialize + DeserializeOwned + Default + Sync>(
 
     bencher.bench_local(|| {
         let buf = core::hint::black_box(&buf[..buf_len]);
-        rmp_serde::from_slice::<Vec<T>>(buf).unwrap()
+        rmp_serde::from_read::<_, Vec<T>>(buf).unwrap()
     });
 }
 
