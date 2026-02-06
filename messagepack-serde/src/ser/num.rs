@@ -16,7 +16,12 @@ pub trait NumEncoder<W: IoWrite> {
     /// decide encode i64
     fn encode_i64(v: i64, writer: &mut W) -> Result<usize, Error<W::Error>>;
     /// decide encode i128
-    fn encode_i128(v: i128, writer: &mut W) -> Result<usize, Error<W::Error>>;
+    fn encode_i128(v: i128, writer: &mut W) -> Result<usize, Error<W::Error>> {
+        match i64::try_from(v) {
+            Ok(i64_int) => Self::encode_i64(i64_int, writer),
+            Err(_) => Err(Error::InvalidFormat),
+        }
+    }
     /// decide encode u8
     fn encode_u8(v: u8, writer: &mut W) -> Result<usize, Error<W::Error>>;
     /// decide encode u16
@@ -26,7 +31,12 @@ pub trait NumEncoder<W: IoWrite> {
     /// decide encode u64
     fn encode_u64(v: u64, writer: &mut W) -> Result<usize, Error<W::Error>>;
     /// decide encode u128
-    fn encode_u128(v: u128, writer: &mut W) -> Result<usize, Error<W::Error>>;
+    fn encode_u128(v: u128, writer: &mut W) -> Result<usize, Error<W::Error>> {
+        match u64::try_from(v) {
+            Ok(u64_uint) => Self::encode_u64(u64_uint, writer),
+            Err(_) => Err(Error::InvalidFormat),
+        }
+    }
     /// decide encode f32
     fn encode_f32(v: f32, writer: &mut W) -> Result<usize, Error<W::Error>>;
     /// decide encode f64
@@ -292,19 +302,13 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 pub struct AggressiveMinimize;
 
 impl AggressiveMinimize {
-    fn encode_int<T: ToPrimitive, W: IoWrite>(
-        v: T,
-        writer: &mut W,
-    ) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        EncodeMinimizeInt(v).encode(writer)
-    }
-
     fn encode_float<T: FloatCore + Into<EncodeMinimizeFloat>, W: IoWrite>(
         v: T,
         writer: &mut W,
     ) -> Result<usize, Error<<W as IoWrite>::Error>> {
         if v.is_finite() && v.fract().is_zero() {
-            let size = Self::encode_int(v, writer).or_else(|_| v.into().encode(writer))?;
+            let size =
+                LosslessMinimize::encode_int(v, writer).or_else(|_| v.into().encode(writer))?;
             Ok(size)
         } else {
             let size = v.into().encode(writer)?;
@@ -315,43 +319,43 @@ impl AggressiveMinimize {
 
 impl<W: IoWrite> NumEncoder<W> for AggressiveMinimize {
     fn encode_i8(v: i8, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
+        LosslessMinimize::encode_int(v, writer)
     }
 
     fn encode_i16(v: i16, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
+        LosslessMinimize::encode_int(v, writer)
     }
 
     fn encode_i32(v: i32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
+        LosslessMinimize::encode_int(v, writer)
     }
 
     fn encode_i64(v: i64, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
+        LosslessMinimize::encode_int(v, writer)
     }
 
     fn encode_i128(v: i128, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
+        LosslessMinimize::encode_int(v, writer)
     }
 
     fn encode_u8(v: u8, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
+        LosslessMinimize::encode_int(v, writer)
     }
 
     fn encode_u16(v: u16, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
+        LosslessMinimize::encode_int(v, writer)
     }
 
     fn encode_u32(v: u32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
+        LosslessMinimize::encode_int(v, writer)
     }
 
     fn encode_u64(v: u64, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
+        LosslessMinimize::encode_int(v, writer)
     }
 
     fn encode_u128(v: u128, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
+        LosslessMinimize::encode_int(v, writer)
     }
 
     fn encode_f32(v: f32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {

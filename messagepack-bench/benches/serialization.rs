@@ -6,6 +6,7 @@ use messagepack_bench::{
     ArrayTypes, ByteType, ByteTypeBorrowed, CompositeType, MapType, PrimitiveTypes, StrTypes,
     StrTypesBorrowed,
 };
+
 use serde::Serialize;
 use std::iter::repeat_with;
 
@@ -25,6 +26,7 @@ const BUFFER_SIZE: usize = (2u32.pow(16)) as usize;
     args = LENS
 )]
 fn serialize_messagepack_serde<T: Serialize + Default + Sync>(bencher: divan::Bencher, len: usize) {
+    use messagepack_serde::ser::Exact;
     let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
 
     #[allow(unused_mut)]
@@ -37,7 +39,7 @@ fn serialize_messagepack_serde<T: Serialize + Default + Sync>(bencher: divan::Be
 
     bencher.bench_local_refs(|buf| {
         let buf = core::hint::black_box(buf);
-        messagepack_serde::to_slice(core::hint::black_box(&s), buf).unwrap()
+        messagepack_serde::to_slice_with_config(core::hint::black_box(&s), buf, Exact).unwrap()
     });
 }
 

@@ -4,6 +4,5 @@ lint = "clippy --workspace --tests --all-targets --all-features -- -D clippy::al
 lint-fix = "clippy --workspace --tests --all-targets --all-features --allow-dirty --fix -- -D clippy::all"
 
 [profile.bench]
-lto="fat"
-codegen-units=1
-debug="full"
+lto = "fat"
+codegen-units = 1

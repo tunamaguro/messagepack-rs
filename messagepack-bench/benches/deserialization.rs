@@ -125,7 +125,7 @@ fn deserialize_complex_messagepack_serde_from_slice(
 
     bencher.bench_local(|| {
         let input = core::hint::black_box(COMPLEX);
-        let _val = from_slice::<ValueRef<'_>>(input).unwrap();
+        from_slice::<ValueRef<'_>>(input).unwrap()
     });
 }
 
@@ -141,7 +141,7 @@ fn deserialize_complex_rmp_serde_from_slice(#[allow(unused_mut)] mut bencher: di
 
     bencher.bench_local(|| {
         let input = core::hint::black_box(COMPLEX);
-        let _val: ValueRef<'_> = from_slice(input).unwrap();
+        from_slice::<ValueRef<'_>>(input).unwrap()
     });
 }
 
@@ -158,7 +158,7 @@ fn deserialize_complex_messagepack_serde_from_reader(
 
     bencher.bench_local(|| {
         let input = core::hint::black_box(std::io::Cursor::new(COMPLEX));
-        let _val: Value = from_reader(input).unwrap();
+        from_reader::<_, Value>(input).unwrap()
     });
 }
 
@@ -174,6 +174,6 @@ fn deserialize_complex_rmp_serde_from_reader(#[allow(unused_mut)] mut bencher: d
 
     bencher.bench_local(|| {
         let input = core::hint::black_box(std::io::Cursor::new(COMPLEX));
-        let _val: Value = from_read(input).unwrap();
+        from_read::<_, Value>(input).unwrap()
     });
 }
