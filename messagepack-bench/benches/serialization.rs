@@ -61,6 +61,6 @@ fn serialize_rmp_serde<T: Serialize + Default + Sync>(bencher: divan::Bencher, l
     bencher.bench_local_refs(|buf| {
         let buf = core::hint::black_box(buf);
         let mut ser = rmp_serde::Serializer::new(buf).with_struct_map();
-        core::hint::black_box(&s).serialize(&mut ser)
+        core::hint::black_box(&s).serialize(&mut ser).unwrap()
     });
 }
