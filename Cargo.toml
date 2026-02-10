@@ -16,4 +16,4 @@ num-traits = { version = "0.2", default-features = false }
 
 # test dependencies
 rstest = "0.26"
-proptest = "1.9.0"
+proptest = "1.10.0"
