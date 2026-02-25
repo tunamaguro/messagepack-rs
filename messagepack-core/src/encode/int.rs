@@ -153,11 +153,13 @@ macro_rules! impl_atomic_int {
 impl_atomic_int!(core::sync::atomic::AtomicU8);
 impl_atomic_int!(core::sync::atomic::AtomicU16);
 impl_atomic_int!(core::sync::atomic::AtomicU32);
+#[cfg(target_has_atomic = "64")]
 impl_atomic_int!(core::sync::atomic::AtomicU64);
 impl_atomic_int!(core::sync::atomic::AtomicUsize);
 impl_atomic_int!(core::sync::atomic::AtomicI8);
 impl_atomic_int!(core::sync::atomic::AtomicI16);
 impl_atomic_int!(core::sync::atomic::AtomicI32);
+#[cfg(target_has_atomic = "64")]
 impl_atomic_int!(core::sync::atomic::AtomicI64);
 impl_atomic_int!(core::sync::atomic::AtomicIsize);
 
