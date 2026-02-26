@@ -172,6 +172,7 @@ impl_nonzero_int!(isize);
 
 macro_rules! impl_atomic_int {
     ($ty:ty, $base:ty) => {
+        #[cfg(target_has_atomic = $bits)]
         impl<'de> DecodeBorrowed<'de> for $ty {
             type Value = Self;
 
@@ -188,18 +189,16 @@ macro_rules! impl_atomic_int {
         }
     };
 }
-impl_atomic_int!(core::sync::atomic::AtomicU8, u8);
-impl_atomic_int!(core::sync::atomic::AtomicU16, u16);
-impl_atomic_int!(core::sync::atomic::AtomicU32, u32);
-#[cfg(target_has_atomic = "64")]
-impl_atomic_int!(core::sync::atomic::AtomicU64, u64);
-impl_atomic_int!(core::sync::atomic::AtomicUsize, usize);
-impl_atomic_int!(core::sync::atomic::AtomicI8, i8);
-impl_atomic_int!(core::sync::atomic::AtomicI16, i16);
-impl_atomic_int!(core::sync::atomic::AtomicI32, i32);
-#[cfg(target_has_atomic = "64")]
-impl_atomic_int!(core::sync::atomic::AtomicI64, i64);
-impl_atomic_int!(core::sync::atomic::AtomicIsize, isize);
+impl_atomic_int!(core::sync::atomic::AtomicU8, u8, "8");
+impl_atomic_int!(core::sync::atomic::AtomicU16, u16, "16");
+impl_atomic_int!(core::sync::atomic::AtomicU32, u32, "32");
+impl_atomic_int!(core::sync::atomic::AtomicU64, u64, "64");
+impl_atomic_int!(core::sync::atomic::AtomicUsize, usize, "ptr");
+impl_atomic_int!(core::sync::atomic::AtomicI8, i8, "8");
+impl_atomic_int!(core::sync::atomic::AtomicI16, i16, "16");
+impl_atomic_int!(core::sync::atomic::AtomicI32, i32, "32");
+impl_atomic_int!(core::sync::atomic::AtomicI64, i64, "64");
+impl_atomic_int!(core::sync::atomic::AtomicIsize, isize, "ptr");
 
 #[cfg(test)]
 mod tests {

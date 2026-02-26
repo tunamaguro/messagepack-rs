@@ -138,7 +138,8 @@ impl_nonzero_int!(core::num::NonZeroI64);
 impl_nonzero_int!(core::num::NonZeroIsize);
 
 macro_rules! impl_atomic_int {
-    ($ty:ty) => {
+    ($ty:ty, $bits:literal) => {
+        #[cfg(target_has_atomic = $bits)]
         impl<W> Encode<W> for $ty
         where
             W: IoWrite,
@@ -150,18 +151,16 @@ macro_rules! impl_atomic_int {
         }
     };
 }
-impl_atomic_int!(core::sync::atomic::AtomicU8);
-impl_atomic_int!(core::sync::atomic::AtomicU16);
-impl_atomic_int!(core::sync::atomic::AtomicU32);
-#[cfg(target_has_atomic = "64")]
-impl_atomic_int!(core::sync::atomic::AtomicU64);
-impl_atomic_int!(core::sync::atomic::AtomicUsize);
-impl_atomic_int!(core::sync::atomic::AtomicI8);
-impl_atomic_int!(core::sync::atomic::AtomicI16);
-impl_atomic_int!(core::sync::atomic::AtomicI32);
-#[cfg(target_has_atomic = "64")]
-impl_atomic_int!(core::sync::atomic::AtomicI64);
-impl_atomic_int!(core::sync::atomic::AtomicIsize);
+impl_atomic_int!(core::sync::atomic::AtomicU8, "8");
+impl_atomic_int!(core::sync::atomic::AtomicU16, "16");
+impl_atomic_int!(core::sync::atomic::AtomicU32, "32");
+impl_atomic_int!(core::sync::atomic::AtomicU64, "64");
+impl_atomic_int!(core::sync::atomic::AtomicUsize, "ptr");
+impl_atomic_int!(core::sync::atomic::AtomicI8, "8");
+impl_atomic_int!(core::sync::atomic::AtomicI16, "16");
+impl_atomic_int!(core::sync::atomic::AtomicI32, "32");
+impl_atomic_int!(core::sync::atomic::AtomicI64, "64");
+impl_atomic_int!(core::sync::atomic::AtomicIsize, "ptr");
 
 /// encode minimum byte size
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
