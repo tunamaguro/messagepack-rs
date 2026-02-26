@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use rand::{
-    Rng,
+    RngExt,
     distr::{Alphanumeric, Distribution, StandardUniform},
 };
 use serde::{Deserialize, Serialize};
