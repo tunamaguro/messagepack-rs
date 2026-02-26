@@ -171,7 +171,7 @@ impl_nonzero_int!(i64);
 impl_nonzero_int!(isize);
 
 macro_rules! impl_atomic_int {
-    ($ty:ty, $base:ty) => {
+    ($ty:ty, $base:ty, $bits:literal) => {
         #[cfg(target_has_atomic = $bits)]
         impl<'de> DecodeBorrowed<'de> for $ty {
             type Value = Self;
