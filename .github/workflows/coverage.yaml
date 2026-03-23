@@ -36,7 +36,7 @@ jobs:
       - name: Checkout PR branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install Rust
-        uses: moonrepo/setup-rust@ede6de059f8046a5e236c94046823e2af11ca670 # v1.2.2
+        uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
         with:
           cache-base: main
           components: llvm-tools-preview
@@ -48,7 +48,7 @@ jobs:
           cargo llvm-cov --workspace --no-default-features --lcov --output-path lcov_no_default_feature.info
           cargo llvm-cov --workspace --features alloc --lcov --output-path lcov_alloc.info
           cargo llvm-cov --workspace --features std --lcov --output-path lcov_std.info
-      - uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+      - uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5.5.3
         with:
           files: ./lcov_no_default_feature.info,./lcov_alloc.info,./lcov_std.info
         env:
