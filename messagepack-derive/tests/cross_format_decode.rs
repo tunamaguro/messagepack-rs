@@ -10,7 +10,8 @@ struct Point {
     y: u8,
 }
 
-fn main() {
+#[test]
+fn cross_format_decode() {
     // Encode as map (default) and decode
     let p = Point { x: 10, y: 20 };
     let mut buf = Vec::new();

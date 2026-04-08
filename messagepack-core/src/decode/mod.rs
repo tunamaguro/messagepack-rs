@@ -121,6 +121,10 @@ pub trait DecodeBorrowed<'de> {
         R: IoRead<'de>;
 }
 
+/// Decode a value which owns its data
+pub trait DecodeOwned: for<'de> DecodeBorrowed<'de, Value = Self> {}
+impl<T> DecodeOwned for T where T: for<'de> DecodeBorrowed<'de, Value = Self> {}
+
 impl<'de, T> Decode<'de> for T
 where
     T: DecodeBorrowed<'de>,
