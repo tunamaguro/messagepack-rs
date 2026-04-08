@@ -16,9 +16,7 @@ impl ContainerAttrs {
             if !attr.path().is_ident("msgpack") {
                 continue;
             }
-            let nested = attr.parse_args_with(
-                Punctuated::<Meta, Token![,]>::parse_terminated,
-            )?;
+            let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
             for meta in &nested {
                 match meta {
                     Meta::Path(p) if p.is_ident("map") => {
@@ -78,9 +76,7 @@ impl FieldAttrs {
             if !attr.path().is_ident("msgpack") {
                 continue;
             }
-            let nested = attr.parse_args_with(
-                Punctuated::<Meta, Token![,]>::parse_terminated,
-            )?;
+            let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
             for meta in &nested {
                 match meta {
                     Meta::Path(p) if p.is_ident("bytes") => {
@@ -99,10 +95,7 @@ impl FieldAttrs {
                         result.key = Some(idx);
                     }
                     other => {
-                        return Err(syn::Error::new_spanned(
-                            other,
-                            "unknown field attribute",
-                        ));
+                        return Err(syn::Error::new_spanned(other, "unknown field attribute"));
                     }
                 }
             }

@@ -33,10 +33,7 @@ mod tests {
     #[rstest]
     #[case(true,[0xc3])]
     #[case(false,[0xc2])]
-    fn encode_bool<V: Encode, E: AsRef<[u8]> + Sized>(
-        #[case] value: V,
-        #[case] expected: E,
-    ) {
+    fn encode_bool<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
 
         let mut buf = vec![];

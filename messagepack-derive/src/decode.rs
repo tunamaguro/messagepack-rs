@@ -69,8 +69,9 @@ pub fn derive_decode(input: &DeriveInput) -> syn::Result<TokenStream> {
     };
 
     // Build augmented where clause requiring DecodeBorrowed for each generic.
-    let mut decode_where =
-        where_clause.cloned().unwrap_or_else(|| syn::parse_quote!(where));
+    let mut decode_where = where_clause
+        .cloned()
+        .unwrap_or_else(|| syn::parse_quote!(where));
     for param in input.generics.type_params() {
         let ident = &param.ident;
         decode_where
@@ -117,12 +118,10 @@ fn decode_struct(
             }
         }
         Fields::Unnamed(unnamed) => decode_tuple_struct(name, unnamed, user_lifetimes),
-        Fields::Unit => {
-            Ok(quote! {
-                <() as ::messagepack_core::decode::DecodeBorrowed<'__de>>::decode_borrowed_with_format(__format, __reader)?;
-                Ok(#name)
-            })
-        }
+        Fields::Unit => Ok(quote! {
+            <() as ::messagepack_core::decode::DecodeBorrowed<'__de>>::decode_borrowed_with_format(__format, __reader)?;
+            Ok(#name)
+        }),
     }
 }
 
@@ -375,7 +374,11 @@ fn decode_tuple_struct(
     })
 }
 
-fn decode_field_expr(ty: &syn::Type, attrs: &FieldAttrs, user_lifetimes: &HashSet<String>) -> TokenStream {
+fn decode_field_expr(
+    ty: &syn::Type,
+    attrs: &FieldAttrs,
+    user_lifetimes: &HashSet<String>,
+) -> TokenStream {
     if let Some(ref decode_fn) = attrs.decode_with {
         quote! {
             #decode_fn(__reader)?
@@ -402,7 +405,10 @@ fn replace_lifetimes_in_type(ty: &syn::Type, user_lifetimes: &HashSet<String>) -
     replace_lifetimes_in_tokens(tokens, user_lifetimes)
 }
 
-fn replace_lifetimes_in_tokens(tokens: TokenStream, user_lifetimes: &HashSet<String>) -> TokenStream {
+fn replace_lifetimes_in_tokens(
+    tokens: TokenStream,
+    user_lifetimes: &HashSet<String>,
+) -> TokenStream {
     use proc_macro2::TokenTree;
     let mut result = TokenStream::new();
     let mut iter = tokens.into_iter().peekable();
@@ -410,13 +416,12 @@ fn replace_lifetimes_in_tokens(tokens: TokenStream, user_lifetimes: &HashSet<Str
         match &tt {
             TokenTree::Punct(p) if p.as_char() == '\'' => {
                 // Check if next token is one of the user lifetimes
-                if let Some(TokenTree::Ident(ident)) = iter.peek() {
-                    if user_lifetimes.contains(&ident.to_string()) {
+                if let Some(TokenTree::Ident(ident)) = iter.peek()
+                    && user_lifetimes.contains(&ident.to_string()) {
                         result.extend(quote! { '__de });
                         iter.next(); // consume the ident
                         continue;
                     }
-                }
                 result.extend(core::iter::once(tt));
             }
             TokenTree::Group(g) => {

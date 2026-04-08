@@ -174,10 +174,7 @@ mod tests {
     #[case(0x7f_u8,[0x7f])]
     #[case(0x80_u8,[Format::Uint8.as_byte(), 0x80])]
     #[case(u8::MAX,[Format::Uint8.as_byte(), 0xff])]
-    fn encode_uint8<V: Encode, E: AsRef<[u8]> + Sized>(
-        #[case] value: V,
-        #[case] expected: E,
-    ) {
+    fn encode_uint8<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
 
         let mut buf: Vec<u8> = vec![];
@@ -232,10 +229,7 @@ mod tests {
     #[case(-1_i8,[0xff])]
     #[case(0_i8,[Format::Int8.as_byte(),0x00])]
     #[case(i8::MAX,[Format::Int8.as_byte(),0x7f])]
-    fn encode_int8<V: Encode, E: AsRef<[u8]> + Sized>(
-        #[case] value: V,
-        #[case] expected: E,
-    ) {
+    fn encode_int8<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
 
         let mut buf = vec![];
@@ -249,10 +243,7 @@ mod tests {
     #[case(-1_i16,[Format::Int16.as_byte(),0xff,0xff])]
     #[case(0_i16,[Format::Int16.as_byte(),0x00,0x00])]
     #[case(i16::MAX,[Format::Int16.as_byte(),0x7f,0xff])]
-    fn encode_int16<V: Encode, E: AsRef<[u8]> + Sized>(
-        #[case] value: V,
-        #[case] expected: E,
-    ) {
+    fn encode_int16<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
 
         let mut buf = vec![];
@@ -266,10 +257,7 @@ mod tests {
     #[case(-1_i32,[Format::Int32.as_byte(),0xff,0xff,0xff,0xff])]
     #[case(0_i32,[Format::Int32.as_byte(),0x00,0x00,0x00,0x00])]
     #[case(i32::MAX,[Format::Int32.as_byte(),0x7f,0xff,0xff,0xff])]
-    fn encode_int32<V: Encode, E: AsRef<[u8]> + Sized>(
-        #[case] value: V,
-        #[case] expected: E,
-    ) {
+    fn encode_int32<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
 
         let mut buf = vec![];
@@ -283,10 +271,7 @@ mod tests {
     #[case(-1_i64,[Format::Int64.as_byte(),0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff])]
     #[case(0_i64,[Format::Int64.as_byte(),0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00])]
     #[case(i64::MAX,[Format::Int64.as_byte(),0x7f,0xff,0xff,0xff,0xff,0xff,0xff,0xff])]
-    fn encode_int64<V: Encode, E: AsRef<[u8]> + Sized>(
-        #[case] value: V,
-        #[case] expected: E,
-    ) {
+    fn encode_int64<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
 
         let mut buf = vec![];

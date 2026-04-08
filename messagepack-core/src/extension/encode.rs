@@ -5,7 +5,10 @@ use crate::formats::Format;
 use crate::io::IoWrite;
 
 impl Encode for ExtensionRef<'_> {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> core::result::Result<usize, encode::Error<W::Error>> {
+    fn encode<W: IoWrite>(
+        &self,
+        writer: &mut W,
+    ) -> core::result::Result<usize, encode::Error<W::Error>> {
         let data_len = self.data.len();
         let type_byte = self.r#type.to_be_bytes()[0];
 
@@ -66,14 +69,20 @@ impl Encode for ExtensionRef<'_> {
 }
 
 impl<const N: usize> Encode for FixedExtension<N> {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> core::result::Result<usize, encode::Error<W::Error>> {
+    fn encode<W: IoWrite>(
+        &self,
+        writer: &mut W,
+    ) -> core::result::Result<usize, encode::Error<W::Error>> {
         self.as_ref().encode(writer)
     }
 }
 
 #[cfg(feature = "alloc")]
 impl Encode for super::owned::ExtensionOwned {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> core::result::Result<usize, encode::Error<W::Error>> {
+    fn encode<W: IoWrite>(
+        &self,
+        writer: &mut W,
+    ) -> core::result::Result<usize, encode::Error<W::Error>> {
         self.as_ref().encode(writer)
     }
 }

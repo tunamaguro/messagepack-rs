@@ -70,10 +70,7 @@ mod tests {
 
     #[rstest]
     #[case(123.456_f32,[Format::Float32.as_byte(), 0x42, 0xf6, 0xe9, 0x79])]
-    fn encode_float32<V: Encode, E: AsRef<[u8]> + Sized>(
-        #[case] value: V,
-        #[case] expected: E,
-    ) {
+    fn encode_float32<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
 
         let mut buf = vec![];
@@ -84,10 +81,7 @@ mod tests {
 
     #[rstest]
     #[case(123456.789_f64,[Format::Float64.as_byte(), 0x40, 0xfe, 0x24, 0x0c, 0x9f, 0xbe, 0x76, 0xc9])]
-    fn encode_float64<V: Encode, E: AsRef<[u8]> + Sized>(
-        #[case] value: V,
-        #[case] expected: E,
-    ) {
+    fn encode_float64<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
 
         let mut buf = vec![];

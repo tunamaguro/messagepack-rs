@@ -9,9 +9,7 @@ pub fn derive_encode(input: &DeriveInput) -> syn::Result<TokenStream> {
     let (_, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let body = match &input.data {
-        Data::Struct(data_struct) => {
-            encode_struct(name, &input.attrs, &data_struct.fields)?
-        }
+        Data::Struct(data_struct) => encode_struct(name, &input.attrs, &data_struct.fields)?,
         Data::Enum(_) => {
             return Err(syn::Error::new_spanned(
                 input,
@@ -38,7 +36,9 @@ pub fn derive_encode(input: &DeriveInput) -> syn::Result<TokenStream> {
 
     // Build an augmented where clause that requires each generic type parameter
     // to implement `Encode`.
-    let mut encode_where = where_clause.cloned().unwrap_or_else(|| syn::parse_quote!(where));
+    let mut encode_where = where_clause
+        .cloned()
+        .unwrap_or_else(|| syn::parse_quote!(where));
     for param in input.generics.type_params() {
         let ident = &param.ident;
         encode_where
