@@ -381,11 +381,9 @@ fn decode_field_expr(ty: &syn::Type, attrs: &FieldAttrs, user_lifetimes: &HashSe
             #decode_fn(__reader)?
         }
     } else if attrs.bytes {
+        let replaced_ty = replace_lifetimes_in_type(ty, user_lifetimes);
         quote! {
-            {
-                let __val = <::messagepack_core::decode::ReferenceDecoder as ::messagepack_core::decode::Decode<'__de>>::decode(__reader)?;
-                __val.as_bytes().to_vec()
-            }
+            <#replaced_ty as ::messagepack_core::decode::DecodeBytes<'__de>>::decode_bytes(__reader)?
         }
     } else {
         let replaced_ty = replace_lifetimes_in_type(ty, user_lifetimes);
@@ -397,8 +395,15 @@ fn decode_field_expr(ty: &syn::Type, attrs: &FieldAttrs, user_lifetimes: &HashSe
 
 /// Replace user-defined lifetimes with `'__de` in a type's token stream.
 fn replace_lifetimes_in_type(ty: &syn::Type, user_lifetimes: &HashSet<String>) -> TokenStream {
-    use proc_macro2::TokenTree;
+    if user_lifetimes.is_empty() {
+        return quote! { #ty };
+    }
     let tokens = quote! { #ty };
+    replace_lifetimes_in_tokens(tokens, user_lifetimes)
+}
+
+fn replace_lifetimes_in_tokens(tokens: TokenStream, user_lifetimes: &HashSet<String>) -> TokenStream {
+    use proc_macro2::TokenTree;
     let mut result = TokenStream::new();
     let mut iter = tokens.into_iter().peekable();
     while let Some(tt) = iter.next() {
@@ -407,7 +412,6 @@ fn replace_lifetimes_in_type(ty: &syn::Type, user_lifetimes: &HashSet<String>) -
                 // Check if next token is one of the user lifetimes
                 if let Some(TokenTree::Ident(ident)) = iter.peek() {
                     if user_lifetimes.contains(&ident.to_string()) {
-                        // Replace with '__de
                         result.extend(quote! { '__de });
                         iter.next(); // consume the ident
                         continue;
@@ -416,10 +420,7 @@ fn replace_lifetimes_in_type(ty: &syn::Type, user_lifetimes: &HashSet<String>) -
                 result.extend(core::iter::once(tt));
             }
             TokenTree::Group(g) => {
-                // Recurse into groups (e.g. angle brackets in types)
-                let inner_ty: syn::Type = syn::parse2(g.stream())
-                    .unwrap_or_else(|_| syn::parse2(quote! { () }).unwrap());
-                let replaced = replace_lifetimes_in_type(&inner_ty, user_lifetimes);
+                let replaced = replace_lifetimes_in_tokens(g.stream(), user_lifetimes);
                 let new_group = proc_macro2::Group::new(g.delimiter(), replaced);
                 result.extend(core::iter::once(TokenTree::Group(new_group)));
             }

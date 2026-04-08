@@ -17,3 +17,6 @@ pub mod timestamp;
 pub use decode::Decode;
 pub use encode::Encode;
 pub use formats::Format;
+
+#[cfg(feature = "derive")]
+pub use messagepack_derive::{Decode, Encode};
