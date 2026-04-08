@@ -18,8 +18,8 @@ enum Integer {
     I64(i64),
 }
 
-impl<W: IoWrite> Encode<W> for Integer {
-    fn encode(&self, writer: &mut W) -> Result<usize, EncodeError<W::Error>> {
+impl Encode for Integer {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, EncodeError<W::Error>> {
         match self {
             Integer::U8(v) => v.encode(writer),
             Integer::U16(v) => v.encode(writer),
@@ -84,8 +84,8 @@ impl PartialEq for Float {
     }
 }
 
-impl<W: IoWrite> Encode<W> for Float {
-    fn encode(&self, writer: &mut W) -> Result<usize, EncodeError<W::Error>> {
+impl Encode for Float {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, EncodeError<W::Error>> {
         match self {
             Float::F32(v) => v.encode(writer),
             Float::F64(v) => v.encode(writer),
@@ -133,8 +133,8 @@ enum MessagePackType {
     Ext(ExtensionOwned),
 }
 
-impl<W: IoWrite> Encode<W> for MessagePackType {
-    fn encode(&self, writer: &mut W) -> Result<usize, EncodeError<W::Error>> {
+impl Encode for MessagePackType {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, EncodeError<W::Error>> {
         match self {
             MessagePackType::Nil => NilEncoder.encode(writer),
             MessagePackType::Bool(v) => v.encode(writer),
