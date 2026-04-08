@@ -487,6 +487,7 @@ name = "messagepack-bench"
 version = "0.1.0"
 dependencies = [
  "codspeed-divan-compat",
+ "messagepack-core",
  "messagepack-serde",
  "rand 0.10.0",
  "rmp-serde",
@@ -499,6 +500,7 @@ dependencies = [
 name = "messagepack-core"
 version = "0.2.2"
 dependencies = [
+ "messagepack-derive",
  "num-traits",
  "proptest",
  "rstest",

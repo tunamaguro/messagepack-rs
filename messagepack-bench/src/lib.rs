@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
+use messagepack_core::{Decode, Encode};
 use rand::{
     RngExt,
     distr::{Alphanumeric, Distribution, StandardUniform},
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct PrimitiveTypes {
     usize: usize,
     i8: i8,
@@ -41,7 +42,7 @@ impl Default for PrimitiveTypes {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct StrTypes {
     short: String,
     medium: String,
@@ -58,7 +59,7 @@ impl Default for StrTypes {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct StrTypesBorrowed<'a> {
     short: &'a str,
     medium: &'a str,
@@ -75,7 +76,7 @@ impl Default for StrTypesBorrowed<'_> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct ArrayTypes {
     short: Vec<u8>,
     medium: Vec<u8>,
@@ -92,13 +93,16 @@ impl Default for ArrayTypes {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct ByteType {
     #[serde(with = "serde_bytes")]
+    #[msgpack(bytes)]
     short: Vec<u8>,
     #[serde(with = "serde_bytes")]
+    #[msgpack(bytes)]
     medium: Vec<u8>,
     #[serde(with = "serde_bytes")]
+    #[msgpack(bytes)]
     long: Vec<u8>,
 }
 
@@ -112,13 +116,16 @@ impl Default for ByteType {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct ByteTypeBorrowed<'a> {
     #[serde(with = "serde_bytes")]
+    #[msgpack(bytes)]
     short: &'a [u8],
     #[serde(with = "serde_bytes")]
+    #[msgpack(bytes)]
     medium: &'a [u8],
     #[serde(with = "serde_bytes")]
+    #[msgpack(bytes)]
     long: &'a [u8],
 }
 
@@ -132,7 +139,7 @@ impl Default for ByteTypeBorrowed<'_> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct MapType {
     small: HashMap<i32, String>,
     medium: HashMap<i16, u64>,
@@ -180,7 +187,7 @@ impl Default for MapType {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Encode, Decode)]
 pub struct CompositeType {
     pub primitives: PrimitiveTypes,
     pub strings: StrTypes,
