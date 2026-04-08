@@ -417,11 +417,12 @@ fn replace_lifetimes_in_tokens(
             TokenTree::Punct(p) if p.as_char() == '\'' => {
                 // Check if next token is one of the user lifetimes
                 if let Some(TokenTree::Ident(ident)) = iter.peek()
-                    && user_lifetimes.contains(&ident.to_string()) {
-                        result.extend(quote! { '__de });
-                        iter.next(); // consume the ident
-                        continue;
-                    }
+                    && user_lifetimes.contains(&ident.to_string())
+                {
+                    result.extend(quote! { '__de });
+                    iter.next(); // consume the ident
+                    continue;
+                }
                 result.extend(core::iter::once(tt));
             }
             TokenTree::Group(g) => {
