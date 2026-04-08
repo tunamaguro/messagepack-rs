@@ -18,6 +18,9 @@ pub use nil::NilDecoder;
 mod str;
 pub use str::{ReferenceStr, ReferenceStrDecoder};
 
+mod any;
+pub use any::Any;
+
 /// MessagePack decode error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Error<E> {
