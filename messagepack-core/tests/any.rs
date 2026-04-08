@@ -1,8 +1,10 @@
 use messagepack_core::{
-    decode::{Decode, DecodeBorrowed, Error as DecodeError, NilDecoder},
+    decode::{
+        Any, AnyBin, AnyExt, AnyStr, Decode, DecodeBorrowed, Error as DecodeError, NilDecoder,
+    },
     encode::{BinaryEncoder, Encode, Error as EncodeError, NilEncoder},
     extension::ExtensionOwned,
-    io::{IoRead, IoWrite, SliceReader, VecRefWriter},
+    io::{IoRead, IoWrite, IterReader, SliceReader, VecRefWriter},
 };
 use proptest::prelude::*;
 
@@ -209,4 +211,51 @@ proptest! {
 
         assert_eq!(x,y);
     }
+}
+
+#[test]
+fn decode_any_single_value() {
+    let mut map = std::collections::BTreeMap::new();
+    map.insert(String::from("ok"), MessagePackType::Bool(true));
+
+    let value = MessagePackType::Array(vec![
+        MessagePackType::Nil,
+        MessagePackType::Integer(Integer::I64(-10)),
+        MessagePackType::Float(Float::F32(1.5)),
+        MessagePackType::Str(String::from("hello")),
+        MessagePackType::Bin(vec![1, 2, 3]),
+        MessagePackType::Map(map),
+        MessagePackType::Ext(ExtensionOwned::new(1, vec![9, 8])),
+    ]);
+
+    let mut buf = vec![];
+    let mut writer = VecRefWriter::new(&mut buf);
+    value.encode(&mut writer).unwrap();
+
+    let mut reader = SliceReader::new(buf.as_slice());
+    let decoded = Any::decode(&mut reader).unwrap();
+
+    assert_eq!(decoded, Any::Array(7));
+    assert!(reader.rest().is_empty());
+}
+
+#[test]
+fn decode_any_copied_becomes_len() {
+    let mut buf = vec![];
+    let mut writer = VecRefWriter::new(&mut buf);
+    String::from("hello").encode(&mut writer).unwrap();
+    BinaryEncoder(&[1, 2, 3, 4]).encode(&mut writer).unwrap();
+    ExtensionOwned::new(3, vec![9, 8, 7])
+        .encode(&mut writer)
+        .unwrap();
+
+    let mut iter = IterReader::new(buf.into_iter());
+
+    let a = Any::decode(&mut iter).unwrap();
+    let b = Any::decode(&mut iter).unwrap();
+    let c = Any::decode(&mut iter).unwrap();
+
+    assert_eq!(a, Any::Str(AnyStr::Len(5)));
+    assert_eq!(b, Any::Bin(AnyBin::Len(4)));
+    assert_eq!(c, Any::Ext(AnyExt::Len { r#type: 3, len: 3 }));
 }

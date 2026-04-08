@@ -4,6 +4,10 @@ use crate::{Format, io::IoRead};
 
 mod array;
 pub use array::ArrayDecoder;
+#[cfg(feature = "alloc")]
+mod any;
+#[cfg(feature = "alloc")]
+pub use any::{Any, AnyBin, AnyExt, AnyStr};
 mod bin;
 #[cfg(feature = "alloc")]
 pub use bin::BinOwnedDecoder;
