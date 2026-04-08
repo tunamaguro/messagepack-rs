@@ -162,3 +162,88 @@ impl<'de> FromIterator<(Any<'de>, Any<'de>)> for IterCounter {
         Self { count }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    // Nil
+    #[case(&[0xc0], Any::Nil)]
+    // Bool
+    #[case(&[0xc2], Any::Bool(false))]
+    #[case(&[0xc3], Any::Bool(true))]
+    // Positive FixInt (u8)
+    #[case(&[0x00], Any::U8(0))]
+    #[case(&[0x7f], Any::U8(127))]
+    // Uint8
+    #[case(&[0xcc, 0x80], Any::U8(128))]
+    #[case(&[0xcc, 0xff], Any::U8(255))]
+    // Uint16
+    #[case(&[0xcd, 0x01, 0x00], Any::U16(256))]
+    #[case(&[0xcd, 0xff, 0xff], Any::U16(65535))]
+    // Uint32
+    #[case(&[0xce, 0x00, 0x01, 0x00, 0x00], Any::U32(65536))]
+    // Uint64
+    #[case(&[0xcf, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00], Any::U64(4294967296))]
+    // Negative FixInt (i8)
+    #[case(&[0xff], Any::I8(-1))]
+    #[case(&[0xe0], Any::I8(-32))]
+    // Int8
+    #[case(&[0xd0, 0xdf], Any::I8(-33))]
+    #[case(&[0xd0, 0x80], Any::I8(-128))]
+    // Int16
+    #[case(&[0xd1, 0xff, 0x00], Any::I16(-256))]
+    #[case(&[0xd1, 0x80, 0x00], Any::I16(-32768))]
+    // Int32
+    #[case(&[0xd2, 0xff, 0xff, 0x00, 0x00], Any::I32(-65536))]
+    // Int64
+    #[case(&[0xd3, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00], Any::I64(-4294967296))]
+    // Float32
+    #[case(&[0xca, 0x41, 0x20, 0x00, 0x00], Any::F32(10.0))]
+    // Float64
+    #[case(&[0xcb, 0x40, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], Any::F64(10.0))]
+    // FixStr (empty)
+    #[case(&[0xa0], Any::StrBorrowed(""))]
+    // FixStr ("hi")
+    #[case(&[0xa2, 0x68, 0x69], Any::StrBorrowed("hi"))]
+    // Str8
+    #[case(&[0xd9, 0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f], Any::StrBorrowed("hello"))]
+    // Bin8 (empty)
+    #[case(&[0xc4, 0x00], Any::BinBorrowed(&[]))]
+    // Bin8
+    #[case(&[0xc4, 0x03, 0x01, 0x02, 0x03], Any::BinBorrowed(&[1, 2, 3]))]
+    // FixArray (empty)
+    #[case(&[0x90], Any::Array(0))]
+    // FixArray with 2 elements (nil, true)
+    #[case(&[0x92, 0xc0, 0xc3], Any::Array(2))]
+    // FixArray with nested array
+    #[case(&[0x91, 0x91, 0xc0], Any::Array(1))]
+    // FixMap (empty)
+    #[case(&[0x80], Any::Map(0))]
+    // FixMap with 1 pair (fixint 1 => true)
+    #[case(&[0x81, 0x01, 0xc3], Any::Map(1))]
+    // FixExt1
+    #[case(&[0xd4, 0x01, 0xaa], Any::ExtBorrowed { r#type: 1, data: &[0xaa] })]
+    // FixExt2
+    #[case(&[0xd5, 0x02, 0xaa, 0xbb], Any::ExtBorrowed { r#type: 2, data: &[0xaa, 0xbb] })]
+    // FixExt4
+    #[case(&[0xd6, 0x03, 0x01, 0x02, 0x03, 0x04], Any::ExtBorrowed { r#type: 3, data: &[1, 2, 3, 4] })]
+    // Ext8 (0-length)
+    #[case(&[0xc7, 0x00, 0x05], Any::ExtBorrowed { r#type: 5, data: &[] })]
+    // Ext8
+    #[case(&[0xc7, 0x03, 0x0a, 0x01, 0x02, 0x03], Any::ExtBorrowed { r#type: 10, data: &[1, 2, 3] })]
+    // NeverUsed
+    fn decode_any_ok(#[case] input: &[u8], #[case] expected: Any<'_>) {
+        let mut reader = crate::io::SliceReader::new(input);
+        let value = Any::decode(&mut reader).unwrap();
+        assert_eq!(value, expected);
+    }
+    #[rstest]
+    #[case::never_used(&[0xc1])]
+    fn decode_any_err(#[case] input: &[u8]) {
+        let mut reader = crate::io::SliceReader::new(input);
+        assert!(Any::decode(&mut reader).is_err());
+    }
+}
