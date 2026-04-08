@@ -37,20 +37,20 @@ pub fn derive_encode(input: &DeriveInput) -> syn::Result<TokenStream> {
         .collect();
 
     // Build an augmented where clause that requires each generic type parameter
-    // to implement `Encode<__W>`.
+    // to implement `Encode`.
     let mut encode_where = where_clause.cloned().unwrap_or_else(|| syn::parse_quote!(where));
     for param in input.generics.type_params() {
         let ident = &param.ident;
         encode_where
             .predicates
-            .push(syn::parse_quote!(#ident: ::messagepack_core::encode::Encode<__W>));
+            .push(syn::parse_quote!(#ident: ::messagepack_core::encode::Encode));
     }
 
     Ok(quote! {
-        impl<#(#lifetime_params,)* __W: ::messagepack_core::io::IoWrite, #(#type_const_params),*> ::messagepack_core::encode::Encode<__W> for #name #ty_generics
+        impl<#(#lifetime_params,)* #(#type_const_params),*> ::messagepack_core::encode::Encode for #name #ty_generics
             #encode_where
         {
-            fn encode(&self, writer: &mut __W) -> ::core::result::Result<usize, ::messagepack_core::encode::Error<<__W as ::messagepack_core::io::IoWrite>::Error>> {
+            fn encode<__W: ::messagepack_core::io::IoWrite>(&self, writer: &mut __W) -> ::core::result::Result<usize, ::messagepack_core::encode::Error<<__W as ::messagepack_core::io::IoWrite>::Error>> {
                 #body
             }
         }
@@ -77,7 +77,7 @@ fn encode_struct(
         Fields::Unit => {
             // Unit struct → encode as nil
             Ok(quote! {
-                ::messagepack_core::encode::Encode::<__W>::encode(&(), writer)
+                ::messagepack_core::encode::Encode::encode(&(), writer)
             })
         }
     }
@@ -93,7 +93,7 @@ fn encode_named_as_map(fields: &syn::FieldsNamed) -> syn::Result<TokenStream> {
         let field_name_str = field_name.to_string();
 
         let key_encode = quote! {
-            __n += ::messagepack_core::encode::Encode::<__W>::encode(&#field_name_str, writer)?;
+            __n += ::messagepack_core::encode::Encode::encode(&#field_name_str, writer)?;
         };
 
         let value_encode = encode_field_value(field, &field_attrs, quote! { &self.#field_name })?;
@@ -106,7 +106,7 @@ fn encode_named_as_map(fields: &syn::FieldsNamed) -> syn::Result<TokenStream> {
 
     Ok(quote! {
         let mut __n = 0usize;
-        __n += ::messagepack_core::encode::Encode::<__W>::encode(
+        __n += ::messagepack_core::encode::Encode::encode(
             &::messagepack_core::encode::map::MapFormatEncoder::new(#num_fields),
             writer,
         )?;
@@ -157,7 +157,7 @@ fn encode_named_as_array(fields: &syn::FieldsNamed) -> syn::Result<TokenStream> 
 
     Ok(quote! {
         let mut __n = 0usize;
-        __n += ::messagepack_core::encode::Encode::<__W>::encode(
+        __n += ::messagepack_core::encode::Encode::encode(
             &::messagepack_core::encode::array::ArrayFormatEncoder(#num_fields),
             writer,
         )?;
@@ -179,7 +179,7 @@ fn encode_tuple_struct(fields: &syn::FieldsUnnamed) -> syn::Result<TokenStream> 
 
     Ok(quote! {
         let mut __n = 0usize;
-        __n += ::messagepack_core::encode::Encode::<__W>::encode(
+        __n += ::messagepack_core::encode::Encode::encode(
             &::messagepack_core::encode::array::ArrayFormatEncoder(#num_fields),
             writer,
         )?;
@@ -199,14 +199,14 @@ fn encode_field_value(
         })
     } else if attrs.bytes {
         Ok(quote! {
-            __n += ::messagepack_core::encode::Encode::<__W>::encode(
+            __n += ::messagepack_core::encode::Encode::encode(
                 &::messagepack_core::encode::bin::BinaryEncoder(#accessor),
                 writer,
             )?;
         })
     } else {
         Ok(quote! {
-            __n += ::messagepack_core::encode::Encode::<__W>::encode(#accessor, writer)?;
+            __n += ::messagepack_core::encode::Encode::encode(#accessor, writer)?;
         })
     }
 }

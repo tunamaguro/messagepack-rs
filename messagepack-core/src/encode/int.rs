@@ -5,11 +5,8 @@ use num_traits::ToPrimitive;
 use super::{Encode, Error, Result};
 use crate::{formats::Format, io::IoWrite};
 
-impl<W> Encode<W> for u8
-where
-    W: IoWrite,
-{
-    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+impl Encode for u8 {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         match self {
             0x00..=0x7f => {
                 writer.write(&Format::PositiveFixInt(*self).as_slice())?;
@@ -25,11 +22,8 @@ where
     }
 }
 
-impl<W> Encode<W> for u128
-where
-    W: IoWrite,
-{
-    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl Encode for u128 {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match u64::try_from(*self) {
             Ok(u64_uint) => u64_uint.encode(writer),
             Err(_) => Err(Error::InvalidFormat),
@@ -37,11 +31,8 @@ where
     }
 }
 
-impl<W> Encode<W> for usize
-where
-    W: IoWrite,
-{
-    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl Encode for usize {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match u64::try_from(*self) {
             Ok(u64_uint) => u64_uint.encode(writer),
             Err(_) => Err(Error::InvalidFormat),
@@ -49,11 +40,8 @@ where
     }
 }
 
-impl<W> Encode<W> for i8
-where
-    W: IoWrite,
-{
-    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+impl Encode for i8 {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         match self {
             -32..=-1 => {
                 writer.write(&Format::NegativeFixInt(*self).as_slice())?;
@@ -69,11 +57,8 @@ where
     }
 }
 
-impl<W> Encode<W> for isize
-where
-    W: IoWrite,
-{
-    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+impl Encode for isize {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         match i64::try_from(*self) {
             Ok(i64_int) => i64_int.encode(writer),
             Err(_) => Err(Error::InvalidFormat),
@@ -81,11 +66,8 @@ where
     }
 }
 
-impl<W> Encode<W> for i128
-where
-    W: IoWrite,
-{
-    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+impl Encode for i128 {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         match i64::try_from(*self) {
             Ok(i64_int) => i64_int.encode(writer),
             Err(_) => Err(Error::InvalidFormat),
@@ -95,11 +77,8 @@ where
 
 macro_rules! impl_encode_int {
     ($ty:ty,  $format:expr, $size:expr) => {
-        impl<W> Encode<W> for $ty
-        where
-            W: IoWrite,
-        {
-            fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+        impl Encode for $ty {
+            fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
                 writer.write(&$format.as_slice())?;
                 writer.write(&self.to_be_bytes())?;
                 Ok($size)
@@ -116,11 +95,8 @@ impl_encode_int!(i64, Format::Int64, 9);
 
 macro_rules! impl_nonzero_int {
     ($ty:ty) => {
-        impl<W> Encode<W> for $ty
-        where
-            W: IoWrite,
-        {
-            fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+        impl Encode for $ty {
+            fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
                 self.get().encode(writer)
             }
         }
@@ -140,11 +116,8 @@ impl_nonzero_int!(core::num::NonZeroIsize);
 macro_rules! impl_atomic_int {
     ($ty:ty, $bits:literal) => {
         #[cfg(target_has_atomic = $bits)]
-        impl<W> Encode<W> for $ty
-        where
-            W: IoWrite,
-        {
-            fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+        impl Encode for $ty {
+            fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
                 self.load(core::sync::atomic::Ordering::Relaxed)
                     .encode(writer)
             }
@@ -166,12 +139,8 @@ impl_atomic_int!(core::sync::atomic::AtomicIsize, "ptr");
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub struct EncodeMinimizeInt<N>(pub N);
 
-impl<W, N> Encode<W> for EncodeMinimizeInt<N>
-where
-    W: IoWrite,
-    N: ToPrimitive,
-{
-    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
+impl<N: ToPrimitive> Encode for EncodeMinimizeInt<N> {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         let n = &self.0;
         if let Some(v) = n.to_u8() {
             v.encode(writer)
@@ -205,7 +174,7 @@ mod tests {
     #[case(0x7f_u8,[0x7f])]
     #[case(0x80_u8,[Format::Uint8.as_byte(), 0x80])]
     #[case(u8::MAX,[Format::Uint8.as_byte(), 0xff])]
-    fn encode_uint8<V: Encode<Vec<u8>>, E: AsRef<[u8]> + Sized>(
+    fn encode_uint8<V: Encode, E: AsRef<[u8]> + Sized>(
         #[case] value: V,
         #[case] expected: E,
     ) {
@@ -222,7 +191,7 @@ mod tests {
     #[case(0x00ff_u16,[Format::Uint16.as_byte(),0x00,0xff])]
     #[case(0x01ff_u16, [Format::Uint16.as_byte(), 0x01, 0xff])]
     #[case(u16::MAX, [Format::Uint16.as_byte(), 0xff, 0xff])]
-    fn encode_uint16<V: Encode<Vec<u8>>, E: AsRef<[u8]>>(#[case] value: V, #[case] expected: E) {
+    fn encode_uint16<V: Encode, E: AsRef<[u8]>>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
 
         let mut buf = vec![];
@@ -236,7 +205,7 @@ mod tests {
     #[case(0x0000ffff_u32, [Format::Uint32.as_byte(), 0x00, 0x00,0xff, 0xff])]
     #[case(0x0001ffff_u32, [Format::Uint32.as_byte(), 0x00, 0x01,0xff, 0xff])]
     #[case(u32::MAX, [Format::Uint32.as_byte(),0xff, 0xff, 0xff,0xff])]
-    fn encode_uint32<V: Encode<Vec<u8>>, E: AsRef<[u8]>>(#[case] value: V, #[case] expected: E) {
+    fn encode_uint32<V: Encode, E: AsRef<[u8]>>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
 
         let mut buf = vec![];
@@ -248,7 +217,7 @@ mod tests {
     #[rstest]
     #[case(u64::MIN, [Format::Uint64.as_byte(), 0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00])]
     #[case(u64::MAX, [Format::Uint64.as_byte(), 0xff, 0xff, 0xff,0xff,0xff, 0xff, 0xff,0xff])]
-    fn encode_uint64<V: Encode<Vec<u8>>, E: AsRef<[u8]>>(#[case] value: V, #[case] expected: E) {
+    fn encode_uint64<V: Encode, E: AsRef<[u8]>>(#[case] value: V, #[case] expected: E) {
         let expected = expected.as_ref();
 
         let mut buf = vec![];
@@ -263,7 +232,7 @@ mod tests {
     #[case(-1_i8,[0xff])]
     #[case(0_i8,[Format::Int8.as_byte(),0x00])]
     #[case(i8::MAX,[Format::Int8.as_byte(),0x7f])]
-    fn encode_int8<V: Encode<Vec<u8>>, E: AsRef<[u8]> + Sized>(
+    fn encode_int8<V: Encode, E: AsRef<[u8]> + Sized>(
         #[case] value: V,
         #[case] expected: E,
     ) {
@@ -280,7 +249,7 @@ mod tests {
     #[case(-1_i16,[Format::Int16.as_byte(),0xff,0xff])]
     #[case(0_i16,[Format::Int16.as_byte(),0x00,0x00])]
     #[case(i16::MAX,[Format::Int16.as_byte(),0x7f,0xff])]
-    fn encode_int16<V: Encode<Vec<u8>>, E: AsRef<[u8]> + Sized>(
+    fn encode_int16<V: Encode, E: AsRef<[u8]> + Sized>(
         #[case] value: V,
         #[case] expected: E,
     ) {
@@ -297,7 +266,7 @@ mod tests {
     #[case(-1_i32,[Format::Int32.as_byte(),0xff,0xff,0xff,0xff])]
     #[case(0_i32,[Format::Int32.as_byte(),0x00,0x00,0x00,0x00])]
     #[case(i32::MAX,[Format::Int32.as_byte(),0x7f,0xff,0xff,0xff])]
-    fn encode_int32<V: Encode<Vec<u8>>, E: AsRef<[u8]> + Sized>(
+    fn encode_int32<V: Encode, E: AsRef<[u8]> + Sized>(
         #[case] value: V,
         #[case] expected: E,
     ) {
@@ -314,7 +283,7 @@ mod tests {
     #[case(-1_i64,[Format::Int64.as_byte(),0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff])]
     #[case(0_i64,[Format::Int64.as_byte(),0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00])]
     #[case(i64::MAX,[Format::Int64.as_byte(),0x7f,0xff,0xff,0xff,0xff,0xff,0xff,0xff])]
-    fn encode_int64<V: Encode<Vec<u8>>, E: AsRef<[u8]> + Sized>(
+    fn encode_int64<V: Encode, E: AsRef<[u8]> + Sized>(
         #[case] value: V,
         #[case] expected: E,
     ) {
