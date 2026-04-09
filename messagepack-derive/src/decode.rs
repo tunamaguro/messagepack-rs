@@ -16,6 +16,11 @@ pub fn derive_decode(input: &DeriveInput) -> syn::Result<TokenStream> {
         .lifetimes()
         .map(|lt| lt.lifetime.ident.to_string())
         .collect();
+    let type_param_idents: HashSet<String> = input
+        .generics
+        .type_params()
+        .map(|param| param.ident.to_string())
+        .collect();
 
     let body = match &input.data {
         Data::Struct(data_struct) => {
@@ -72,7 +77,7 @@ pub fn derive_decode(input: &DeriveInput) -> syn::Result<TokenStream> {
     let mut decode_where = where_clause
         .cloned()
         .unwrap_or_else(|| syn::parse_quote!(where));
-    for predicate in decode_field_bounds(&input.data, &user_lifetimes)? {
+    for predicate in decode_field_bounds(&input.data, &user_lifetimes, &type_param_idents)? {
         decode_where.predicates.push(predicate);
     }
 
@@ -125,6 +130,7 @@ fn decode_struct(
 fn decode_field_bounds(
     data: &Data,
     user_lifetimes: &HashSet<String>,
+    type_param_idents: &HashSet<String>,
 ) -> syn::Result<Vec<WherePredicate>> {
     let mut predicates = Vec::new();
 
@@ -144,15 +150,8 @@ fn decode_field_bounds(
             predicates.push(
                 syn::parse_quote!(#decode_ty: ::messagepack_core::decode::DecodeBytes<'__de>),
             );
-        } else if let Some(inner_ty) = option_inner_type(&field.ty) {
-            let inner_decode_ty = replace_lifetimes_in_type(inner_ty, user_lifetimes);
-            predicates.push(syn::parse_quote!(
-                #inner_decode_ty: ::messagepack_core::decode::DecodeBorrowed<'__de, Value = #inner_decode_ty>
-            ));
         } else {
-            predicates.push(syn::parse_quote!(
-                #decode_ty: ::messagepack_core::decode::DecodeBorrowed<'__de, Value = #decode_ty>
-            ));
+            decode_type_bounds(&field.ty, user_lifetimes, type_param_idents, &mut predicates);
         }
 
         if attrs.default || type_is_option(&field.ty) {
@@ -439,18 +438,48 @@ fn decode_field_expr(
         quote! {
             <#replaced_ty as ::messagepack_core::decode::DecodeBytes<'__de>>::decode_bytes(__reader)?
         }
-    } else if let Some(inner_ty) = option_inner_type(ty) {
-        let replaced_inner_ty = replace_lifetimes_in_type(inner_ty, user_lifetimes);
+    } else {
+        decode_type_expr(ty, user_lifetimes)
+    }
+}
+
+fn decode_type_bounds(
+    ty: &syn::Type,
+    user_lifetimes: &HashSet<String>,
+    type_param_idents: &HashSet<String>,
+    predicates: &mut Vec<WherePredicate>,
+) {
+    let mut dependent_types = Vec::new();
+    collect_dependent_types(ty, type_param_idents, &mut dependent_types);
+
+    for dependent_ty in dependent_types {
+        let decode_ty = replace_lifetimes_in_type(&dependent_ty, user_lifetimes);
+        predicates.push(syn::parse_quote!(
+            #decode_ty: ::messagepack_core::decode::DecodeBorrowed<'__de, Value = #decode_ty>
+        ));
+    }
+}
+
+fn decode_type_expr(ty: &syn::Type, user_lifetimes: &HashSet<String>) -> TokenStream {
+    if let Some(inner_ty) = option_inner_type(ty) {
+        let some_decode = decode_type_with_format_expr(inner_ty, user_lifetimes, quote! { __other });
         quote! {{
             let __field_format =
                 <::messagepack_core::Format as ::messagepack_core::decode::DecodeBorrowed<'__de>>::decode_borrowed(__reader)?;
             match __field_format {
                 ::messagepack_core::Format::Nil => ::core::option::Option::None,
-                __other => ::core::option::Option::Some(
-                    <#replaced_inner_ty as ::messagepack_core::decode::DecodeBorrowed<'__de>>
-                        ::decode_borrowed_with_format(__other, __reader)?
-                ),
+                __other => ::core::option::Option::Some(#some_decode),
             }
+        }}
+    } else if let Some(inner_ty) = box_inner_type(ty) {
+        let inner_decode = decode_type_expr(inner_ty, user_lifetimes);
+        quote! {
+            Box::new(#inner_decode)
+        }
+    } else if type_is_phantom_data(ty) {
+        quote! {{
+            <() as ::messagepack_core::decode::DecodeBorrowed<'__de>>::decode_borrowed(__reader)?;
+            ::core::marker::PhantomData
         }}
     } else {
         let replaced_ty = replace_lifetimes_in_type(ty, user_lifetimes);
@@ -460,17 +489,61 @@ fn decode_field_expr(
     }
 }
 
+fn decode_type_with_format_expr(
+    ty: &syn::Type,
+    user_lifetimes: &HashSet<String>,
+    format: TokenStream,
+) -> TokenStream {
+    if let Some(inner_ty) = option_inner_type(ty) {
+        let some_decode =
+            decode_type_with_format_expr(inner_ty, user_lifetimes, quote! { __other });
+        quote! {{
+            match #format {
+                ::messagepack_core::Format::Nil => ::core::option::Option::None,
+                __other => ::core::option::Option::Some(#some_decode),
+            }
+        }}
+    } else if let Some(inner_ty) = box_inner_type(ty) {
+        let inner_decode = decode_type_with_format_expr(inner_ty, user_lifetimes, format);
+        quote! {
+            Box::new(#inner_decode)
+        }
+    } else if type_is_phantom_data(ty) {
+        quote! {{
+            <() as ::messagepack_core::decode::DecodeBorrowed<'__de>>::decode_borrowed_with_format(#format, __reader)?;
+            ::core::marker::PhantomData
+        }}
+    } else {
+        let replaced_ty = replace_lifetimes_in_type(ty, user_lifetimes);
+        quote! {
+            <#replaced_ty as ::messagepack_core::decode::DecodeBorrowed<'__de>>::decode_borrowed_with_format(#format, __reader)?
+        }
+    }
+}
+
 fn type_is_option(ty: &syn::Type) -> bool {
     option_inner_type(ty).is_some()
 }
 
 fn option_inner_type(ty: &syn::Type) -> Option<&syn::Type> {
+    single_type_argument(ty, "Option")
+}
+
+fn box_inner_type(ty: &syn::Type) -> Option<&syn::Type> {
+    single_type_argument(ty, "Box")
+}
+
+fn type_is_phantom_data(ty: &syn::Type) -> bool {
+    single_type_argument(ty, "PhantomData").is_some()
+}
+
+fn single_type_argument<'a>(ty: &'a syn::Type, ident: &str) -> Option<&'a syn::Type> {
     let syn::Type::Path(type_path) = ty else {
         return None;
     };
 
     let segment = type_path.path.segments.last()?;
-    if segment.ident != "Option" {
+    if segment.ident != ident {
         return None;
     }
 
@@ -484,6 +557,89 @@ fn option_inner_type(ty: &syn::Type) -> Option<&syn::Type> {
     };
 
     Some(inner_ty)
+}
+
+fn collect_dependent_types(
+    ty: &syn::Type,
+    type_param_idents: &HashSet<String>,
+    out: &mut Vec<syn::Type>,
+) {
+    if type_is_phantom_data(ty) {
+        return;
+    }
+
+    match ty {
+        syn::Type::Array(array) => collect_dependent_types(&array.elem, type_param_idents, out),
+        syn::Type::Group(group) => collect_dependent_types(&group.elem, type_param_idents, out),
+        syn::Type::Paren(paren) => collect_dependent_types(&paren.elem, type_param_idents, out),
+        syn::Type::Ptr(ptr) => collect_dependent_types(&ptr.elem, type_param_idents, out),
+        syn::Type::Reference(reference) => {
+            collect_dependent_types(&reference.elem, type_param_idents, out)
+        }
+        syn::Type::Slice(slice) => collect_dependent_types(&slice.elem, type_param_idents, out),
+        syn::Type::Tuple(tuple) => {
+            for elem in &tuple.elems {
+                collect_dependent_types(elem, type_param_idents, out);
+            }
+        }
+        syn::Type::Path(type_path) => {
+            if type_path_depends_on_params(type_path, type_param_idents) {
+                push_unique_type(out, ty.clone());
+                return;
+            }
+
+            for segment in &type_path.path.segments {
+                if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
+                    for arg in &args.args {
+                        match arg {
+                            syn::GenericArgument::Type(arg_ty) => {
+                                collect_dependent_types(arg_ty, type_param_idents, out);
+                            }
+                            syn::GenericArgument::AssocType(assoc) => {
+                                collect_dependent_types(&assoc.ty, type_param_idents, out);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn type_path_depends_on_params(
+    type_path: &syn::TypePath,
+    type_param_idents: &HashSet<String>,
+) -> bool {
+    if let Some(qself) = &type_path.qself {
+        return type_depends_on_params(&qself.ty, type_param_idents);
+    }
+
+    type_path
+        .path
+        .segments
+        .first()
+        .map(|segment| type_param_idents.contains(&segment.ident.to_string()))
+        .unwrap_or(false)
+}
+
+fn type_depends_on_params(ty: &syn::Type, type_param_idents: &HashSet<String>) -> bool {
+    match ty {
+        syn::Type::Path(type_path) => type_path_depends_on_params(type_path, type_param_idents),
+        syn::Type::Reference(reference) => type_depends_on_params(&reference.elem, type_param_idents),
+        syn::Type::Group(group) => type_depends_on_params(&group.elem, type_param_idents),
+        syn::Type::Paren(paren) => type_depends_on_params(&paren.elem, type_param_idents),
+        _ => false,
+    }
+}
+
+fn push_unique_type(out: &mut Vec<syn::Type>, ty: syn::Type) {
+    let ty_tokens = quote! { #ty }.to_string();
+    if out.iter().any(|existing| quote! { #existing }.to_string() == ty_tokens) {
+        return;
+    }
+    out.push(ty);
 }
 
 fn replace_lifetimes_in_type_with(

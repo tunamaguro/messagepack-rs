@@ -1,6 +1,5 @@
 use messagepack_core::decode::Decode;
 use messagepack_core::encode::Encode;
-use messagepack_core::io::SliceReader;
 use messagepack_derive::{Decode, Encode};
 
 #[derive(Debug, Encode, Decode)]
