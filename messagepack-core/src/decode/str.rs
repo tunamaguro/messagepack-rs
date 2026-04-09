@@ -84,6 +84,36 @@ impl<'de> Decode<'de> for ReferenceStrDecoder {
     }
 }
 
+/// Decode a Messagepack string without utf-8 validation.
+/// This is useful for lowering the decoding cost.
+pub struct ReferenceStrBinDecoder;
+
+impl<'de> Decode<'de> for ReferenceStrBinDecoder {
+    type Value<'a>
+        = crate::io::Reference<'de, 'a>
+    where
+        Self: 'a,
+        'de: 'a;
+
+    fn decode_with_format<'a, R>(
+        format: Format,
+        reader: &'a mut R,
+    ) -> Result<Self::Value<'a>, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+        'de: 'a,
+    {
+        let len = match format {
+            Format::FixStr(n) => n.into(),
+            Format::Str8 => NbyteReader::<1>::read(reader)?,
+            Format::Str16 => NbyteReader::<2>::read(reader)?,
+            Format::Str32 => NbyteReader::<4>::read(reader)?,
+            _ => return Err(Error::UnexpectedFormat),
+        };
+        reader.read_slice(len).map_err(Error::Io)
+    }
+}
+
 #[cfg(feature = "alloc")]
 mod alloc_impl {
     use super::*;

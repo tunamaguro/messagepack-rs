@@ -18,7 +18,7 @@ pub use map::MapDecoder;
 mod nil;
 pub use nil::NilDecoder;
 mod str;
-pub use str::{ReferenceStr, ReferenceStrDecoder};
+pub use str::{ReferenceStr, ReferenceStrBinDecoder, ReferenceStrDecoder};
 
 mod any;
 pub use any::Any;
