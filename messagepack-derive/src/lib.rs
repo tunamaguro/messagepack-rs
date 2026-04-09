@@ -1,3 +1,8 @@
+#![deny(missing_docs)]
+
+
+//! Derive marco for [messagepack_core::encode::Encode] and [messagepack_core::decode::Decode]
+
 mod attrs;
 mod decode;
 mod encode;
