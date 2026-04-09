@@ -1,7 +1,5 @@
 //! String encoders.
 
-use core::ops::Deref;
-
 use super::{Encode, Error, Result};
 use crate::{formats::Format, io::IoWrite};
 
@@ -50,17 +48,9 @@ impl Encode for StrDataEncoder<'_> {
 /// Encode a `&str` including its appropriate header.
 pub struct StrEncoder<'s>(pub &'s str);
 
-impl<'s> Deref for StrEncoder<'s> {
-    type Target = &'s str;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl Encode for StrEncoder<'_> {
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        let self_len = self.len();
+        let self_len = self.0.as_bytes().len();
         let format_len = StrFormatEncoder(self_len).encode(writer)?;
         let data_len = StrDataEncoder(self.0).encode(writer)?;
 
