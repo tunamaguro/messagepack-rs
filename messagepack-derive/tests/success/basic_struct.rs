@@ -10,6 +10,34 @@ struct Point {
     y: u32,
 }
 
+// expect expands to below
+// 
+// impl Encode for Point {
+//     fn encode<__W: io::IoWrite>(
+//         &self,
+//         writer: &mut __W,
+//     ) -> Result<usize, encode::Error<__W::Error>> {
+//         todo!("some implementation")
+//     }
+// }
+// impl<'__msgpack_de> Decode<'__msgpack_de> for Point {
+//     type Value<'__reader>
+//         = Point
+//     where
+//         Self: '__reader,
+//         '__msgpack_de: '__reader;
+//     fn decode_with_format<'__reader, __R>(
+//         format: Format,
+//         reader: &'__reader mut __R,
+//     ) -> Result<Self::Value<'__reader>, decode::Error<__R::Error>>
+//     where
+//         __R: io::IoRead<'__msgpack_de>,
+//         '__msgpack_de: '__reader,
+//     {
+//         todo!("some implementation")
+//     }
+// }
+
 fn main() {
     let p = Point { x: 10, y: 20 };
     let mut buf = Vec::new();
