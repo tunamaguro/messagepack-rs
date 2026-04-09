@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields};
+use syn::{Data, DeriveInput, Fields, WherePredicate};
 
 use crate::attrs::{ContainerAttrs, FieldAttrs};
 
@@ -34,16 +34,13 @@ pub fn derive_encode(input: &DeriveInput) -> syn::Result<TokenStream> {
         .filter(|p| !matches!(p, syn::GenericParam::Lifetime(_)))
         .collect();
 
-    // Build an augmented where clause that requires each generic type parameter
+    // Build an augmented where clause that requires each encoded field type
     // to implement `Encode`.
     let mut encode_where = where_clause
         .cloned()
         .unwrap_or_else(|| syn::parse_quote!(where));
-    for param in input.generics.type_params() {
-        let ident = &param.ident;
-        encode_where
-            .predicates
-            .push(syn::parse_quote!(#ident: ::messagepack_core::encode::Encode));
+    for predicate in encode_field_bounds(&input.data)? {
+        encode_where.predicates.push(predicate);
     }
 
     Ok(quote! {
@@ -55,6 +52,27 @@ pub fn derive_encode(input: &DeriveInput) -> syn::Result<TokenStream> {
             }
         }
     })
+}
+
+fn encode_field_bounds(data: &Data) -> syn::Result<Vec<WherePredicate>> {
+    let mut predicates = Vec::new();
+
+    let fields = match data {
+        Data::Struct(data_struct) => &data_struct.fields,
+        Data::Enum(_) | Data::Union(_) => return Ok(predicates),
+    };
+
+    for field in fields {
+        let attrs = FieldAttrs::from_attrs(&field.attrs)?;
+        if attrs.encode_with.is_some() || attrs.bytes {
+            continue;
+        }
+
+        let ty = &field.ty;
+        predicates.push(syn::parse_quote!(#ty: ::messagepack_core::encode::Encode));
+    }
+
+    Ok(predicates)
 }
 
 fn encode_struct(

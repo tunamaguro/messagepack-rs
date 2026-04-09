@@ -63,6 +63,8 @@ pub struct FieldAttrs {
     pub encode_with: Option<syn::Path>,
     /// Custom decode function path.
     pub decode_with: Option<syn::Path>,
+    /// Use `Default::default()` when the field is missing during decode.
+    pub default: bool,
     /// Encode/decode as binary.
     pub bytes: bool,
     /// Array key index (required for `#[msgpack(array)]` mode).
@@ -79,6 +81,9 @@ impl FieldAttrs {
             let nested = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
             for meta in &nested {
                 match meta {
+                    Meta::Path(p) if p.is_ident("default") => {
+                        result.default = true;
+                    }
                     Meta::Path(p) if p.is_ident("bytes") => {
                         result.bytes = true;
                     }

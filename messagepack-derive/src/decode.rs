@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{Data, DeriveInput, Fields};
+use syn::{Data, DeriveInput, Fields, WherePredicate};
 
 use crate::attrs::{ContainerAttrs, FieldAttrs};
 
@@ -43,10 +43,9 @@ pub fn derive_decode(input: &DeriveInput) -> syn::Result<TokenStream> {
         .filter(|p| !matches!(p, syn::GenericParam::Lifetime(_)))
         .collect();
 
-    // Build a ty_generics that replaces every user lifetime with '__de.
-    // e.g. Wrapper<'a> becomes Wrapper<'__de>, Pair<'a, 'b, T> becomes Pair<'__de, '__de, T>.
+    // Build ty generics that replace every user lifetime with a synthetic lifetime.
     let de_lifetime: syn::Lifetime = syn::parse_quote!('__de);
-    let ty_generic_args: Vec<TokenStream> = input
+    let de_ty_generic_args: Vec<TokenStream> = input
         .generics
         .params
         .iter()
@@ -62,21 +61,19 @@ pub fn derive_decode(input: &DeriveInput) -> syn::Result<TokenStream> {
             }
         })
         .collect();
-    let de_ty_generics = if ty_generic_args.is_empty() {
+    let de_ty_generics = if de_ty_generic_args.is_empty() {
         quote! {}
     } else {
-        quote! { <#(#ty_generic_args),*> }
+        quote! { <#(#de_ty_generic_args),*> }
     };
 
-    // Build augmented where clause requiring DecodeBorrowed for each generic.
+    // Build augmented where clause requiring each decoded field type to
+    // implement the trait the generated code uses.
     let mut decode_where = where_clause
         .cloned()
         .unwrap_or_else(|| syn::parse_quote!(where));
-    for param in input.generics.type_params() {
-        let ident = &param.ident;
-        decode_where
-            .predicates
-            .push(syn::parse_quote!(#ident: ::messagepack_core::decode::DecodeBorrowed<'__de, Value = #ident>));
+    for predicate in decode_field_bounds(&input.data, &user_lifetimes)? {
+        decode_where.predicates.push(predicate);
     }
 
     Ok(quote! {
@@ -125,6 +122,47 @@ fn decode_struct(
     }
 }
 
+fn decode_field_bounds(
+    data: &Data,
+    user_lifetimes: &HashSet<String>,
+) -> syn::Result<Vec<WherePredicate>> {
+    let mut predicates = Vec::new();
+
+    let fields = match data {
+        Data::Struct(data_struct) => &data_struct.fields,
+        Data::Enum(_) | Data::Union(_) => return Ok(predicates),
+    };
+
+    for field in fields {
+        let attrs = FieldAttrs::from_attrs(&field.attrs)?;
+        if attrs.decode_with.is_some() {
+            continue;
+        }
+
+        let decode_ty = replace_lifetimes_in_type(&field.ty, user_lifetimes);
+        if attrs.bytes {
+            predicates.push(
+                syn::parse_quote!(#decode_ty: ::messagepack_core::decode::DecodeBytes<'__de>),
+            );
+        } else if let Some(inner_ty) = option_inner_type(&field.ty) {
+            let inner_decode_ty = replace_lifetimes_in_type(inner_ty, user_lifetimes);
+            predicates.push(syn::parse_quote!(
+                #inner_decode_ty: ::messagepack_core::decode::DecodeBorrowed<'__de, Value = #inner_decode_ty>
+            ));
+        } else {
+            predicates.push(syn::parse_quote!(
+                #decode_ty: ::messagepack_core::decode::DecodeBorrowed<'__de, Value = #decode_ty>
+            ));
+        }
+
+        if attrs.default || type_is_option(&field.ty) {
+            predicates.push(syn::parse_quote!(#decode_ty: ::core::default::Default));
+        }
+    }
+
+    Ok(predicates)
+}
+
 /// Decode named fields; accepts both MessagePack map and array formats.
 fn decode_named_fields(
     name: &syn::Ident,
@@ -141,6 +179,7 @@ fn decode_named_fields(
         attrs: FieldAttrs,
         ty: &'a syn::Type,
         array_key: usize,
+        allow_missing: bool,
     }
 
     let mut field_infos: Vec<FieldInfo> = Vec::new();
@@ -160,6 +199,7 @@ fn decode_named_fields(
         field_infos.push(FieldInfo {
             ident,
             name_str: ident.to_string(),
+            allow_missing: attrs.default || type_is_option(&field.ty),
             attrs,
             ty: &field.ty,
             array_key,
@@ -188,8 +228,9 @@ fn decode_named_fields(
         .iter()
         .map(|fi| {
             let var = format_ident!("__field_{}", fi.ident);
+            let output_ty = replace_lifetimes_in_type(fi.ty, user_lifetimes);
             quote! {
-                let mut #var = ::core::option::Option::None;
+                let mut #var: ::core::option::Option<#output_ty> = ::core::option::Option::None;
             }
         })
         .collect();
@@ -224,14 +265,22 @@ fn decode_named_fields(
         })
         .collect();
 
+    let missing_allowed_count = field_infos.iter().filter(|fi| fi.allow_missing).count();
+
     // Generate constructor: unwrap each Option.
     let constructor_fields: Vec<TokenStream> = field_infos
         .iter()
         .map(|fi| {
             let ident = fi.ident;
             let var = format_ident!("__field_{}", fi.ident);
-            quote! {
-                #ident: #var.ok_or(::messagepack_core::decode::Error::InvalidData)?
+            if fi.allow_missing {
+                quote! {
+                    #ident: #var.unwrap_or_default()
+                }
+            } else {
+                quote! {
+                    #ident: #var.ok_or(::messagepack_core::decode::Error::InvalidData)?
+                }
             }
         })
         .collect();
@@ -313,7 +362,8 @@ fn decode_named_fields(
                     _ => unreachable!(),
                 };
 
-                if __len != #num_fields {
+                let __required_fields = #num_fields - #missing_allowed_count;
+                if __len < __required_fields || __len > #num_fields {
                     return ::core::result::Result::Err(::messagepack_core::decode::Error::InvalidData);
                 }
 
@@ -342,8 +392,9 @@ fn decode_tuple_struct(
         let field_attrs = FieldAttrs::from_attrs(&field.attrs)?;
         let var = format_ident!("__field_{}", i);
         let decode_expr = decode_field_expr(&field.ty, &field_attrs, user_lifetimes);
+        let output_ty = replace_lifetimes_in_type(&field.ty, user_lifetimes);
         decode_stmts.push(quote! {
-            let #var = #decode_expr;
+            let #var: #output_ty = #decode_expr;
         });
         field_vars.push(var);
     }
@@ -388,6 +439,19 @@ fn decode_field_expr(
         quote! {
             <#replaced_ty as ::messagepack_core::decode::DecodeBytes<'__de>>::decode_bytes(__reader)?
         }
+    } else if let Some(inner_ty) = option_inner_type(ty) {
+        let replaced_inner_ty = replace_lifetimes_in_type(inner_ty, user_lifetimes);
+        quote! {{
+            let __field_format =
+                <::messagepack_core::Format as ::messagepack_core::decode::DecodeBorrowed<'__de>>::decode_borrowed(__reader)?;
+            match __field_format {
+                ::messagepack_core::Format::Nil => ::core::option::Option::None,
+                __other => ::core::option::Option::Some(
+                    <#replaced_inner_ty as ::messagepack_core::decode::DecodeBorrowed<'__de>>
+                        ::decode_borrowed_with_format(__other, __reader)?
+                ),
+            }
+        }}
     } else {
         let replaced_ty = replace_lifetimes_in_type(ty, user_lifetimes);
         quote! {
@@ -396,18 +460,54 @@ fn decode_field_expr(
     }
 }
 
-/// Replace user-defined lifetimes with `'__de` in a type's token stream.
-fn replace_lifetimes_in_type(ty: &syn::Type, user_lifetimes: &HashSet<String>) -> TokenStream {
+fn type_is_option(ty: &syn::Type) -> bool {
+    option_inner_type(ty).is_some()
+}
+
+fn option_inner_type(ty: &syn::Type) -> Option<&syn::Type> {
+    let syn::Type::Path(type_path) = ty else {
+        return None;
+    };
+
+    let segment = type_path.path.segments.last()?;
+    if segment.ident != "Option" {
+        return None;
+    }
+
+    let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return None;
+    };
+
+    let first = args.args.first()?;
+    let syn::GenericArgument::Type(inner_ty) = first else {
+        return None;
+    };
+
+    Some(inner_ty)
+}
+
+fn replace_lifetimes_in_type_with(
+    ty: &syn::Type,
+    user_lifetimes: &HashSet<String>,
+    replacement: &syn::Lifetime,
+) -> TokenStream {
     if user_lifetimes.is_empty() {
         return quote! { #ty };
     }
     let tokens = quote! { #ty };
-    replace_lifetimes_in_tokens(tokens, user_lifetimes)
+    replace_lifetimes_in_tokens(tokens, user_lifetimes, replacement)
+}
+
+/// Replace user-defined lifetimes with `'__de` in a type's token stream.
+fn replace_lifetimes_in_type(ty: &syn::Type, user_lifetimes: &HashSet<String>) -> TokenStream {
+    let de_lifetime: syn::Lifetime = syn::parse_quote!('__de);
+    replace_lifetimes_in_type_with(ty, user_lifetimes, &de_lifetime)
 }
 
 fn replace_lifetimes_in_tokens(
     tokens: TokenStream,
     user_lifetimes: &HashSet<String>,
+    replacement: &syn::Lifetime,
 ) -> TokenStream {
     use proc_macro2::TokenTree;
     let mut result = TokenStream::new();
@@ -419,14 +519,14 @@ fn replace_lifetimes_in_tokens(
                 if let Some(TokenTree::Ident(ident)) = iter.peek()
                     && user_lifetimes.contains(&ident.to_string())
                 {
-                    result.extend(quote! { '__de });
+                    result.extend(quote! { #replacement });
                     iter.next(); // consume the ident
                     continue;
                 }
                 result.extend(core::iter::once(tt));
             }
             TokenTree::Group(g) => {
-                let replaced = replace_lifetimes_in_tokens(g.stream(), user_lifetimes);
+                let replaced = replace_lifetimes_in_tokens(g.stream(), user_lifetimes, replacement);
                 let new_group = proc_macro2::Group::new(g.delimiter(), replaced);
                 result.extend(core::iter::once(TokenTree::Group(new_group)));
             }

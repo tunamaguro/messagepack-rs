@@ -8,11 +8,13 @@ trait Foo {
     type Item;
 }
 
+#[derive(Debug, PartialEq, Encode, Decode)]
 struct Field<T: Foo> {
     values: Vec<T::Item>,
 }
 
 fn main() {
+    #[derive(Debug, PartialEq)]
     struct Bar;
 
     impl Foo for Bar {
