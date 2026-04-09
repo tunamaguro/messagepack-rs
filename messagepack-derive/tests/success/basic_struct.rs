@@ -17,24 +17,7 @@ struct Point {
 //         &self,
 //         writer: &mut __W,
 //     ) -> Result<usize, encode::Error<__W::Error>> {
-//         todo!("some implementation")
-//     }
-// }
-// impl<'__msgpack_de> Decode<'__msgpack_de> for Point {
-//     type Value<'__reader>
-//         = Point
-//     where
-//         Self: '__reader,
-//         '__msgpack_de: '__reader;
-//     fn decode_with_format<'__reader, __R>(
-//         format: Format,
-//         reader: &'__reader mut __R,
-//     ) -> Result<Self::Value<'__reader>, decode::Error<__R::Error>>
-//     where
-//         __R: io::IoRead<'__msgpack_de>,
-//         '__msgpack_de: '__reader,
-//     {
-//         todo!("some implementation")
+//         todo!("expand `encode_point_as_map` or `encode_point_as_array`")
 //     }
 // }
 //
@@ -78,6 +61,24 @@ struct Point {
 //     __size += messagepack_core::encode::Encode::encode(&point.y, writer)?;
 //
 //     Ok(__size)
+// }
+//
+// impl<'__msgpack_de> Decode<'__msgpack_de> for Point {
+//     type Value<'__reader>
+//         = Point
+//     where
+//         Self: '__reader,
+//         '__msgpack_de: '__reader;
+//     fn decode_with_format<'__reader, __R>(
+//         format: Format,
+//         reader: &'__reader mut __R,
+//     ) -> Result<Self::Value<'__reader>, decode::Error<__R::Error>>
+//     where
+//         __R: io::IoRead<'__msgpack_de>,
+//         '__msgpack_de: '__reader,
+//     {
+//         todo!("expand `decode_point`")
+//     }
 // }
 //
 // fn decode_point_map<'__msgpack_de, '__reader, __R>(
