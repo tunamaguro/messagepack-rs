@@ -27,7 +27,7 @@ use syn::{DeriveInput, parse_macro_input};
 #[proc_macro_derive(Encode, attributes(msgpack))]
 pub fn derive_encode(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    encode::derive_encode(&input)
+    encode::derive_encode(input)
         .unwrap_or_else(|e| e.to_compile_error())
         .into()
 }

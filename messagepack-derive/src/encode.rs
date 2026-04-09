@@ -6,12 +6,15 @@ use syn::{Data, DeriveInput, Fields, WherePredicate};
 
 use crate::attrs::{ContainerAttrs, FieldAttrs};
 
-pub fn derive_encode(input: &DeriveInput) -> syn::Result<TokenStream> {
+pub fn derive_encode(mut input: DeriveInput) -> syn::Result<TokenStream> {
     let name = &input.ident;
-    let (_, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    let body = match &input.data {
-        Data::Struct(data_struct) => encode_struct(name, &input.attrs, &data_struct.fields)?,
+    let (body, type_paths) = match &input.data {
+        Data::Struct(data_struct) => {
+            let type_paths = get_types_to_bound(&mut input.generics, &data_struct.fields);
+            let body = encode_struct(name, &input.attrs, &data_struct.fields)?;
+            (body, type_paths)
+        }
         Data::Enum(_) => {
             return Err(syn::Error::new_spanned(
                 input,
@@ -26,33 +29,19 @@ pub fn derive_encode(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
     };
 
-    // Collect type/lifetime/const params for the impl header.
-    // Lifetimes must appear before type and const params, so split them.
-    let lifetime_params: Vec<_> = input.generics.lifetimes().collect();
-    let type_const_params: Vec<_> = input
-        .generics
-        .params
-        .iter()
-        .filter(|p| !matches!(p, syn::GenericParam::Lifetime(_)))
-        .collect();
-    let type_param_idents: HashSet<String> = input
-        .generics
-        .type_params()
-        .map(|param| param.ident.to_string())
-        .collect();
-
-    // Build an augmented where clause that requires each encoded field type
-    // to implement `Encode`.
-    let mut encode_where = where_clause
-        .cloned()
-        .unwrap_or_else(|| syn::parse_quote!(where));
-    for predicate in encode_field_bounds(&input.data, &type_param_idents)? {
-        encode_where.predicates.push(predicate);
+    {
+        let where_clause = input.generics.make_where_clause();
+        for type_path in type_paths {
+            where_clause
+                .predicates
+                .push(syn::parse_quote!(#type_path: ::messagepack_core::encode::Encode));
+        }
     }
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     Ok(quote! {
-        impl<#(#lifetime_params,)* #(#type_const_params),*> ::messagepack_core::encode::Encode for #name #ty_generics
-            #encode_where
+        impl #impl_generics ::messagepack_core::encode::Encode for #name #ty_generics
+            #where_clause
         {
             fn encode<__W: ::messagepack_core::io::IoWrite>(&self, writer: &mut __W) -> ::core::result::Result<usize, ::messagepack_core::encode::Error<<__W as ::messagepack_core::io::IoWrite>::Error>> {
                 #body
@@ -61,37 +50,43 @@ pub fn derive_encode(input: &DeriveInput) -> syn::Result<TokenStream> {
     })
 }
 
-fn encode_field_bounds(data: &Data, type_param_idents: &HashSet<String>) -> syn::Result<Vec<WherePredicate>> {
-    let mut predicates = Vec::new();
+fn get_types_to_bound(generics: &mut syn::Generics, fields: &Fields) -> Vec<syn::TypePath> {
+    let type_param_idents: HashSet<String> = generics
+        .type_params()
+        .map(|param| param.ident.to_string())
+        .collect();
 
-    let fields = match data {
-        Data::Struct(data_struct) => &data_struct.fields,
-        Data::Enum(_) | Data::Union(_) => return Ok(predicates),
-    };
-
+    let mut dependent_types = Vec::new();
     for field in fields {
-        let attrs = FieldAttrs::from_attrs(&field.attrs)?;
+        let Ok(attrs) = FieldAttrs::from_attrs(&field.attrs) else {
+            continue;
+        };
         if attrs.encode_with.is_some() || attrs.bytes {
             continue;
         }
 
-        encode_type_bounds(&field.ty, type_param_idents, &mut predicates);
+        collect_dependent_types(&field.ty, &type_param_idents, &mut dependent_types);
     }
 
-    Ok(predicates)
-}
-
-fn encode_type_bounds(
-    ty: &syn::Type,
-    type_param_idents: &HashSet<String>,
-    predicates: &mut Vec<WherePredicate>,
-) {
-    let mut dependent_types = Vec::new();
-    collect_dependent_types(ty, type_param_idents, &mut dependent_types);
-
-    for dependent_ty in dependent_types {
-        predicates.push(syn::parse_quote!(#dependent_ty: ::messagepack_core::encode::Encode));
-    }
+    dependent_types
+        .into_iter()
+        .filter_map(|ty| {
+            let syn::Type::Path(type_path) = ty else {
+                return None;
+            };
+            Some(type_path)
+        })
+        .fold(Vec::new(), |mut out, type_path| {
+            let type_tokens = quote!(#type_path).to_string();
+            if out
+                .iter()
+                .any(|existing| quote!(#existing).to_string() == type_tokens)
+            {
+                return out;
+            }
+            out.push(type_path);
+            out
+        })
 }
 
 fn encode_struct(
@@ -376,7 +371,9 @@ fn type_path_depends_on_params(
 fn type_depends_on_params(ty: &syn::Type, type_param_idents: &HashSet<String>) -> bool {
     match ty {
         syn::Type::Path(type_path) => type_path_depends_on_params(type_path, type_param_idents),
-        syn::Type::Reference(reference) => type_depends_on_params(&reference.elem, type_param_idents),
+        syn::Type::Reference(reference) => {
+            type_depends_on_params(&reference.elem, type_param_idents)
+        }
         syn::Type::Group(group) => type_depends_on_params(&group.elem, type_param_idents),
         syn::Type::Paren(paren) => type_depends_on_params(&paren.elem, type_param_idents),
         _ => false,
@@ -385,7 +382,10 @@ fn type_depends_on_params(ty: &syn::Type, type_param_idents: &HashSet<String>) -
 
 fn push_unique_type(out: &mut Vec<syn::Type>, ty: syn::Type) {
     let ty_tokens = quote! { #ty }.to_string();
-    if out.iter().any(|existing| quote! { #existing }.to_string() == ty_tokens) {
+    if out
+        .iter()
+        .any(|existing| quote! { #existing }.to_string() == ty_tokens)
+    {
         return;
     }
     out.push(ty);
