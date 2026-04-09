@@ -1,23 +1,17 @@
 use syn::{Attribute, Expr, ExprLit, Lit, Meta, Token, punctuated::Punctuated};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FormatKind {
-    Map,
-    Array,
-}
-
 /// Container-level attributes (`#[msgpack(...)]` on the struct).
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ContainerAttrs {
-    pub format_kind: FormatKind,
-    pub bounds: Option<proc_macro2::TokenStream>,
+    /// Encode as a MessagePack map (default for named structs).
+    pub map: bool,
+    /// Encode as a MessagePack array.
+    pub array: bool,
 }
 
 impl ContainerAttrs {
     pub fn from_attrs(attrs: &[Attribute]) -> syn::Result<Self> {
-        let mut map_ident = false;
-        let mut array_ident = false;
-        let mut bounds = None;
+        let mut result = ContainerAttrs::default();
         for attr in attrs {
             if !attr.path().is_ident("msgpack") {
                 continue;
@@ -26,33 +20,10 @@ impl ContainerAttrs {
             for meta in &nested {
                 match meta {
                     Meta::Path(p) if p.is_ident("map") => {
-                        if map_ident {
-                            return Err(syn::Error::new_spanned(p, "duplicate `map` attribute"));
-                        }
-                        map_ident = true;
+                        result.map = true;
                     }
                     Meta::Path(p) if p.is_ident("array") => {
-                        if array_ident {
-                            return Err(syn::Error::new_spanned(p, "duplicate `array` attribute"));
-                        }
-                        array_ident = true;
-                    }
-                    Meta::NameValue(nv) if nv.path.is_ident("bound") => {
-                        if bounds.is_some() {
-                            return Err(syn::Error::new_spanned(nv, "duplicate `bound` attribute"));
-                        }
-                        let bound_str = match &nv.value {
-                            Expr::Lit(ExprLit {
-                                lit: Lit::Str(s), ..
-                            }) => s.value(),
-                            _ => {
-                                return Err(syn::Error::new_spanned(
-                                    &nv.value,
-                                    "expected a string literal",
-                                ));
-                            }
-                        };
-                        bounds = Some(bound_str.parse()?);
+                        result.array = true;
                     }
                     other => {
                         return Err(syn::Error::new_spanned(
@@ -63,20 +34,25 @@ impl ContainerAttrs {
                 }
             }
         }
-        if map_ident && array_ident {
+        if result.map && result.array {
             return Err(syn::Error::new(
                 proc_macro2::Span::call_site(),
                 "`map` and `array` are mutually exclusive",
             ));
         }
-        Ok(Self {
-            format_kind: if array_ident {
-                FormatKind::Array
-            } else {
-                FormatKind::Map
-            },
-            bounds,
-        })
+        Ok(result)
+    }
+
+    /// Whether the struct should be encoded as a map.
+    /// Default is `true` for named-field structs, `false` for tuple structs.
+    pub fn is_map(&self, is_named: bool) -> bool {
+        if self.array {
+            false
+        } else if self.map {
+            true
+        } else {
+            is_named
+        }
     }
 }
 
