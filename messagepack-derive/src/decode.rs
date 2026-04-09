@@ -169,8 +169,6 @@ fn decode_named_fields(
     is_map_default: bool,
     user_lifetimes: &HashSet<String>,
 ) -> syn::Result<TokenStream> {
-    let num_fields = fields.named.len();
-
     // Collect field info
     struct FieldInfo<'a> {
         ident: &'a syn::Ident,
@@ -179,12 +177,14 @@ fn decode_named_fields(
         ty: &'a syn::Type,
         array_key: usize,
         allow_missing: bool,
+        skip_on_wire: bool,
     }
 
     let mut field_infos: Vec<FieldInfo> = Vec::new();
     for (i, field) in fields.named.iter().enumerate() {
         let ident = field.ident.as_ref().unwrap();
         let attrs = FieldAttrs::from_attrs(&field.attrs)?;
+        let skip_on_wire = field_is_skipped_on_wire(field);
         let array_key = if !is_map_default {
             attrs.key.ok_or_else(|| {
                 syn::Error::new_spanned(
@@ -198,10 +198,11 @@ fn decode_named_fields(
         field_infos.push(FieldInfo {
             ident,
             name_str: ident.to_string(),
-            allow_missing: attrs.default || type_is_option(&field.ty),
+            allow_missing: skip_on_wire || attrs.default || type_is_option(&field.ty),
             attrs,
             ty: &field.ty,
             array_key,
+            skip_on_wire,
         });
     }
 
@@ -225,6 +226,7 @@ fn decode_named_fields(
     // Generate Option variable declarations for each field.
     let field_option_decls: Vec<TokenStream> = field_infos
         .iter()
+        .filter(|fi| !fi.skip_on_wire)
         .map(|fi| {
             let var = format_ident!("__field_{}", fi.ident);
             let output_ty = replace_lifetimes_in_type(fi.ty, user_lifetimes);
@@ -237,6 +239,7 @@ fn decode_named_fields(
     // Generate map-branch match arms: match on field name string.
     let map_match_arms: Vec<TokenStream> = field_infos
         .iter()
+        .filter(|fi| !fi.skip_on_wire)
         .map(|fi| {
             let var = format_ident!("__field_{}", fi.ident);
             let name_str = &fi.name_str;
@@ -255,6 +258,7 @@ fn decode_named_fields(
 
     let array_decode_stmts: Vec<TokenStream> = sorted_by_key
         .iter()
+        .filter(|fi| !fi.skip_on_wire)
         .map(|fi| {
             let var = format_ident!("__field_{}", fi.ident);
             let decode_expr = decode_field_expr(fi.ty, &fi.attrs, user_lifetimes);
@@ -264,7 +268,11 @@ fn decode_named_fields(
         })
         .collect();
 
-    let missing_allowed_count = field_infos.iter().filter(|fi| fi.allow_missing).count();
+    let missing_allowed_count = field_infos
+        .iter()
+        .filter(|fi| !fi.skip_on_wire && fi.allow_missing)
+        .count();
+    let num_wire_fields = field_infos.iter().filter(|fi| !fi.skip_on_wire).count();
 
     // Generate constructor: unwrap each Option.
     let constructor_fields: Vec<TokenStream> = field_infos
@@ -272,7 +280,11 @@ fn decode_named_fields(
         .map(|fi| {
             let ident = fi.ident;
             let var = format_ident!("__field_{}", fi.ident);
-            if fi.allow_missing {
+            if fi.skip_on_wire {
+                quote! {
+                    #ident: ::core::marker::PhantomData
+                }
+            } else if fi.allow_missing {
                 quote! {
                     #ident: #var.unwrap_or_default()
                 }
@@ -361,8 +373,8 @@ fn decode_named_fields(
                     _ => unreachable!(),
                 };
 
-                let __required_fields = #num_fields - #missing_allowed_count;
-                if __len < __required_fields || __len > #num_fields {
+                let __required_fields = #num_wire_fields - #missing_allowed_count;
+                if __len < __required_fields || __len > #num_wire_fields {
                     return ::core::result::Result::Err(::messagepack_core::decode::Error::InvalidData);
                 }
 
@@ -383,19 +395,27 @@ fn decode_tuple_struct(
     fields: &syn::FieldsUnnamed,
     user_lifetimes: &HashSet<String>,
 ) -> syn::Result<TokenStream> {
-    let num_fields = fields.unnamed.len();
+    let num_fields = fields
+        .unnamed
+        .iter()
+        .filter(|field| !field_is_skipped_on_wire(field))
+        .count();
 
     let mut decode_stmts = Vec::new();
     let mut field_vars = Vec::new();
     for (i, field) in fields.unnamed.iter().enumerate() {
-        let field_attrs = FieldAttrs::from_attrs(&field.attrs)?;
-        let var = format_ident!("__field_{}", i);
-        let decode_expr = decode_field_expr(&field.ty, &field_attrs, user_lifetimes);
-        let output_ty = replace_lifetimes_in_type(&field.ty, user_lifetimes);
-        decode_stmts.push(quote! {
-            let #var: #output_ty = #decode_expr;
-        });
-        field_vars.push(var);
+        if field_is_skipped_on_wire(field) {
+            field_vars.push(quote! { ::core::marker::PhantomData });
+        } else {
+            let field_attrs = FieldAttrs::from_attrs(&field.attrs)?;
+            let var = format_ident!("__field_{}", i);
+            let decode_expr = decode_field_expr(&field.ty, &field_attrs, user_lifetimes);
+            let output_ty = replace_lifetimes_in_type(&field.ty, user_lifetimes);
+            decode_stmts.push(quote! {
+                let #var: #output_ty = #decode_expr;
+            });
+            field_vars.push(quote! { #var });
+        }
     }
 
     Ok(quote! {
@@ -535,6 +555,10 @@ fn box_inner_type(ty: &syn::Type) -> Option<&syn::Type> {
 
 fn type_is_phantom_data(ty: &syn::Type) -> bool {
     single_type_argument(ty, "PhantomData").is_some()
+}
+
+fn field_is_skipped_on_wire(field: &syn::Field) -> bool {
+    type_is_phantom_data(&field.ty)
 }
 
 fn single_type_argument<'a>(ty: &'a syn::Type, ident: &str) -> Option<&'a syn::Type> {

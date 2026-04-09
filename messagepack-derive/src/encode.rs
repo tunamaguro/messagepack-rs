@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, WherePredicate};
+use syn::{Data, DeriveInput, Fields};
 
 use crate::attrs::{ContainerAttrs, FieldAttrs};
 
@@ -116,10 +116,18 @@ fn encode_struct(
 }
 
 fn encode_named_as_map(fields: &syn::FieldsNamed) -> syn::Result<TokenStream> {
-    let num_fields = fields.named.len();
+    let num_fields = fields
+        .named
+        .iter()
+        .filter(|field| !field_is_skipped_on_wire(field))
+        .count();
 
     let mut field_encoders = Vec::new();
     for field in &fields.named {
+        if field_is_skipped_on_wire(field) {
+            continue;
+        }
+
         let field_attrs = FieldAttrs::from_attrs(&field.attrs)?;
         let field_name = field.ident.as_ref().unwrap();
         let field_name_str = field_name.to_string();
@@ -148,7 +156,8 @@ fn encode_named_as_map(fields: &syn::FieldsNamed) -> syn::Result<TokenStream> {
 }
 
 fn encode_named_as_array(fields: &syn::FieldsNamed) -> syn::Result<TokenStream> {
-    // Collect fields with their key indices.
+    // Collect all fields with their key indices so skipped wire fields still
+    // participate in contiguous key validation.
     let mut indexed_fields: Vec<(usize, &syn::Field)> = Vec::new();
     for field in &fields.named {
         let field_attrs = FieldAttrs::from_attrs(&field.attrs)?;
@@ -177,10 +186,17 @@ fn encode_named_as_array(fields: &syn::FieldsNamed) -> syn::Result<TokenStream> 
         }
     }
 
-    let num_fields = indexed_fields.len();
+    let num_fields = indexed_fields
+        .iter()
+        .filter(|(_, field)| !field_is_skipped_on_wire(field))
+        .count();
 
     let mut field_encoders = Vec::new();
     for (_key, field) in &indexed_fields {
+        if field_is_skipped_on_wire(field) {
+            continue;
+        }
+
         let field_attrs = FieldAttrs::from_attrs(&field.attrs)?;
         let field_name = field.ident.as_ref().unwrap();
         let value_encode = encode_field_value(field, &field_attrs, quote! { &self.#field_name })?;
@@ -199,10 +215,18 @@ fn encode_named_as_array(fields: &syn::FieldsNamed) -> syn::Result<TokenStream> 
 }
 
 fn encode_tuple_struct(fields: &syn::FieldsUnnamed) -> syn::Result<TokenStream> {
-    let num_fields = fields.unnamed.len();
+    let num_fields = fields
+        .unnamed
+        .iter()
+        .filter(|field| !field_is_skipped_on_wire(field))
+        .count();
 
     let mut field_encoders = Vec::new();
     for (i, field) in fields.unnamed.iter().enumerate() {
+        if field_is_skipped_on_wire(field) {
+            continue;
+        }
+
         let field_attrs = FieldAttrs::from_attrs(&field.attrs)?;
         let idx = syn::Index::from(i);
         let value_encode = encode_field_value(field, &field_attrs, quote! { &self.#idx })?;
@@ -279,6 +303,10 @@ fn box_inner_type(ty: &syn::Type) -> Option<&syn::Type> {
 
 fn type_is_phantom_data(ty: &syn::Type) -> bool {
     single_type_argument(ty, "PhantomData").is_some()
+}
+
+fn field_is_skipped_on_wire(field: &syn::Field) -> bool {
+    type_is_phantom_data(&field.ty)
 }
 
 fn single_type_argument<'a>(ty: &'a syn::Type, ident: &str) -> Option<&'a syn::Type> {
