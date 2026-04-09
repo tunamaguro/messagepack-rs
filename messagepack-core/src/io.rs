@@ -146,11 +146,23 @@ pub enum Reference<'de, 'a> {
 
 impl Reference<'_, '_> {
     /// Borrow the underlying bytes regardless of `Borrowed` or `Copied`.
-    pub fn as_bytes(&self) -> &[u8] {
+    pub const fn as_bytes(&self) -> &[u8] {
         match self {
             Reference::Borrowed(b) => b,
             Reference::Copied(b) => b,
         }
+    }
+}
+
+impl PartialEq<[u8]> for Reference<'_, '_> {
+    fn eq(&self, other: &[u8]) -> bool {
+        self.as_bytes() == other
+    }
+}
+
+impl PartialEq<Reference<'_, '_>> for [u8] {
+    fn eq(&self, other: &Reference<'_, '_>) -> bool {
+        self == other.as_bytes()
     }
 }
 

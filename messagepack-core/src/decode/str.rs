@@ -39,11 +39,34 @@ impl<'de> DecodeBorrowed<'de> for &'de str {
 }
 
 /// Borrowed or copied UTF‑8 string reference
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ReferenceStr<'de, 'a> {
     /// Borrowed from the input (`'de`).
     Borrowed(&'de str),
     /// Copied into a transient buffer bound to `'a`.
     Copied(&'a str),
+}
+
+impl ReferenceStr<'_, '_> {
+    /// Borrow the underlying string regardless of `Borrowed` or `Copied`.
+    pub const fn as_str(&self) -> &str {
+        match self {
+            ReferenceStr::Borrowed(s) => s,
+            ReferenceStr::Copied(s) => s,
+        }
+    }
+}
+
+impl PartialEq<str> for ReferenceStr<'_, '_> {
+    fn eq(&self, other: &str) -> bool {
+        self.as_str() == other
+    }
+}
+
+impl PartialEq<ReferenceStr<'_, '_>> for str {
+    fn eq(&self, other: &ReferenceStr<'_, '_>) -> bool {
+        other.as_str() == self
+    }
 }
 
 /// Decode a MessagePack string and return a [ReferenceStr]
