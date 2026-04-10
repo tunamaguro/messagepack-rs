@@ -42,6 +42,21 @@ impl Encode for BinaryEncoder<'_> {
     }
 }
 
+/// Trait for encoding MessagePack binary data.
+pub trait EncodeBytes {
+    /// Encode the value as a MessagePack binary.
+    fn encode_bytes<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error>;
+}
+
+impl<T> EncodeBytes for T
+where
+    T: AsRef<[u8]>,
+{
+    fn encode_bytes<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        BinaryEncoder(self.as_ref()).encode(writer)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -4,29 +4,30 @@ use messagepack_core::encode::Encode;
 use messagepack_core::io::{IoRead, IoWrite};
 use messagepack_derive::{Decode, Encode};
 
-fn encode_doubled<W: IoWrite>(
-    val: &u32,
-    writer: &mut W,
+fn encode_doubled<T, W: IoWrite>(
+    _val: &T,
+    _writer: &mut W,
 ) -> Result<usize, messagepack_core::encode::Error<W::Error>> {
-    let doubled = val * 2;
-    messagepack_core::encode::Encode::encode(&doubled, writer)
+    todo!()
 }
 
-fn decode_halved<'de, R: IoRead<'de>>(
-    reader: &mut R,
-) -> Result<u32, messagepack_core::decode::Error<R::Error>> {
-    let val = <u32 as messagepack_core::decode::DecodeBorrowed<'de>>::decode_borrowed(reader)?;
-    Ok(val / 2)
+fn decode_halved<'de, T, R: IoRead<'de>>(
+    _reader: &mut R,
+) -> Result<T, messagepack_core::decode::Error<R::Error>> {
+    todo!()
 }
 
 #[derive(Debug, PartialEq, Encode, Decode)]
-struct Custom {
+struct Custom<T> {
     #[msgpack(encode_with = "encode_doubled", decode_with = "decode_halved")]
-    value: u32,
+    value: T,
 }
+
+struct NoEncodeDecode;
 
 fn assert_derive<'de, T: Encode + Decode<'de>>() {}
 
 fn main() {
-    assert_derive::<Custom>();
+    assert_derive::<Custom<u32>>();
+    assert_derive::<Custom<NoEncodeDecode>>();
 }
