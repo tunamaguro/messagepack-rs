@@ -2,45 +2,40 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput};
 
-pub fn derive_decode(mut input: DeriveInput) -> syn::Result<TokenStream> {
+use crate::bound;
+
+pub fn derive_decode(input: DeriveInput) -> syn::Result<TokenStream> {
     let name = &input.ident;
 
-    let body = match &input.data {
-        Data::Struct(data_struct) => {
-            quote! { todo!() }
-        }
+    let data_struct = match &input.data {
+        Data::Struct(ds) => ds,
         Data::Enum(_) => {
             return Err(syn::Error::new_spanned(
-                input,
+                &input,
                 "Decode derive is not yet supported for enums",
             ));
         }
         Data::Union(_) => {
             return Err(syn::Error::new_spanned(
-                input,
+                &input,
                 "Decode derive is not supported for unions",
             ));
         }
     };
 
+    let body = quote! { todo!() };
+
     let de_lifetime: syn::Lifetime = syn::parse_quote!('__msgpack_de);
 
-    {
-        input.generics.params.insert(
-            0,
-            syn::GenericParam::Lifetime(syn::LifetimeParam::new(de_lifetime.clone())),
-        );
+    // ty_generics from original (without the added 'de lifetime)
+    let (_, ty_generics, _) = input.generics.split_for_impl();
 
-        let user_lifetimes = input.generics.lifetimes().cloned().collect::<Vec<_>>();
-        let where_clause = input.generics.make_where_clause();
-        for user_life in user_lifetimes {
-            where_clause.predicates.push(syn::parse_quote! {
-                #de_lifetime : #user_life
-            });
-        }
-    }
-
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    // Build impl generics: add trait bounds, then prepend 'de lifetime
+    let decode_bound: syn::Path =
+        syn::parse_quote!(::messagepack_core::decode::DecodeBorrowed<#de_lifetime>);
+    let generics = bound::with_bound(&input.generics, &data_struct.fields, &decode_bound);
+    let generics = bound::with_de_lifetime(&generics, &de_lifetime);
+    let (impl_generics, _, where_clause) = generics.split_for_impl();
 
     Ok(quote! {
         impl #impl_generics ::messagepack_core::decode::DecodeBorrowed<#de_lifetime> for #name #ty_generics
@@ -53,7 +48,7 @@ pub fn derive_decode(mut input: DeriveInput) -> syn::Result<TokenStream> {
                 __reader: &mut __R,
             ) -> ::core::result::Result<Self::Value, ::messagepack_core::decode::Error<__R::Error>>
             where
-                __R: ::messagepack_core::io::IoRead<'__de>,
+                __R: ::messagepack_core::io::IoRead<#de_lifetime>,
             {
                 #body
             }
