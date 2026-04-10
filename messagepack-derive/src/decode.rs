@@ -38,6 +38,7 @@ pub fn derive_decode(input: DeriveInput) -> syn::Result<TokenStream> {
     let (impl_generics, _, where_clause) = generics.split_for_impl();
 
     Ok(quote! {
+        #[automatically_derived]
         impl #impl_generics ::messagepack_core::decode::DecodeBorrowed<#de_lifetime> for #name #ty_generics
             #where_clause
         {
