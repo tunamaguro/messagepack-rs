@@ -5,7 +5,6 @@
 mod attrs;
 mod decode;
 mod encode;
-mod types;
 
 use proc_macro::TokenStream;
 use syn::{DeriveInput, parse_macro_input};
@@ -54,7 +53,7 @@ pub fn derive_encode(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Decode, attributes(msgpack))]
 pub fn derive_decode(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    decode::derive_decode(&input)
+    decode::derive_decode(input)
         .unwrap_or_else(|e| e.to_compile_error())
         .into()
 }
