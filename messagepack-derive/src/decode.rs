@@ -5,6 +5,10 @@ use quote::{format_ident, quote};
 use syn::{Data, DeriveInput, Fields, WherePredicate};
 
 use crate::attrs::{ContainerAttrs, FieldAttrs};
+use crate::types::{
+    box_inner_type, collect_dependent_types, field_is_skipped_on_wire, option_inner_type,
+    replace_lifetimes_in_type, type_is_option, type_is_phantom_data,
+};
 
 pub fn derive_decode(input: &DeriveInput) -> syn::Result<TokenStream> {
     let name = &input.ident;
@@ -77,7 +81,7 @@ pub fn derive_decode(input: &DeriveInput) -> syn::Result<TokenStream> {
     let mut decode_where = where_clause
         .cloned()
         .unwrap_or_else(|| syn::parse_quote!(where));
-    for predicate in decode_field_bounds(&input.data, &user_lifetimes, &type_param_idents)? {
+    for predicate in collect_decode_bounds(&input.data, &user_lifetimes, &type_param_idents)? {
         decode_where.predicates.push(predicate);
     }
 
@@ -127,7 +131,7 @@ fn decode_struct(
     }
 }
 
-fn decode_field_bounds(
+fn collect_decode_bounds(
     data: &Data,
     user_lifetimes: &HashSet<String>,
     type_param_idents: &HashSet<String>,
@@ -151,7 +155,7 @@ fn decode_field_bounds(
                 syn::parse_quote!(#decode_ty: ::messagepack_core::decode::DecodeBytes<'__de>),
             );
         } else {
-            decode_type_bounds(&field.ty, user_lifetimes, type_param_idents, &mut predicates);
+            add_decode_type_bounds(&field.ty, user_lifetimes, type_param_idents, &mut predicates);
         }
 
         if attrs.default || type_is_option(&field.ty) {
@@ -463,7 +467,7 @@ fn decode_field_expr(
     }
 }
 
-fn decode_type_bounds(
+fn add_decode_type_bounds(
     ty: &syn::Type,
     user_lifetimes: &HashSet<String>,
     type_param_idents: &HashSet<String>,
@@ -539,179 +543,4 @@ fn decode_type_with_format_expr(
             <#replaced_ty as ::messagepack_core::decode::DecodeBorrowed<'__de>>::decode_borrowed_with_format(#format, __reader)?
         }
     }
-}
-
-fn type_is_option(ty: &syn::Type) -> bool {
-    option_inner_type(ty).is_some()
-}
-
-fn option_inner_type(ty: &syn::Type) -> Option<&syn::Type> {
-    single_type_argument(ty, "Option")
-}
-
-fn box_inner_type(ty: &syn::Type) -> Option<&syn::Type> {
-    single_type_argument(ty, "Box")
-}
-
-fn type_is_phantom_data(ty: &syn::Type) -> bool {
-    single_type_argument(ty, "PhantomData").is_some()
-}
-
-fn field_is_skipped_on_wire(field: &syn::Field) -> bool {
-    type_is_phantom_data(&field.ty)
-}
-
-fn single_type_argument<'a>(ty: &'a syn::Type, ident: &str) -> Option<&'a syn::Type> {
-    let syn::Type::Path(type_path) = ty else {
-        return None;
-    };
-
-    let segment = type_path.path.segments.last()?;
-    if segment.ident != ident {
-        return None;
-    }
-
-    let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
-        return None;
-    };
-
-    let first = args.args.first()?;
-    let syn::GenericArgument::Type(inner_ty) = first else {
-        return None;
-    };
-
-    Some(inner_ty)
-}
-
-fn collect_dependent_types(
-    ty: &syn::Type,
-    type_param_idents: &HashSet<String>,
-    out: &mut Vec<syn::Type>,
-) {
-    if type_is_phantom_data(ty) {
-        return;
-    }
-
-    match ty {
-        syn::Type::Array(array) => collect_dependent_types(&array.elem, type_param_idents, out),
-        syn::Type::Group(group) => collect_dependent_types(&group.elem, type_param_idents, out),
-        syn::Type::Paren(paren) => collect_dependent_types(&paren.elem, type_param_idents, out),
-        syn::Type::Ptr(ptr) => collect_dependent_types(&ptr.elem, type_param_idents, out),
-        syn::Type::Reference(reference) => {
-            collect_dependent_types(&reference.elem, type_param_idents, out)
-        }
-        syn::Type::Slice(slice) => collect_dependent_types(&slice.elem, type_param_idents, out),
-        syn::Type::Tuple(tuple) => {
-            for elem in &tuple.elems {
-                collect_dependent_types(elem, type_param_idents, out);
-            }
-        }
-        syn::Type::Path(type_path) => {
-            if type_path_depends_on_params(type_path, type_param_idents) {
-                push_unique_type(out, ty.clone());
-                return;
-            }
-
-            for segment in &type_path.path.segments {
-                if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                    for arg in &args.args {
-                        match arg {
-                            syn::GenericArgument::Type(arg_ty) => {
-                                collect_dependent_types(arg_ty, type_param_idents, out);
-                            }
-                            syn::GenericArgument::AssocType(assoc) => {
-                                collect_dependent_types(&assoc.ty, type_param_idents, out);
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-        }
-        _ => {}
-    }
-}
-
-fn type_path_depends_on_params(
-    type_path: &syn::TypePath,
-    type_param_idents: &HashSet<String>,
-) -> bool {
-    if let Some(qself) = &type_path.qself {
-        return type_depends_on_params(&qself.ty, type_param_idents);
-    }
-
-    type_path
-        .path
-        .segments
-        .first()
-        .map(|segment| type_param_idents.contains(&segment.ident.to_string()))
-        .unwrap_or(false)
-}
-
-fn type_depends_on_params(ty: &syn::Type, type_param_idents: &HashSet<String>) -> bool {
-    match ty {
-        syn::Type::Path(type_path) => type_path_depends_on_params(type_path, type_param_idents),
-        syn::Type::Reference(reference) => type_depends_on_params(&reference.elem, type_param_idents),
-        syn::Type::Group(group) => type_depends_on_params(&group.elem, type_param_idents),
-        syn::Type::Paren(paren) => type_depends_on_params(&paren.elem, type_param_idents),
-        _ => false,
-    }
-}
-
-fn push_unique_type(out: &mut Vec<syn::Type>, ty: syn::Type) {
-    let ty_tokens = quote! { #ty }.to_string();
-    if out.iter().any(|existing| quote! { #existing }.to_string() == ty_tokens) {
-        return;
-    }
-    out.push(ty);
-}
-
-fn replace_lifetimes_in_type_with(
-    ty: &syn::Type,
-    user_lifetimes: &HashSet<String>,
-    replacement: &syn::Lifetime,
-) -> TokenStream {
-    if user_lifetimes.is_empty() {
-        return quote! { #ty };
-    }
-    let tokens = quote! { #ty };
-    replace_lifetimes_in_tokens(tokens, user_lifetimes, replacement)
-}
-
-/// Replace user-defined lifetimes with `'__de` in a type's token stream.
-fn replace_lifetimes_in_type(ty: &syn::Type, user_lifetimes: &HashSet<String>) -> TokenStream {
-    let de_lifetime: syn::Lifetime = syn::parse_quote!('__de);
-    replace_lifetimes_in_type_with(ty, user_lifetimes, &de_lifetime)
-}
-
-fn replace_lifetimes_in_tokens(
-    tokens: TokenStream,
-    user_lifetimes: &HashSet<String>,
-    replacement: &syn::Lifetime,
-) -> TokenStream {
-    use proc_macro2::TokenTree;
-    let mut result = TokenStream::new();
-    let mut iter = tokens.into_iter().peekable();
-    while let Some(tt) = iter.next() {
-        match &tt {
-            TokenTree::Punct(p) if p.as_char() == '\'' => {
-                // Check if next token is one of the user lifetimes
-                if let Some(TokenTree::Ident(ident)) = iter.peek()
-                    && user_lifetimes.contains(&ident.to_string())
-                {
-                    result.extend(quote! { #replacement });
-                    iter.next(); // consume the ident
-                    continue;
-                }
-                result.extend(core::iter::once(tt));
-            }
-            TokenTree::Group(g) => {
-                let replaced = replace_lifetimes_in_tokens(g.stream(), user_lifetimes, replacement);
-                let new_group = proc_macro2::Group::new(g.delimiter(), replaced);
-                result.extend(core::iter::once(TokenTree::Group(new_group)));
-            }
-            _ => result.extend(core::iter::once(tt)),
-        }
-    }
-    result
 }

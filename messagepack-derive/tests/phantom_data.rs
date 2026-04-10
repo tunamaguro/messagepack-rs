@@ -16,6 +16,7 @@ struct Bar<T> {
     marker: PhantomData<T>,
 }
 
+#[test]
 fn phantom_only_field_is_omitted() {
     let foo = Foo { data: PhantomData };
 

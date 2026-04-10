@@ -5,14 +5,18 @@ use quote::quote;
 use syn::{Data, DeriveInput, Fields};
 
 use crate::attrs::{ContainerAttrs, FieldAttrs};
+use crate::types::{
+    box_inner_type, collect_dependent_types, field_is_skipped_on_wire, option_inner_type,
+    type_is_phantom_data,
+};
 
 pub fn derive_encode(mut input: DeriveInput) -> syn::Result<TokenStream> {
     let name = &input.ident;
 
     let (body, type_paths) = match &input.data {
         Data::Struct(data_struct) => {
-            let type_paths = get_types_to_bound(&mut input.generics, &data_struct.fields);
-            let body = encode_struct(name, &input.attrs, &data_struct.fields)?;
+            let type_paths = collect_encode_bounds(&input.generics, &data_struct.fields);
+            let body = encode_struct(&input.attrs, &data_struct.fields)?;
             (body, type_paths)
         }
         Data::Enum(_) => {
@@ -50,7 +54,7 @@ pub fn derive_encode(mut input: DeriveInput) -> syn::Result<TokenStream> {
     })
 }
 
-fn get_types_to_bound(generics: &mut syn::Generics, fields: &Fields) -> Vec<syn::TypePath> {
+fn collect_encode_bounds(generics: &syn::Generics, fields: &Fields) -> Vec<syn::TypePath> {
     let type_param_idents: HashSet<String> = generics
         .type_params()
         .map(|param| param.ident.to_string())
@@ -90,7 +94,6 @@ fn get_types_to_bound(generics: &mut syn::Generics, fields: &Fields) -> Vec<syn:
 }
 
 fn encode_struct(
-    _name: &syn::Ident,
     attrs: &[syn::Attribute],
     fields: &Fields,
 ) -> syn::Result<TokenStream> {
@@ -291,130 +294,4 @@ fn encode_type_value(ty: &syn::Type, accessor: TokenStream) -> TokenStream {
             ::messagepack_core::encode::Encode::encode(#accessor, writer)?
         }
     }
-}
-
-fn option_inner_type(ty: &syn::Type) -> Option<&syn::Type> {
-    single_type_argument(ty, "Option")
-}
-
-fn box_inner_type(ty: &syn::Type) -> Option<&syn::Type> {
-    single_type_argument(ty, "Box")
-}
-
-fn type_is_phantom_data(ty: &syn::Type) -> bool {
-    single_type_argument(ty, "PhantomData").is_some()
-}
-
-fn field_is_skipped_on_wire(field: &syn::Field) -> bool {
-    type_is_phantom_data(&field.ty)
-}
-
-fn single_type_argument<'a>(ty: &'a syn::Type, ident: &str) -> Option<&'a syn::Type> {
-    let syn::Type::Path(type_path) = ty else {
-        return None;
-    };
-
-    let segment = type_path.path.segments.last()?;
-    if segment.ident != ident {
-        return None;
-    }
-
-    let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
-        return None;
-    };
-
-    let first = args.args.first()?;
-    let syn::GenericArgument::Type(inner_ty) = first else {
-        return None;
-    };
-
-    Some(inner_ty)
-}
-
-fn collect_dependent_types(
-    ty: &syn::Type,
-    type_param_idents: &HashSet<String>,
-    out: &mut Vec<syn::Type>,
-) {
-    if type_is_phantom_data(ty) {
-        return;
-    }
-
-    match ty {
-        syn::Type::Array(array) => collect_dependent_types(&array.elem, type_param_idents, out),
-        syn::Type::Group(group) => collect_dependent_types(&group.elem, type_param_idents, out),
-        syn::Type::Paren(paren) => collect_dependent_types(&paren.elem, type_param_idents, out),
-        syn::Type::Ptr(ptr) => collect_dependent_types(&ptr.elem, type_param_idents, out),
-        syn::Type::Reference(reference) => {
-            collect_dependent_types(&reference.elem, type_param_idents, out)
-        }
-        syn::Type::Slice(slice) => collect_dependent_types(&slice.elem, type_param_idents, out),
-        syn::Type::Tuple(tuple) => {
-            for elem in &tuple.elems {
-                collect_dependent_types(elem, type_param_idents, out);
-            }
-        }
-        syn::Type::Path(type_path) => {
-            if type_path_depends_on_params(type_path, type_param_idents) {
-                push_unique_type(out, ty.clone());
-                return;
-            }
-
-            for segment in &type_path.path.segments {
-                if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                    for arg in &args.args {
-                        match arg {
-                            syn::GenericArgument::Type(arg_ty) => {
-                                collect_dependent_types(arg_ty, type_param_idents, out);
-                            }
-                            syn::GenericArgument::AssocType(assoc) => {
-                                collect_dependent_types(&assoc.ty, type_param_idents, out);
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-        }
-        _ => {}
-    }
-}
-
-fn type_path_depends_on_params(
-    type_path: &syn::TypePath,
-    type_param_idents: &HashSet<String>,
-) -> bool {
-    if let Some(qself) = &type_path.qself {
-        return type_depends_on_params(&qself.ty, type_param_idents);
-    }
-
-    type_path
-        .path
-        .segments
-        .first()
-        .map(|segment| type_param_idents.contains(&segment.ident.to_string()))
-        .unwrap_or(false)
-}
-
-fn type_depends_on_params(ty: &syn::Type, type_param_idents: &HashSet<String>) -> bool {
-    match ty {
-        syn::Type::Path(type_path) => type_path_depends_on_params(type_path, type_param_idents),
-        syn::Type::Reference(reference) => {
-            type_depends_on_params(&reference.elem, type_param_idents)
-        }
-        syn::Type::Group(group) => type_depends_on_params(&group.elem, type_param_idents),
-        syn::Type::Paren(paren) => type_depends_on_params(&paren.elem, type_param_idents),
-        _ => false,
-    }
-}
-
-fn push_unique_type(out: &mut Vec<syn::Type>, ty: syn::Type) {
-    let ty_tokens = quote! { #ty }.to_string();
-    if out
-        .iter()
-        .any(|existing| quote! { #existing }.to_string() == ty_tokens)
-    {
-        return;
-    }
-    out.push(ty);
 }
