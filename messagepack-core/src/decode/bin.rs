@@ -126,7 +126,7 @@ mod alloc_impl {
         where
             R: IoRead<'de>,
         {
-            <BinOwnedDecoder as DecodeBorrowed<'de>>::decode_borrowed(reader)
+            ReferenceDecoder::decode(reader).map(|b| b.as_bytes().into())
         }
     }
 
@@ -135,8 +135,7 @@ mod alloc_impl {
         where
             R: IoRead<'de>,
         {
-            let v = <BinOwnedDecoder as DecodeBorrowed<'de>>::decode_borrowed(reader)?;
-            Ok(v.into_boxed_slice())
+            ReferenceDecoder::decode(reader).map(|b| b.as_bytes().into())
         }
     }
 }
