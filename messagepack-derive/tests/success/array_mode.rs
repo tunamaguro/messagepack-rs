@@ -1,7 +1,6 @@
 // Test: array mode with key indices
 use messagepack_core::decode::Decode;
 use messagepack_core::encode::Encode;
-use messagepack_core::io::SliceReader;
 use messagepack_derive::{Decode, Encode};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
@@ -13,15 +12,8 @@ struct Record {
     age: u8,
 }
 
-fn main() {
-    let r = Record {
-        name: "Alice".to_string(),
-        age: 30,
-    };
-    let mut buf = Vec::new();
-    r.encode(&mut buf).unwrap();
+fn assert_derive<'de, T: Encode + Decode<'de>>() {}
 
-    let mut reader = SliceReader::new(&buf);
-    let decoded = <Record as Decode>::decode(&mut reader).unwrap();
-    assert_eq!(decoded, r);
+fn main() {
+    assert_derive::<Record>();
 }

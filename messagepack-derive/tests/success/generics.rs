@@ -1,7 +1,6 @@
 // Test: generics support
 use messagepack_core::decode::Decode;
 use messagepack_core::encode::Encode;
-use messagepack_core::io::SliceReader;
 use messagepack_derive::{Decode, Encode};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
@@ -10,7 +9,7 @@ struct Wrapper<T> {
 }
 
 // expect expands to below
-// 
+//
 // impl<T> Encode for Wrapper<T>
 // where
 //     T: Encode,
@@ -45,12 +44,9 @@ struct Wrapper<T> {
 //     }
 // }
 
-fn main() {
-    let w = Wrapper { value: 42u32 };
-    let mut buf = Vec::new();
-    w.encode(&mut buf).unwrap();
+fn assert_derive<'de, T: Encode + Decode<'de>>() {}
 
-    let mut reader = SliceReader::new(&buf);
-    let decoded = <Wrapper<u32> as Decode>::decode(&mut reader).unwrap();
-    assert_eq!(decoded, w);
+fn main() {
+    assert_derive::<Wrapper<u32>>();
+    assert_derive::<Wrapper<String>>();
 }

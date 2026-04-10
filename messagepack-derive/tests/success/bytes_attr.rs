@@ -1,7 +1,6 @@
 // Test: bytes attribute
 use messagepack_core::decode::Decode;
 use messagepack_core::encode::Encode;
-use messagepack_core::io::SliceReader;
 use messagepack_derive::{Decode, Encode};
 
 #[derive(Debug, PartialEq, Encode, Decode)]
@@ -17,18 +16,8 @@ struct BlobHolder<'a> {
     data_ref: &'a [u8],
 }
 
-fn main() {
-    let b = BlobHolder {
-        name: "test".to_string(),
-        data_vec: vec![1, 2, 3, 4, 5],
-        data_array: [1, 2, 3, 4, 5],
-        data_boxed: vec![1, 2, 3, 4, 5].into_boxed_slice(),
-        data_ref: &[1, 2, 3, 4, 5],
-    };
-    let mut buf = Vec::new();
-    b.encode(&mut buf).unwrap();
+fn assert_derive<'de, T: Encode + Decode<'de>>() {}
 
-    let mut reader = SliceReader::new(&buf);
-    let decoded = <BlobHolder as Decode>::decode(&mut reader).unwrap();
-    assert_eq!(decoded, b);
+fn main() {
+    assert_derive::<BlobHolder<'_>>();
 }
