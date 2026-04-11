@@ -50,9 +50,12 @@ impl<T: core::error::Error> core::error::Error for Error<T> {}
 type Result<T, E> = ::core::result::Result<T, Error<E>>;
 
 /// A type which can be encoded to MessagePack.
-pub trait Encode {
+pub trait Encode<W>
+where
+    W: IoWrite,
+{
     /// Encode this value to MessagePack and write bytes to `writer`.
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error>;
+    fn encode(&self, writer: &mut W) -> Result<usize, W::Error>;
 }
 
 macro_rules! deref_impl {
@@ -63,7 +66,7 @@ macro_rules! deref_impl {
         $(#[$attr])*
         impl<$($desc)+
         {
-            fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+            fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
                 (**self).encode(writer)
             }
         }
@@ -71,19 +74,24 @@ macro_rules! deref_impl {
 }
 
 deref_impl! {
-    <V> Encode for &V
+    <V, W> Encode<W> for &V
     where
-        V: Encode,
+        V: Encode<W>,
+        W: IoWrite,
 }
 
 deref_impl! {
-    <V> Encode for &mut V
+    <V, W> Encode<W> for &mut V
     where
-        V: Encode,
+        V: Encode<W>,
+        W: IoWrite,
 }
 
-impl Encode for Format {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl<W> Encode<W> for Format
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         writer.write(&self.as_slice())?;
         Ok(1)
     }

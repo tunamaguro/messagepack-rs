@@ -3,16 +3,22 @@
 use super::{Encode, Result};
 use crate::{formats::Format, io::IoWrite};
 
-impl Encode for f32 {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl<W> Encode<W> for f32
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         writer.write(&Format::Float32.as_slice())?;
         writer.write(&self.to_be_bytes())?;
         Ok(5)
     }
 }
 
-impl Encode for f64 {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl<W> Encode<W> for f64
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         writer.write(&Format::Float64.as_slice())?;
         writer.write(&self.to_be_bytes())?;
         Ok(9)
@@ -44,8 +50,11 @@ impl From<f64> for EncodeMinimizeFloat {
     }
 }
 
-impl Encode for EncodeMinimizeFloat {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl<W> Encode<W> for EncodeMinimizeFloat
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         {
             match self {
                 EncodeMinimizeFloat::F32(v) => v.encode(writer),
@@ -70,7 +79,10 @@ mod tests {
 
     #[rstest]
     #[case(123.456_f32,[Format::Float32.as_byte(), 0x42, 0xf6, 0xe9, 0x79])]
-    fn encode_float32<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
+    fn encode_float32<V: Encode<Vec<u8>>, E: AsRef<[u8]> + Sized>(
+        #[case] value: V,
+        #[case] expected: E,
+    ) {
         let expected = expected.as_ref();
 
         let mut buf = vec![];
@@ -81,7 +93,10 @@ mod tests {
 
     #[rstest]
     #[case(123456.789_f64,[Format::Float64.as_byte(), 0x40, 0xfe, 0x24, 0x0c, 0x9f, 0xbe, 0x76, 0xc9])]
-    fn encode_float64<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
+    fn encode_float64<V: Encode<Vec<u8>>, E: AsRef<[u8]> + Sized>(
+        #[case] value: V,
+        #[case] expected: E,
+    ) {
         let expected = expected.as_ref();
 
         let mut buf = vec![];
