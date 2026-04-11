@@ -7,7 +7,7 @@ pub(super) enum SerializeSeq<'a, 'b, W, Num> {
         ser: &'a mut Serializer<'b, W, Num>,
     },
     #[cfg(feature = "alloc")]
-    SeqWithOutLen {
+    SeqWithoutLen {
         ser: &'a mut Serializer<'b, W, Num>,
         array_values: alloc::vec::Vec<crate::value::Value>,
     },
@@ -29,7 +29,7 @@ where
         } else {
             #[cfg(feature = "alloc")]
             {
-                Ok(Self::SeqWithOutLen {
+                Ok(Self::SeqWithoutLen {
                     ser,
                     array_values: alloc::vec::Vec::new(),
                 })
@@ -59,7 +59,7 @@ where
         match self {
             Self::SeqWithLen { ser, .. } => value.serialize(ser.as_mut()),
             #[cfg(feature = "alloc")]
-            Self::SeqWithOutLen { array_values, .. } => {
+            Self::SeqWithoutLen { array_values, .. } => {
                 let val = crate::value::to_value(value).map_err(crate::ser::error::convert_error)?;
                 array_values.push(val);
                 Ok(())
@@ -71,7 +71,7 @@ where
         match self {
             Self::SeqWithLen { .. } => Ok(()),
             #[cfg(feature = "alloc")]
-            Self::SeqWithOutLen { ser, array_values } => {
+            Self::SeqWithoutLen { ser, array_values } => {
                 use serde::Serialize;
                 let array = crate::value::Value::Array(array_values);
                 array.serialize(ser.as_mut())?;

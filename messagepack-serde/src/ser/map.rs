@@ -9,7 +9,7 @@ pub(super) enum SerializeMap<'a, 'b, W, Num> {
         ser: &'a mut Serializer<'b, W, Num>,
     },
     #[cfg(feature = "alloc")]
-    MapWithOutLen {
+    MapWithoutLen {
         ser: &'a mut Serializer<'b, W, Num>,
         key_value: Option<crate::value::Value>,
         map_values: alloc::vec::Vec<(crate::value::Value, crate::value::Value)>,
@@ -32,7 +32,7 @@ where
         } else {
             #[cfg(feature = "alloc")]
             {
-                Ok(Self::MapWithOutLen {
+                Ok(Self::MapWithoutLen {
                     ser,
                     key_value: None,
                     map_values: alloc::vec::Vec::new(),
@@ -63,7 +63,7 @@ where
         match self {
             Self::MapWithLen { ser } => key.serialize(ser.as_mut()),
             #[cfg(feature = "alloc")]
-            Self::MapWithOutLen { key_value, .. } => {
+            Self::MapWithoutLen { key_value, .. } => {
                 *key_value = Some(crate::value::to_value(key).map_err(crate::ser::error::convert_error)?);
                 Ok(())
             }
@@ -77,7 +77,7 @@ where
         match self {
             Self::MapWithLen { ser } => value.serialize(ser.as_mut()),
             #[cfg(feature = "alloc")]
-            Self::MapWithOutLen {
+            Self::MapWithoutLen {
                 key_value,
                 map_values,
                 ..
@@ -96,7 +96,7 @@ where
         match self {
             Self::MapWithLen { .. } => Ok(()),
             #[cfg(feature = "alloc")]
-            Self::MapWithOutLen {
+            Self::MapWithoutLen {
                 ser, map_values, ..
             } => {
                 use serde::Serialize;
