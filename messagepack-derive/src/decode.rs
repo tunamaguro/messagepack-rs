@@ -138,10 +138,7 @@ fn decode_tuple(
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;
-    let build = fields
-        .iter()
-        .map(tuple_field_build)
-        .collect::<Vec<_>>();
+    let build = fields.iter().map(tuple_field_build).collect::<Vec<_>>();
 
     Ok(quote! {
         let __len = match __format {
@@ -150,7 +147,7 @@ fn decode_tuple(
             ::messagepack_core::Format::Array32 => ::messagepack_core::decode::NbyteReader::<4>::read(__reader)?,
             _ => return Err(::messagepack_core::decode::Error::UnexpectedFormat),
         };
-        if __len < #min_len || __len > #len {
+        if !(#min_len..=#len).contains(&__len) {
             return Err(::messagepack_core::decode::Error::InvalidData);
         }
         #(
@@ -250,10 +247,7 @@ fn decode_named_map(
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;
-    let build = fields
-        .iter()
-        .map(named_field_build)
-        .collect::<Vec<_>>();
+    let build = fields.iter().map(named_field_build).collect::<Vec<_>>();
 
     Ok(quote! {
         #(
@@ -326,13 +320,10 @@ fn decode_named_array(
             }
         })
         .collect::<Vec<_>>();
-    let build = fields
-        .iter()
-        .map(named_field_build)
-        .collect::<Vec<_>>();
+    let build = fields.iter().map(named_field_build).collect::<Vec<_>>();
 
     Ok(quote! {
-        if __len < #min_len || __len > #len {
+        if !(#min_len..=#len).contains(&__len) {
             return Err(::messagepack_core::decode::Error::InvalidData);
         }
         #(
