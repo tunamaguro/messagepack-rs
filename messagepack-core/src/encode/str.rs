@@ -7,8 +7,8 @@ use crate::{formats::Format, io::IoWrite};
 
 /// Encode only the string header for a string of a given byte length.
 pub struct StrFormatEncoder(pub usize);
-impl<W: IoWrite> Encode<W> for StrFormatEncoder {
-    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl Encode for StrFormatEncoder {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match self.0 {
             0x00..=31 => {
                 let cast = self.0 as u8;
@@ -40,8 +40,8 @@ impl<W: IoWrite> Encode<W> for StrFormatEncoder {
 
 /// Encode only the string bytes without a header.
 pub struct StrDataEncoder<'a>(pub &'a str);
-impl<W: IoWrite> Encode<W> for StrDataEncoder<'_> {
-    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl Encode for StrDataEncoder<'_> {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let data = self.0.as_bytes();
         writer.write(data)?;
         Ok(self.0.len())
@@ -58,8 +58,8 @@ impl<'s> Deref for StrEncoder<'s> {
     }
 }
 
-impl<W: IoWrite> Encode<W> for StrEncoder<'_> {
-    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl Encode for StrEncoder<'_> {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let self_len = self.len();
         let format_len = StrFormatEncoder(self_len).encode(writer)?;
         let data_len = StrDataEncoder(self.0).encode(writer)?;
@@ -68,8 +68,8 @@ impl<W: IoWrite> Encode<W> for StrEncoder<'_> {
     }
 }
 
-impl<W: IoWrite> Encode<W> for &str {
-    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl Encode for &str {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         StrEncoder(self).encode(writer)
     }
 }
@@ -78,8 +78,8 @@ impl<W: IoWrite> Encode<W> for &str {
 mod alloc_impl {
     use super::*;
 
-    impl<W: IoWrite> Encode<W> for alloc::string::String {
-        fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+    impl Encode for alloc::string::String {
+        fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
             self.as_str().encode(writer)
         }
     }

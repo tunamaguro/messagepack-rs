@@ -12,15 +12,17 @@ all-features = true
 
 [dependencies]
 num-traits = { workspace = true }
+messagepack-derive = { workspace = true, optional = true }
 
 [dev-dependencies]
 rstest = { workspace = true }
 proptest = { workspace = true }
 
 [features]
-default = ["std"]
+default = ["std", "derive"]
 alloc = []
 std = ["alloc"]
+derive = ["messagepack-derive"]
 
 [[test]]
 name = "int"

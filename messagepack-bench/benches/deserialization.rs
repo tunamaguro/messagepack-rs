@@ -5,6 +5,7 @@ use divan::counter::BytesCount;
 use messagepack_bench::{
     ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StrTypes, StrTypesBorrowed,
 };
+use messagepack_core::{Decode, Encode, decode::DecodeOwned};
 use serde::{Serialize, de::DeserializeOwned};
 use std::iter::repeat_with;
 
@@ -96,6 +97,50 @@ fn deserialize_borrowed_rmp_serde(#[allow(unused_mut)] mut bencher: divan::Bench
     bencher.bench_local(|| {
         let buf = core::hint::black_box(&buf[..buf_len]);
         rmp_serde::from_slice::<StrTypesBorrowed>(buf).unwrap()
+    });
+}
+
+#[divan::bench(
+    types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StrTypes],
+    args = LENS
+)]
+fn deserialize_messagepack_core<T: Encode + DecodeOwned + Default + Sync>(
+    #[allow(unused_mut)] mut bencher: divan::Bencher,
+    len: usize,
+) {
+    let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
+    let mut buf = Vec::new();
+    s.encode(&mut buf).unwrap();
+    let buf_len = buf.len();
+
+    #[cfg(not(codspeed))]
+    {
+        bencher = bencher.counter(BytesCount::of_slice(&buf))
+    }
+
+    bencher.bench_local(|| {
+        let buf = core::hint::black_box(&buf[..buf_len]);
+        let mut reader = messagepack_core::io::SliceReader::new(buf);
+        <Vec<T>>::decode(&mut reader).unwrap()
+    });
+}
+
+#[divan::bench]
+fn deserialize_borrowed_messagepack_core(#[allow(unused_mut)] mut bencher: divan::Bencher) {
+    let s = StrTypesBorrowed::default();
+    let mut buf = Vec::new();
+    s.encode(&mut buf).unwrap();
+    let buf_len = buf.len();
+
+    #[cfg(not(codspeed))]
+    {
+        bencher = bencher.counter(BytesCount::of_slice(&buf))
+    }
+
+    bencher.bench_local(|| {
+        let buf = core::hint::black_box(&buf[..buf_len]);
+        let mut reader = messagepack_core::io::SliceReader::new(buf);
+        StrTypesBorrowed::decode(&mut reader).unwrap()
     });
 }
 
