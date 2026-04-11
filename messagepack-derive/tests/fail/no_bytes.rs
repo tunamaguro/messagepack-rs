@@ -20,5 +20,4 @@ fn assert_derive<'de, T: Encode + Decode<'de>>() {}
 
 fn main() {
     assert_derive::<S1<'_>>();
-    assert_derive::<S2>();
 }

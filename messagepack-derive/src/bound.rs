@@ -10,7 +10,7 @@ use syn::punctuated::Pair;
 /// even when it does not implement the trait.
 pub fn with_bound(
     generics: &syn::Generics,
-    fields: &[&syn::Field],
+    fields: &syn::Fields,
     bound: &syn::Path,
 ) -> syn::Generics {
     struct FindTyParams<'ast> {
@@ -150,7 +150,7 @@ pub fn with_bound(
         associated_type_usage: Vec::new(),
     };
 
-    for field in fields {
+    for field in fields.iter() {
         visitor.visit_field(field);
     }
 
@@ -173,29 +173,6 @@ pub fn with_bound(
         .make_where_clause()
         .predicates
         .extend(new_predicates);
-    generics
-}
-
-/// Add `bound` as a where-clause predicate for each concrete field type
-/// in `types`. Unlike [`with_bound`], this does *not* inspect type
-/// parameters — it bounds the type directly (e.g.
-/// `Vec<u8>: AsRef<[u8]>`).
-pub fn with_type_bound(
-    generics: &syn::Generics,
-    types: &[&syn::Type],
-    bound: &syn::Path,
-) -> syn::Generics {
-    if types.is_empty() {
-        return generics.clone();
-    }
-    let predicates = types.iter().map(|ty| -> syn::WherePredicate {
-        syn::parse_quote!(#ty: #bound)
-    });
-    let mut generics = generics.clone();
-    generics
-        .make_where_clause()
-        .predicates
-        .extend(predicates);
     generics
 }
 
