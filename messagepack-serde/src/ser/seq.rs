@@ -1,5 +1,5 @@
 use super::{Error, Serializer, num::NumEncoder};
-use messagepack_core::{Encode, encode::array::ArrayFormatEncoder, io::IoWrite};
+use messagepack_core::{Encode as _, encode::array::ArrayFormatEncoder, io::IoWrite};
 use serde::ser;
 
 pub(super) enum SerializeSeq<'a, 'b, W, Num> {
@@ -19,7 +19,7 @@ where
     W: IoWrite,
     Num: NumEncoder<W>,
 {
-    pub(super) fn new(
+    pub fn new(
         ser: &'a mut Serializer<'b, W, Num>,
         len: Option<usize>,
     ) -> Result<Self, Error<W::Error>> {
@@ -142,7 +142,7 @@ where
     }
 }
 
-pub(crate) fn convert_error<T>(err: Error<core::convert::Infallible>) -> crate::ser::Error<T> {
+fn convert_error<T>(err: Error<core::convert::Infallible>) -> crate::ser::Error<T> {
     match err {
         Error::Encode(e) => match e {
             messagepack_core::encode::Error::Io(_e) => {

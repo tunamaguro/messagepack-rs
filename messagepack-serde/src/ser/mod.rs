@@ -372,9 +372,7 @@ where
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        let len = len.ok_or(Error::SeqLenNone)?;
-        self.current_length += MapFormatEncoder::new(len).encode(self.writer)?;
-        Ok(map::SerializeMap::new(self))
+        map::SerializeMap::new(self, len)
     }
 
     fn serialize_struct(
@@ -382,8 +380,7 @@ where
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        self.current_length += MapFormatEncoder::new(len).encode(self.writer)?;
-        Ok(map::SerializeMap::new(self))
+        self.serialize_map(Some(len))
     }
 
     fn serialize_struct_variant(
