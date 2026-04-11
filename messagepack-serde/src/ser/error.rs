@@ -63,3 +63,24 @@ where
         }
     }
 }
+
+#[allow(unused)]
+/// Convert `Error<Infallible>` to `crate::ser::Error<T>`
+/// This is used when `alloc` feature enabled
+pub(crate) fn convert_error<T>(err: Error<core::convert::Infallible>) -> Error<T> {
+    match err {
+        Error::Encode(e) => match e {
+            messagepack_core::encode::Error::Io(_e) => {
+                unreachable!("infallible error should never occur")
+            }
+            messagepack_core::encode::Error::InvalidFormat => {
+                messagepack_core::encode::Error::InvalidFormat.into()
+            }
+        },
+        Error::SeqLenNone => Error::SeqLenNone,
+        #[cfg(not(feature = "alloc"))]
+        Error::Custom => Error::Custom,
+        #[cfg(feature = "alloc")]
+        Error::Custom(msg) => Error::Custom(msg),
+    }
+}

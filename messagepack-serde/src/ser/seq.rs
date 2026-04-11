@@ -60,7 +60,7 @@ where
             Self::SeqWithLen { ser, .. } => value.serialize(ser.as_mut()),
             #[cfg(feature = "alloc")]
             Self::SeqWithOutLen { array_values, .. } => {
-                let val = crate::value::to_value(value).map_err(convert_error)?;
+                let val = crate::value::to_value(value).map_err(crate::ser::error::convert_error)?;
                 array_values.push(val);
                 Ok(())
             }
@@ -139,26 +139,5 @@ where
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
         ser::SerializeSeq::end(self)
-    }
-}
-
-#[allow(unused)]
-/// Convert `Error<Infallible>` to `crate::ser::Error<T>`
-/// This is used when `alloc` feature enabled
-fn convert_error<T>(err: Error<core::convert::Infallible>) -> crate::ser::Error<T> {
-    match err {
-        Error::Encode(e) => match e {
-            messagepack_core::encode::Error::Io(_e) => {
-                unreachable!("infallible error should never occur")
-            }
-            messagepack_core::encode::Error::InvalidFormat => {
-                messagepack_core::encode::Error::InvalidFormat.into()
-            }
-        },
-        Error::SeqLenNone => crate::ser::Error::SeqLenNone,
-        #[cfg(not(feature = "alloc"))]
-        Error::Custom => crate::ser::Error::Custom,
-        #[cfg(feature = "alloc")]
-        Error::Custom(msg) => crate::ser::Error::Custom(msg),
     }
 }
