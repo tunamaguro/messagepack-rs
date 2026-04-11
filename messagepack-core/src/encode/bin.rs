@@ -48,12 +48,44 @@ pub trait EncodeBytes {
     fn encode_bytes<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error>;
 }
 
-impl<T> EncodeBytes for T
+impl EncodeBytes for &[u8] {
+    fn encode_bytes<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        BinaryEncoder(self).encode(writer)
+    }
+}
+
+impl<const N: usize> EncodeBytes for [u8; N] {
+    fn encode_bytes<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        self.as_slice().encode_bytes(writer)
+    }
+}
+
+impl<T> EncodeBytes for Option<T>
 where
-    T: AsRef<[u8]>,
+    T: EncodeBytes,
 {
     fn encode_bytes<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        BinaryEncoder(self.as_ref()).encode(writer)
+        match self {
+            Some(value) => value.encode_bytes(writer),
+            None => ().encode(writer),
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+mod alloc_impl {
+    use super::*;
+
+    impl EncodeBytes for alloc::vec::Vec<u8> {
+        fn encode_bytes<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+            self.as_slice().encode_bytes(writer)
+        }
+    }
+
+    impl EncodeBytes for alloc::boxed::Box<[u8]> {
+        fn encode_bytes<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+            self.as_ref().encode_bytes(writer)
+        }
     }
 }
 

@@ -74,29 +74,50 @@ pub trait DecodeBytes<'de>: Sized {
     /// Decode binary data from the reader.
     fn decode_bytes<R>(reader: &mut R) -> Result<Self, Error<R::Error>>
     where
+        R: IoRead<'de>,
+    {
+        let format = Format::decode(reader)?;
+        Self::decode_bytes_with_format(format, reader)
+    }
+
+    /// Decode binary data from the reader, given the initial format.
+    fn decode_bytes_with_format<R>(format: Format, reader: &mut R) -> Result<Self, Error<R::Error>>
+    where
         R: IoRead<'de>;
 }
 
 impl<'de> DecodeBytes<'de> for &'de [u8] {
-    fn decode_bytes<R>(reader: &mut R) -> Result<Self, Error<R::Error>>
+    fn decode_bytes_with_format<R>(format: Format, reader: &mut R) -> Result<Self, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
-        <BinDecoder as DecodeBorrowed<'de>>::decode_borrowed(reader)
+        <&'de [u8] as DecodeBorrowed<'de>>::decode_borrowed_with_format(format, reader)
     }
 }
 
 impl<'de, const N: usize> DecodeBytes<'de> for [u8; N] {
-    fn decode_bytes<R>(reader: &mut R) -> Result<Self, Error<R::Error>>
+    fn decode_bytes_with_format<R>(format: Format, reader: &mut R) -> Result<Self, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
-        let reference = ReferenceDecoder::decode_with_format(
-            <Format as DecodeBorrowed<'de>>::decode_borrowed(reader)?,
-            reader,
-        )?;
+        let reference = ReferenceDecoder::decode_with_format(format, reader)?;
         let bytes = reference.as_bytes();
         bytes.try_into().map_err(|_| Error::InvalidData)
+    }
+}
+
+impl<'de, T> DecodeBytes<'de> for Option<T>
+where
+    T: DecodeBytes<'de>,
+{
+    fn decode_bytes_with_format<R>(format: Format, reader: &mut R) -> Result<Self, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+    {
+        match format {
+            Format::Nil => Ok(None),
+            _ => T::decode_bytes_with_format(format, reader).map(Some),
+        }
     }
 }
 
@@ -122,20 +143,26 @@ mod alloc_impl {
     }
 
     impl<'de> DecodeBytes<'de> for alloc::vec::Vec<u8> {
-        fn decode_bytes<R>(reader: &mut R) -> Result<Self, Error<R::Error>>
+        fn decode_bytes_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> Result<Self, Error<R::Error>>
         where
             R: IoRead<'de>,
         {
-            ReferenceDecoder::decode(reader).map(|b| b.as_bytes().into())
+            ReferenceDecoder::decode_with_format(format, reader).map(|b| b.as_bytes().into())
         }
     }
 
     impl<'de> DecodeBytes<'de> for alloc::boxed::Box<[u8]> {
-        fn decode_bytes<R>(reader: &mut R) -> Result<Self, Error<R::Error>>
+        fn decode_bytes_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> Result<Self, Error<R::Error>>
         where
             R: IoRead<'de>,
         {
-            ReferenceDecoder::decode(reader).map(|b| b.as_bytes().into())
+            ReferenceDecoder::decode_with_format(format, reader).map(|b| b.as_bytes().into())
         }
     }
 }

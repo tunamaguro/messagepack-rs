@@ -2,13 +2,33 @@ error[E0277]: the trait bound `Vec<Foo>: EncodeBytes` is not satisfied
   --> tests/fail/no_bytes.rs:13:10
    |
 13 | #[derive(Encode, Decode)]
-   |          ^^^^^^ the trait `AsRef<[u8]>` is not implemented for `Vec<Foo>`
+   |          ^^^^^^ the trait `EncodeBytes` is not implemented for `Vec<Foo>`
    |
-   = help: the following other types implement trait `AsRef<T>`:
-             `Vec<T, A>` implements `AsRef<Vec<T, A>>`
-             `Vec<T, A>` implements `AsRef<[T]>`
-   = note: required for `Vec<Foo>` to implement `EncodeBytes`
+   = help: the trait `EncodeBytes` is implemented for `Vec<u8>`
    = help: see issue #48214
+   = note: this error originates in the derive macro `Encode` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `&[Foo]: EncodeBytes` is not satisfied
+  --> tests/fail/no_bytes.rs:22:21
+   |
+22 |     assert_derive::<S1<'_>>();
+   |                     ^^^^^^ the trait `EncodeBytes` is not implemented for `&[Foo]`
+   |
+   = help: the following other types implement trait `EncodeBytes`:
+             &[u8]
+             [u8; N]
+note: required for `S1<'_>` to implement `Encode`
+  --> tests/fail/no_bytes.rs:7:10
+   |
+ 7 | #[derive(Encode, Decode)]
+   |          ^^^^^^ unsatisfied trait bound introduced in this `derive` macro
+ 8 | struct S1<'a> {
+   |        ^^^^^^
+note: required by a bound in `assert_derive`
+  --> tests/fail/no_bytes.rs:19:26
+   |
+19 | fn assert_derive<'de, T: Encode + Decode<'de>>() {}
+   |                          ^^^^^^ required by this bound in `assert_derive`
    = note: this error originates in the derive macro `Encode` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `&[Foo]: DecodeBytes<'_>` is not satisfied
@@ -32,28 +52,3 @@ note: required by a bound in `assert_derive`
 19 | fn assert_derive<'de, T: Encode + Decode<'de>>() {}
    |                                   ^^^^^^^^^^^ required by this bound in `assert_derive`
    = note: this error originates in the derive macro `Decode` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0277]: the trait bound `[Foo]: AsRef<[u8]>` is not satisfied
-  --> tests/fail/no_bytes.rs:22:21
-   |
-22 |     assert_derive::<S1<'_>>();
-   |                     ^^^^^^ the trait `AsRef<[u8]>` is not implemented for `[Foo]`
-   |
-   = help: the following other types implement trait `AsRef<T>`:
-             [T; N]
-             [T]
-   = note: required for `&[Foo]` to implement `AsRef<[u8]>`
-   = note: required for `&[Foo]` to implement `EncodeBytes`
-note: required for `S1<'_>` to implement `Encode`
-  --> tests/fail/no_bytes.rs:7:10
-   |
- 7 | #[derive(Encode, Decode)]
-   |          ^^^^^^ unsatisfied trait bound introduced in this `derive` macro
- 8 | struct S1<'a> {
-   |        ^^^^^^
-note: required by a bound in `assert_derive`
-  --> tests/fail/no_bytes.rs:19:26
-   |
-19 | fn assert_derive<'de, T: Encode + Decode<'de>>() {}
-   |                          ^^^^^^ required by this bound in `assert_derive`
-   = note: this error originates in the derive macro `Encode` (in Nightly builds, run with -Z macro-backtrace for more info)
