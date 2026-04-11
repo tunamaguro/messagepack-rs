@@ -58,6 +58,7 @@ where
 
         #[cfg(feature = "alloc")]
         {
+            use alloc::string::ToString;
             Self::Custom(msg.to_string())
         }
     }

@@ -142,6 +142,9 @@ where
     }
 }
 
+#[allow(unused)]
+/// Convert `Error<Infallible>` to `crate::ser::Error<T>`
+/// This is used when `alloc` feature enabled
 fn convert_error<T>(err: Error<core::convert::Infallible>) -> crate::ser::Error<T> {
     match err {
         Error::Encode(e) => match e {
