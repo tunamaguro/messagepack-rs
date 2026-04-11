@@ -26,7 +26,10 @@ impl<T: core::fmt::Display> core::fmt::Display for Error<T> {
             #[cfg(feature = "alloc")]
             Error::Custom(msg) => f.write_str(msg),
             Error::SeqLenNone => {
-                write!(f, "array/map family must be provided length when alloc is disabled")
+                write!(
+                    f,
+                    "array/map family must be provided length when `alloc` feature is disabled"
+                )
             }
         }
     }
