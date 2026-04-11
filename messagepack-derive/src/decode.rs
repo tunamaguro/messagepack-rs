@@ -178,32 +178,40 @@ fn decode_named(
     let array_body = decode_named_array(fields, de_lifetime, mode, output_ty)?;
 
     Ok(quote! {
-        match __format {
-            ::messagepack_core::Format::FixMap(__len) => {
-                let __len = usize::from(__len);
-                #map_body
-            }
+        enum FormatKind {
+            Map(usize),
+            Array(usize),
+        }
+
+        let __kind = match __format {
+            ::messagepack_core::Format::FixMap(__len) => FormatKind::Map(usize::from(__len)),
+            ::messagepack_core::Format::FixArray(__len) => FormatKind::Array(usize::from(__len)),
             ::messagepack_core::Format::Map16 => {
                 let __len = ::messagepack_core::decode::NbyteReader::<2>::read(__reader)?;
-                #map_body
+                FormatKind::Map(__len)
             }
             ::messagepack_core::Format::Map32 => {
                 let __len = ::messagepack_core::decode::NbyteReader::<4>::read(__reader)?;
-                #map_body
-            }
-            ::messagepack_core::Format::FixArray(__len) => {
-                let __len = usize::from(__len);
-                #array_body
+                FormatKind::Map(__len)
             }
             ::messagepack_core::Format::Array16 => {
                 let __len = ::messagepack_core::decode::NbyteReader::<2>::read(__reader)?;
-                #array_body
+                FormatKind::Array(__len)
             }
             ::messagepack_core::Format::Array32 => {
                 let __len = ::messagepack_core::decode::NbyteReader::<4>::read(__reader)?;
+                FormatKind::Array(__len)
+            }
+            _ => return Err(::messagepack_core::decode::Error::UnexpectedFormat),
+        };
+
+        match __kind {
+            FormatKind::Map(__len) => {
+                #map_body
+            }
+            FormatKind::Array(__len) => {
                 #array_body
             }
-            _ => Err(::messagepack_core::decode::Error::UnexpectedFormat),
         }
     })
 }
@@ -221,9 +229,8 @@ fn decode_named_map(
         .iter()
         .map(|field| {
             let local = field_local(field);
-            let ty = replace_lifetimes(&field.ty, de_lifetime);
             Ok(quote! {
-                let mut #local: ::core::option::Option<#ty> = ::core::option::Option::None;
+                let mut #local = ::core::option::Option::None;
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;
@@ -285,13 +292,38 @@ fn decode_named_array(
     };
     let len = active.len();
     let min_len = minimum_array_len(&active);
+    if min_len == len {
+        let assignments = active
+            .iter()
+            .map(|field| {
+                let local = field_local(field);
+                let decode_expr = decode_field_expr(field, de_lifetime)?;
+                Ok(quote! {
+                    let #local = #decode_expr;
+                })
+            })
+            .collect::<syn::Result<Vec<_>>>()?;
+        let build = fields.iter().map(named_field_build_direct).collect::<Vec<_>>();
+
+        return Ok(quote! {
+            if __len != #len {
+                return Err(::messagepack_core::decode::Error::InvalidData);
+            }
+            #(
+                #assignments
+            )*
+            Ok(#output_ty {
+                #(#build),*
+            })
+        });
+    }
+
     let declarations = active
         .iter()
         .map(|field| {
             let local = field_local(field);
-            let ty = replace_lifetimes(&field.ty, de_lifetime);
             Ok(quote! {
-                let mut #local: ::core::option::Option<#ty> = ::core::option::Option::None;
+                let mut #local = ::core::option::Option::None;
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;
@@ -510,7 +542,7 @@ fn decode_non_option_with_format_expr(
 
 fn field_local(field: &FieldInfo) -> syn::Ident {
     match &field.member {
-        syn::Member::Named(name) => syn::Ident::new(&format!("__field_{}", name), name.span()),
+        syn::Member::Named(name) => syn::Ident::new(&format!("__{}", name), name.span()),
         syn::Member::Unnamed(index) => syn::Ident::new(
             &format!("__field_{}", index.index),
             proc_macro2::Span::call_site(),
@@ -545,6 +577,17 @@ fn named_field_build(field: &FieldInfo) -> TokenStream {
         } else {
             quote! { #local.ok_or(::messagepack_core::decode::Error::InvalidData)? }
         }
+    };
+    quote! { #member: #value }
+}
+
+fn named_field_build_direct(field: &FieldInfo) -> TokenStream {
+    let member = &field.member;
+    let value = if field.is_phantom {
+        quote! { ::core::default::Default::default() }
+    } else {
+        let local = field_local(field);
+        quote! { #local }
     };
     quote! { #member: #value }
 }

@@ -59,8 +59,12 @@ fn encode_tuple(fields: &[FieldInfo], mode: Option<ContainerMode>) -> syn::Resul
     let len = active.len();
 
     Ok(quote! {
+        const __FIELD_LEN: usize = #len;
         let mut __size = 0usize;
-        __size += ::messagepack_core::encode::array::ArrayFormatEncoder(#len).encode(writer)?;
+        __size += ::messagepack_core::encode::Encode::encode(
+            &::messagepack_core::encode::array::ArrayFormatEncoder(__FIELD_LEN),
+            writer,
+        )?;
         #(
             __size += #writes;
         )*
@@ -94,8 +98,12 @@ fn encode_named(fields: &[FieldInfo], mode: Option<ContainerMode>) -> syn::Resul
             let len = active.len();
 
             Ok(quote! {
+                const __FIELD_LEN: usize = #len;
                 let mut __size = 0usize;
-                __size += ::messagepack_core::encode::map::MapFormatEncoder::new(#len).encode(writer)?;
+                __size += ::messagepack_core::encode::Encode::encode(
+                    &::messagepack_core::encode::map::MapFormatEncoder(__FIELD_LEN),
+                    writer,
+                )?;
                 #(
                     #writes
                 )*
@@ -111,8 +119,12 @@ fn encode_named(fields: &[FieldInfo], mode: Option<ContainerMode>) -> syn::Resul
             let len = active.len();
 
             Ok(quote! {
+                const __FIELD_LEN: usize = #len;
                 let mut __size = 0usize;
-                __size += ::messagepack_core::encode::array::ArrayFormatEncoder(#len).encode(writer)?;
+                __size += ::messagepack_core::encode::Encode::encode(
+                    &::messagepack_core::encode::array::ArrayFormatEncoder(__FIELD_LEN),
+                    writer,
+                )?;
                 #(
                     __size += #writes;
                 )*
