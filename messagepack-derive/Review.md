@@ -1,235 +1,107 @@
-# messagepack-derive コードレビュー
+# messagepack-derive コードレビュー (第2回)
 
-全テスト通過: **OK** (runtime 18テスト + compile-pass 12ケース + compile-fail 7ケース)
-
----
-
-## 1. 全体構成
-
-| ファイル | 役割 | 行数(概算) |
-|----------|------|------------|
-| `src/lib.rs` | proc-macro エントリポイント (`Encode`, `Decode`) | 60 |
-| `src/shared.rs` | AST 解析、属性パース、型ユーティリティ | 480 |
-| `src/encode.rs` | `Encode` trait の impl 生成 | 170 |
-| `src/decode.rs` | `DecodeBorrowed` trait の impl 生成 | 500 |
-
-全体の設計は明快で、`shared.rs` に共通構造を集約し、`encode.rs` / `decode.rs` がそれぞれコード生成に専念する構成になっている。
+前回のレビューで指摘した問題の大部分が修正されている。
+全既存テスト通過: **OK** (runtime 22テスト + compile-pass 12ケース + compile-fail 8ケース)
 
 ---
 
-## 2. 良い点
+## 1. 前回指摘事項の対応状況
 
-### 2.1 安全なマクロ設計
-- 全パス修飾 (`::messagepack_core::...`, `::core::...`) により、ユーザーのスコープ内の名前衝突を回避している。
-- 内部変数は `__` プレフィクスでハイジーンを確保。
-- `#[automatically_derived]` を付与しており、lint の扱いが正しい。
-
-### 2.2 Cross-format decode の柔軟性
-named struct の decode が map / array 両形式を受け付ける設計は、実運用でのフォーマット互換性を高めている。エンコーダ側が map を出力しても array を出力しても正しくデコードできる。
-
-### 2.3 コンパイルテストの充実
-`trybuild` を使った compile-pass / compile-fail テストにより、型境界の正確性やエラーメッセージの安定性が保証されている。特に以下のケースが網羅的:
-- generic, lifetime, associated type, 再帰的な型境界 (`nested_bounds.rs`)
-- `PhantomData<T>` が `T: Encode` を要求しないこと
-- `encode_with` / `decode_with` で `Encode`/`Decode` 未実装型も使えること
-
-### 2.4 型境界の推論
-`collect_bound_types` がジェネリクスの型パラメータを再帰的に探索し、`Vec<T>` のような入れ子型でも正しく `T: Encode` / `T: DecodeBorrowed` を追加する仕組みは正確に機能している。
-
-### 2.5 decode バリデーション
-- 重複キーの検出
-- 必須フィールドの欠損検出
-- 不明キーのスキップ（`Any` で消費）
-- 長さ不一致の拒否
+| # | 指摘 | 重要度 | 状態 | 対応内容 |
+|---|------|:---:|:---:|------|
+| 3.1 | `#[msgpack(default)]` が encode でも省略される | Critical | **修正済** | `is_skipped()` を `is_skipped_for_encode()` / `is_skipped_for_decode()` に分離。encode 側は `is_phantom` のみでフィルタ。roundtrip テストも追加 |
+| 3.2 | `Option<T>` + `bytes` で内部の bytes 属性がリセットされる | Medium | **修正済** | `decode_field_expr` で `bytes` チェックを `option_inner` より先に配置。`DecodeBytes` の `Option<T>` blanket impl に委譲する設計に変更 |
+| 3.3 | `decode_non_option_with_format_expr` が bytes 時に format を無視 | Medium | **修正済** | `decode_bytes_with_format(#format, __reader)` を呼ぶように修正 |
+| 3.4 | `::std::boxed::Box` の使用 (no_std 非対応) | Low | **修正済** | `extern crate alloc as __msgpack_alloc;` + `__msgpack_alloc::boxed::Box` に変更 |
+| 3.5 | `Meta::NameValue` ブランチがデッドコード | Low | **修正済** | 該当ブランチを削除しエラーにする処理に変更。`fail/name_value_attr.rs` テストを追加 |
 
 ---
 
-## 3. バグ・問題点
+## 2. 今回発見した問題
 
-### 3.1 [Critical] `#[msgpack(default)]` フィールドが encode でも省略される
+### 2.1 [Medium] named struct の array decode で `Option<T>` が暗黙的にオプショナルにならない
 
-`FieldInfo::is_skipped()` は `self.is_phantom || self.attrs.default` を返すが、encode 側でも同じ `is_skipped()` でフィールドをフィルタしている。
+named struct の map decode では、`Option<T>` フィールドが入力に存在しなければ `None` に補完される。しかし array decode では `minimum_array_len` が `field.attrs.default` のみを考慮するため、`Option<T>` フィールド（`#[msgpack(default)]` なし）は必須扱いになる。
+
+**再現手順**: `tests/review_issues.rs` の `option_missing_from_array_decode` テストで確認可能。
 
 ```rust
-// shared.rs
-pub fn is_skipped(&self) -> bool {
-    self.is_phantom || self.attrs.default
+#[derive(Encode, Decode)]
+struct WithOption {
+    foo: u8,
+    bar: Option<u8>,
 }
 ```
 
-```rust
-// encode.rs - encode_named, encode_tuple ともに
-let active = fields.iter().filter(|field| !field.is_skipped()).collect::<Vec<_>>();
-```
+- map decode: `{"foo": 12}` → `WithOption { foo: 12, bar: None }` ✓
+- array decode: `[12]` → **`Error::InvalidData`** ✗ (foo のみの 1 要素配列は拒否される)
 
-**結果**: `#[msgpack(default)] bar: u8` のフィールドに値 `42` を設定しても、encode 時にバイト列に含まれない。decode 側ではこのフィールドが見つからないので `Default::default()` (= `0`) に戻ってしまい、データが静かに失われる。
-
-**修正案**: encode 側では `is_phantom` のみでフィルタし、`default` フィールドは通常通り encode する。もしくは encode 専用の `is_skipped_for_encode()` を用意する。
+**原因**: `minimum_array_len` は `Option<T>` を特別扱いせず、`#[msgpack(default)]` 属性が付いているかどうかのみで判定している。
 
 ```rust
-// encode.rs 用
-fn is_skipped_for_encode(&self) -> bool {
-    self.is_phantom
+fn minimum_array_len(fields: &[&FieldInfo]) -> usize {
+    fields
+        .iter()
+        .rposition(|field| !field.attrs.default)  // Option<T> はここで必須と判定される
+        .map(|index| index + 1)
+        .unwrap_or(0)
 }
 ```
 
-**テストの問題**: `decode_option_missing.rs` は decode のみテストしており、`S2` / `S3` / `S4` の encode → decode ラウンドトリップを検証していない。この不足がバグを隠している。
+**影響**: cross-format decode（map と array の両方を受け付ける設計）において、map では受理される入力が array では拒否されるケースがある。
 
-### 3.2 [Medium] `Option<T>` + `bytes` 属性の decode で format が二重読みされる可能性
-
-`decode_field_expr` で `option_inner` にマッチした場合、内部の `inner_field` は `bytes: false` にリセットされている:
+**修正案A**: `minimum_array_len` で `Option<T>` フィールドも `default` と同様にオプショナルとみなす。
 
 ```rust
-// decode.rs - decode_field_expr
-let inner_field = FieldInfo {
-    // ...
-    attrs: crate::shared::FieldAttrs {
-        bytes: false,  // ← 元のフィールドの bytes 属性をリセット
-        // ...
-    },
-    // ...
-};
-```
-
-つまり `Option<&[u8]>` に `#[msgpack(bytes)]` を付けた場合、内部の decode は `bytes` ではなく通常の `DecodeBorrowed` 経由になる。`Option<Vec<u8>>` + `bytes` も同様。
-これが意図的であれば明示的にコメントすべきだが、おそらくバグ。
-
-**修正案**: `inner_field` の `bytes` に元の `field.attrs.bytes` を引き継ぐ。
-
-### 3.3 [Medium] `decode_non_option_with_format_expr` が `bytes` 時に format を無視
-
-```rust
-fn decode_non_option_with_format_expr(...) -> syn::Result<TokenStream> {
-    if field.attrs.bytes {
-        // format パラメータを使わず decode_bytes を呼ぶ
-        // → format は既に読まれているので、reader からもう一度 format を読むことになる
-        return Ok(quote! {{
-            let __value: #decode_ty = <#decode_ty as ::messagepack_core::decode::DecodeBytes<#de_lifetime>>::decode_bytes(__reader)?;
-            __value
-        }});
-    }
-    // ...
+fn minimum_array_len(fields: &[&FieldInfo]) -> usize {
+    fields
+        .iter()
+        .rposition(|field| !field.attrs.default && option_inner(&field.ty).is_none())
+        .map(|index| index + 1)
+        .unwrap_or(0)
 }
 ```
 
-`Option<T>` の内部で既に format を読んだ後にこの関数が呼ばれると、format が二重消費される。現在は 3.2 の問題で `bytes: false` にリセットされるためこのパスに到達しないが、3.2 を修正するとこの問題が顕在化する。
-
-### 3.4 [Low] `::std::boxed::Box` の使用
-
-ブランチ名が `alloc-support` であることを考慮すると、`decode.rs` の `Box` 生成で `::std::boxed::Box` を使っているのは no_std 環境では動作しない。
-
-```rust
-// decode.rs
-return Ok(quote! {{
-    let __value: #target_ty = ::std::boxed::Box::new(#inner_expr);
-    __value
-}});
-```
-
-**修正案**: `::alloc::boxed::Box` に変更するか、`extern crate alloc` をマクロ展開時のプリアンブルに含める。
-
-### 3.5 [Low] `parse_field_attrs` の `Meta::NameValue` ブランチ
-
-```rust
-Meta::NameValue(MetaNameValue {
-    value: Expr::Lit(ExprLit { lit: Lit::Str(lit), .. }),
-    path,
-    ..
-}) => {
-    if path.is_ident("encode_with") {
-        out.encode_with = Some(lit.parse()?);
-    } else if path.is_ident("decode_with") {
-        out.decode_with = Some(lit.parse()?);
-    }
-}
-```
-
-このブランチは `#[msgpack = "..."]` 形式を処理するが、この形式は `key`, `bytes`, `default` には対応しておらず、ドキュメントにも記載がない。デッドコードか未完成の実装と思われる。不要であれば削除してエラーにすべき。
+**修正案B**: 意図的な仕様差とするなら、ドキュメントで明記する。array decode では全フィールドが必須であること、`#[msgpack(default)]` を付けて明示的にオプショナルにする必要があることを説明する。
 
 ---
 
-## 4. コード品質の改善提案
+## 3. コード品質の改善提案
 
-### 4.1 `sorted_array_fields` と `validate_*_fields` の重複
+### 3.1 [Low] `sorted_array_fields` と `validate_*_fields` の重複
 
-`encode.rs` と `decode.rs` がそれぞれ独立に `sorted_array_fields` と `validate_skipped_fields` / `validate_decode_fields` を持っている。両者はロジックが完全に同一なので `shared.rs` に統合できる。
+`encode.rs` と `decode.rs` がそれぞれ独立に `sorted_array_fields` と `validate_skipped_fields` / `validate_decode_fields` を持っている。ロジックはほぼ同一なので `shared.rs` に統合できる。
 
-### 4.2 map decode の key 照合が `as_bytes()` ベース
+### 3.2 [Low] `tuple_struct.rs` / `unit_struct.rs` に `#[test]` 関数がない
 
-```rust
-match __key.as_bytes() {
-    b"x" => { ... }
-    b"y" => { ... }
-    _ => { ... }
-}
-```
+これらのファイルは `fn main()` で書かれているため、`cargo test` 実行時に `running 0 tests` と表示される。`#[test]` 関数に書き直すか、既に `tests/success/` 側に compile-pass テストがあるので runtime テストとしてアサーション付き `#[test]` に変換すべき。
 
-`ReferenceStrBinDecoder` は str と bin の両方を受け付けるため、バイナリキーでも偶然フィールド名と一致すればマッチする。MessagePack の仕様上これは合理的だが、仕様外のバイナリキーが意図せずマッチするリスクがゼロではない。ドキュメントで str キーのみを想定していることを明記すべき。
+### 3.3 [Info] `add_decode_bounds` における `default` フィールドの二重バウンド
 
-### 4.3 `encode_field_expr` の一貫性
-
-encode 側では `&self.#member` と参照を取っているが、戻り値の型に `?` が付いている:
-
-```rust
-Ok(quote! { ::messagepack_core::encode::Encode::encode(&self.#member, writer)? })
-```
-
-一方、式としてはインラインに `__size += #writes;` と組み合わせて使われる。動作上は正しいが、`encode_with` 版のみ `#path(&self.#member, writer)?` と直接 self 参照しており、Deref 越しの動作は `Encode` クレート側の実装に依存する。
-
-### 4.4 エラーメッセージに span を活用
-
-一部のエラーが `Span::call_site()` を使っている（例: tuple struct に `map` を付けた場合）。可能であれば `mode` 属性の span を渡すとユーザーに親切なエラー表示になる。
+`#[msgpack(default)]` フィールドのジェネリック型 `T` に対して `T: Default` と `T: DecodeBorrowed` の両方が要求される。フィールドがデータに存在する場合はデコードが必要なのでこれ自体は正しいが、ユーザーが「default はデコード不要なフィールド」と誤解する可能性がある。doc コメントでの説明を推奨。
 
 ---
 
-## 5. テストカバレッジの分析
+## 4. 検証テストの結果
 
-### 5.1 カバーされているシナリオ
+`tests/review_issues.rs` に以下のテストを追加して検証した:
 
-| シナリオ | Runtime テスト | Compile テスト |
-|----------|:---:|:---:|
-| named struct (map) | `basic_struct.rs`, `map_mode.rs` | `basic_struct.rs`, `map_mode.rs` |
-| named struct (array) | `array_mode.rs` | — |
-| tuple struct | `tuple_struct.rs` | `tuple_struct.rs` |
-| unit struct | `unit_struct.rs` | `unit_struct.rs` |
-| `#[msgpack(bytes)]` | `bytes_attr.rs` | `bytes_attr.rs` |
-| `encode_with` / `decode_with` | `custom_encode_decode.rs` | `custom_encode_decode.rs` |
-| `PhantomData` | `phantom_data.rs` | `phantom_data.rs` |
-| Cross-format decode | `cross_format_decode.rs` | — |
-| `Option<T>` 欠損 | `decode_option_missing.rs` | — |
-| `#[msgpack(default)]` | `decode_option_missing.rs` | `default.rs` |
-| decode バリデーション | `decode_validation.rs` | — |
-| generics | — | `generics.rs` |
-| lifetime | — | `lifetime_generics.rs` |
-| associated type | — | `associated_type.rs` |
-| 再帰的型境界 | — | `nested_bounds.rs` |
-| enum 拒否 | — | `enum.rs` |
-| `map` + `array` 同時指定 | — | `map_and_array.rs` |
-| array key 欠損 | — | `array_missing_key.rs` |
-| tuple + map 拒否 | — | `tuple_as_map.rs` |
-| `bytes` + 非byte型 | — | `no_bytes.rs` |
-| PhantomData + key 拒否 | — | `phantomdata_with_key.rs` |
-| default + Default 未実装 | — | `default_missing.rs` |
-
-### 5.2 不足しているテスト
-
-| 不足シナリオ | 優先度 | 備考 |
-|------------|:---:|------|
-| `#[msgpack(default)]` フィールドの encode roundtrip | **高** | 3.1 のバグを検出できる |
-| `Option<T>` + `#[msgpack(bytes)]` | **高** | 3.2, 3.3 のバグを検出できる |
-| `Vec<T>` フィールドの encode/decode | 中 | 基本的な collection 型 |
-| ネストした derive 構造体 | 中 | `Wrapper<Point>` のような組み合わせ |
-| `Box<T>` フィールドの decode | 中 | `box_inner` パスの検証 |
-| `Option<Box<T>>` / `Box<Option<T>>` | 中 | 入れ子の特殊処理パスの検証 |
-| 16 フィールド以上の struct (Map16/Array16) | 低 | fixmap/fixarray を超えるケース |
-| `tuple_struct.rs` / `unit_struct.rs` に `#[test]` 追加 | 低 | 現在は `fn main()` のみで `running 0 tests` と表示される |
+| テスト名 | 結果 | 検証内容 |
+|----------|:---:|------|
+| `option_missing_from_map_decode` | ✅ PASS | map decode での Option 欠損 (既知の正常動作) |
+| `option_missing_from_array_decode` | ❌ FAIL | **2.1 の問題を確認** — array decode で Option 欠損が拒否される |
+| `option_present_roundtrip` | ✅ PASS | Option に値がある場合の roundtrip |
+| `option_none_roundtrip` | ✅ PASS | Option が None の場合の roundtrip |
+| `option_bytes_present_roundtrip` | ✅ PASS | `#[msgpack(bytes)]` + `Option<&[u8]>` の Some roundtrip |
+| `option_bytes_none_roundtrip` | ✅ PASS | `#[msgpack(bytes)]` + `Option<&[u8]>` の None roundtrip |
+| `box_field_roundtrip` | ✅ PASS | `Box<T>` フィールドの roundtrip |
+| `option_box_some_roundtrip` | ✅ PASS | `Option<Box<T>>` の Some roundtrip |
+| `option_box_none_roundtrip` | ✅ PASS | `Option<Box<T>>` の None roundtrip |
 
 ---
 
-## 6. まとめ
+## 5. まとめ
 
-マクロの基本設計は堅実で、ジェネリクス・ライフタイム・associated type を含む複雑なケースにも対応できている。テストも compile-pass / compile-fail / runtime の3層で整備されている。
+前回の指摘事項（5件）は全て適切に対応されている。特に Critical だった `#[msgpack(default)]` の encode 省略問題は、`is_skipped_for_encode` / `is_skipped_for_decode` の分離で正しく解決されており、roundtrip テストも追加されている。
 
-最優先で対応すべきは **3.1 (`#[msgpack(default)]` が encode を抑制する問題)** で、これはデータロスにつながるサイレントなバグ。3.2, 3.3 は `Option<T>` + `bytes` の組み合わせで顕在化する問題で、該当パターンのテスト追加とともに修正が望ましい。
-
-3.4 (`::std::boxed::Box`) はブランチの目的（alloc-support）を踏まえると対応が必要。
+新たに発見した問題は 2.1 の「`Option<T>` の array decode における暗黙的オプショナル扱いの不一致」のみ。これは設計判断に依存する部分であり、明示的に `#[msgpack(default)]` を付ければ回避可能。ただし cross-format decode の一貫性の観点では修正が望ましい。
