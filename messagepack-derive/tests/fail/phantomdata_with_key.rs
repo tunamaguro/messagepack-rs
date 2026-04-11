@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use messagepack_derive::{Decode, Encode};
 
 #[derive(Encode, Decode)]

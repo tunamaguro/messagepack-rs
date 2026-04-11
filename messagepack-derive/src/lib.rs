@@ -4,6 +4,7 @@
 
 mod decode;
 mod encode;
+mod shared;
 
 use proc_macro::TokenStream;
 use syn::{DeriveInput, parse_macro_input};

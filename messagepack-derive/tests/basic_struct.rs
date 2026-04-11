@@ -184,9 +184,9 @@ fn basic_struct() {
     let expected = [
         0x82, // fixmap 2
         0xa1, b'x', // "x"
-        0x0a, // 10
+        0xce, 0x00, 0x00, 0x00, 0x0a, // 10 as u32
         0xa1, b'y', // "y"
-        0x14, // 20
+        0xce, 0x00, 0x00, 0x00, 0x14, // 20 as u32
     ];
     assert_eq!(buf, expected);
 

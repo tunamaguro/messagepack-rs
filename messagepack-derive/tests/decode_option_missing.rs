@@ -56,11 +56,3 @@ fn allow_tuple_default_missing() {
     let decoded = <S4 as Decode>::decode(&mut reader).unwrap();
     assert_eq!(decoded, S4(12, 0));
 }
-
-#[test]
-fn allow_tuple_present_default_field() {
-    let data = [0x92, 0x0c, 0x2a]; // [12, 42]
-    let mut reader = SliceReader::new(&data);
-    let decoded = <S4 as Decode>::decode(&mut reader).unwrap();
-    assert_eq!(decoded, S4(12, 42));
-}

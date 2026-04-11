@@ -82,6 +82,13 @@ deref_impl! {
         V: Encode,
 }
 
+#[cfg(feature = "alloc")]
+deref_impl! {
+    <V> Encode for alloc::boxed::Box<V>
+    where
+        V: Encode + ?Sized,
+}
+
 impl Encode for Format {
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         writer.write(&self.as_slice())?;

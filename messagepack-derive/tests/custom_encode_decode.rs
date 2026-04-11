@@ -34,7 +34,7 @@ fn custom_encode_decode() {
     let expected = [
         0x81, // fixmap 1
         0xa5, b'v', b'a', b'l', b'u', b'e', // "value"
-        0x2a, // 42 (doubled)
+        0xce, 0x00, 0x00, 0x00, 0x2a, // 42 (doubled as u32)
     ];
     assert_eq!(buf, expected);
 

@@ -160,12 +160,7 @@ struct Record<'a> {
 0xc4 0x05 0x01 0x02 0x03 0x04 0x05
 ```
 
-また、compile-pass テストから次の型でも `bytes` 属性が許可される想定が分かる。
-
-- `Vec<u8>`
-- `[u8; N]`
-- `Box<[u8]>`
-- `&[u8]`
+`bytes`が付与されたフィールドは`messagepack_core::encode::bin::EncodeBytes`および`messagepack::decode::bin::DecodeBytes`経由で処理される
 
 対応テスト:
 

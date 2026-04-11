@@ -1,17 +1,11 @@
 error: Encode derive is not yet supported for enums
  --> tests/fail/enum.rs:5:1
   |
-5 | / enum MyEnum {
-6 | |     A,
-7 | |     B,
-8 | | }
-  | |_^
+5 | enum MyEnum {
+  | ^^^^
 
 error: Decode derive is not yet supported for enums
  --> tests/fail/enum.rs:5:1
   |
-5 | / enum MyEnum {
-6 | |     A,
-7 | |     B,
-8 | | }
-  | |_^
+5 | enum MyEnum {
+  | ^^^^
