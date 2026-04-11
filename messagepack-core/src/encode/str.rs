@@ -50,7 +50,7 @@ pub struct StrEncoder<'s>(pub &'s str);
 
 impl Encode for StrEncoder<'_> {
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        let self_len = self.0.as_bytes().len();
+        let self_len = self.0.len();
         let format_len = StrFormatEncoder(self_len).encode(writer)?;
         let data_len = StrDataEncoder(self.0).encode(writer)?;
 

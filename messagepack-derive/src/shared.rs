@@ -298,7 +298,6 @@ pub fn option_inner(ty: &Type) -> Option<Type> {
     }
 }
 
-
 pub fn replace_lifetimes(ty: &Type, replacement: &syn::Lifetime) -> Type {
     match ty {
         Type::Reference(TypeReference {
@@ -345,10 +344,7 @@ pub fn replace_lifetimes(ty: &Type, replacement: &syn::Lifetime) -> Type {
                 path: new,
             })
         }
-        Type::Tuple(TypeTuple {
-            paren_token,
-            elems,
-        }) => Type::Tuple(TypeTuple {
+        Type::Tuple(TypeTuple { paren_token, elems }) => Type::Tuple(TypeTuple {
             paren_token: *paren_token,
             elems: elems
                 .iter()
@@ -373,10 +369,7 @@ pub fn replace_lifetimes(ty: &Type, replacement: &syn::Lifetime) -> Type {
             semi_token: *semi_token,
             len: len.clone(),
         }),
-        Type::Group(TypeGroup {
-            group_token,
-            elem,
-        }) => Type::Group(TypeGroup {
+        Type::Group(TypeGroup { group_token, elem }) => Type::Group(TypeGroup {
             group_token: *group_token,
             elem: Box::new(replace_lifetimes(elem, replacement)),
         }),

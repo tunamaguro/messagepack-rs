@@ -1,7 +1,6 @@
 use messagepack_core::{Decode as _, Encode as _, io::SliceReader};
 use messagepack_derive::{Decode, Encode};
 
-
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct Pair(u8, u16);
 

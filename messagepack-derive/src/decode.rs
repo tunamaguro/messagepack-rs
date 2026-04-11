@@ -138,7 +138,10 @@ fn decode_tuple(
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;
-    let build = fields.iter().map(|field| tuple_field_build(field)).collect::<Vec<_>>();
+    let build = fields
+        .iter()
+        .map(tuple_field_build)
+        .collect::<Vec<_>>();
 
     Ok(quote! {
         let __len = match __format {
@@ -247,7 +250,10 @@ fn decode_named_map(
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;
-    let build = fields.iter().map(|field| named_field_build(field)).collect::<Vec<_>>();
+    let build = fields
+        .iter()
+        .map(named_field_build)
+        .collect::<Vec<_>>();
 
     Ok(quote! {
         #(
@@ -320,7 +326,10 @@ fn decode_named_array(
             }
         })
         .collect::<Vec<_>>();
-    let build = fields.iter().map(|field| named_field_build(field)).collect::<Vec<_>>();
+    let build = fields
+        .iter()
+        .map(named_field_build)
+        .collect::<Vec<_>>();
 
     Ok(quote! {
         if __len < #min_len || __len > #len {
@@ -420,7 +429,8 @@ fn decode_field_expr(field: &FieldInfo, de_lifetime: &syn::Lifetime) -> syn::Res
             is_phantom: false,
         };
         let inner_decode_ty = replace_lifetimes(&inner, de_lifetime);
-        let inner_expr = decode_non_option_with_format_expr(&inner_field, de_lifetime, quote!(__format))?;
+        let inner_expr =
+            decode_non_option_with_format_expr(&inner_field, de_lifetime, quote!(__format))?;
         return Ok(quote! {{
             let __format = <::messagepack_core::Format as ::messagepack_core::decode::DecodeBorrowed<#de_lifetime>>::decode_borrowed(__reader)?;
             let __value: #target_ty = match __format {

@@ -15,13 +15,7 @@ fn named_struct_array_decode_missing_trailing_option_is_none() {
     let mut reader = SliceReader::new(&data);
     let decoded = <NamedWithTrailingOption as Decode>::decode(&mut reader).unwrap();
 
-    assert_eq!(
-        decoded,
-        NamedWithTrailingOption {
-            foo: 12,
-            bar: None,
-        }
-    );
+    assert_eq!(decoded, NamedWithTrailingOption { foo: 12, bar: None });
 }
 
 #[derive(Debug, PartialEq, Encode, Decode)]
