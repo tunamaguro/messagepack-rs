@@ -1,9 +1,7 @@
 use super::Error;
 use super::Serializer;
 use super::num::NumEncoder;
-use messagepack_core::Encode as _;
-use messagepack_core::encode::MapFormatEncoder;
-use messagepack_core::io::IoWrite;
+use messagepack_core::{Encode as _, encode::MapFormatEncoder, io::IoWrite};
 use serde::ser;
 
 pub(super) enum SerializeMap<'a, 'b, W, Num> {

@@ -2,19 +2,16 @@
 //!
 //! ## Limitation
 //!
-//! MessagePack requires the length header of arrays and maps to be written
-//! before any elements are encoded. Therefore this serializer needs serde
-//! to provide the exact length up front. If serde calls
-//! `serialize_seq(None)` or `serialize_map(None)`, this serializer returns
-//! `Error::SeqLenNone`.
+//! MessagePack requires the length header of arrays and maps to be written before any elements are encoded.
+//! When the `alloc` feature is disabled, this serializer therefore needs serde to provide the exact length up front.
+//! If length is not provided, return [Error::SeqLenNone].
 //!
-//! Examples with `serde(flatten)`:
+//! With `alloc` feature, unknown-length sequences and maps are buffered until their final length is known.
+//! This allows serializers that emit including `serde(flatten)`.
 //!
 //! ```rust
 //! use serde::Serialize;
-//! use std::collections::HashMap;
 //!
-//! // Fails
 //! #[derive(Serialize)]
 //! struct Inner { b: u8, c: u8 }
 //!
@@ -27,8 +24,12 @@
 //!
 //! let mut buf = [0u8; 32];
 //! let v = Outer { a: 1, extra: Inner { b: 2, c: 3 } };
-//! let err = messagepack_serde::ser::to_slice(&v, &mut buf).unwrap_err();
-//! assert_eq!(err, messagepack_serde::ser::Error::SeqLenNone);
+//! let res = messagepack_serde::ser::to_slice(&v, &mut buf);
+//!
+//! #[cfg(feature = "alloc")]
+//! assert!(res.is_ok());
+//! #[cfg(not(feature = "alloc"))]
+//! assert!(matches!(res, Err(messagepack_serde::ser::Error::SeqLenNone)));
 //! ```
 //!
 

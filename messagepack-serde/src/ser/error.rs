@@ -7,13 +7,13 @@ pub(crate) type CoreError<T> = messagepack_core::encode::Error<T>;
 pub enum Error<T> {
     /// Core error
     Encode(CoreError<T>),
-    /// Try serialize  array or map but not passed length
+    /// Tried to serialize an array or map without a length while `alloc` is disabled.
     SeqLenNone,
     #[cfg(not(feature = "alloc"))]
-    /// Parse error
+    /// Custom serialization error.
     Custom,
     #[cfg(feature = "alloc")]
-    /// Parse error
+    /// Custom serialization error.
     Custom(alloc::string::String),
 }
 
@@ -25,7 +25,9 @@ impl<T: core::fmt::Display> core::fmt::Display for Error<T> {
             Error::Custom => write!(f, "unknown error"),
             #[cfg(feature = "alloc")]
             Error::Custom(msg) => f.write_str(msg),
-            Error::SeqLenNone => write!(f, "array/map family must be provided length"),
+            Error::SeqLenNone => {
+                write!(f, "array/map family must be provided length when alloc is disabled")
+            }
         }
     }
 }
