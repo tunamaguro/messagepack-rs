@@ -60,7 +60,8 @@ where
             Self::SeqWithLen { ser, .. } => value.serialize(ser.as_mut()),
             #[cfg(feature = "alloc")]
             Self::SeqWithoutLen { array_values, .. } => {
-                let val = crate::value::to_value(value).map_err(crate::ser::error::convert_error)?;
+                let val =
+                    crate::value::to_value(value).map_err(crate::ser::error::convert_error)?;
                 array_values.push(val);
                 Ok(())
             }
