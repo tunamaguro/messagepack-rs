@@ -2,14 +2,20 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::DeriveInput;
 
-pub fn derive_decode(input: DeriveInput) -> syn::Result<TokenStream> {
+pub fn derive_decode(mut input: DeriveInput) -> syn::Result<TokenStream> {
     let name = &input.ident;
 
     let body = quote! { todo!() };
 
-    let de_lifetime: syn::Lifetime = syn::parse_quote!('__msgpack_de);
+    let original_generics = input.generics.clone();
+    let (_, ty_generics, _) = original_generics.split_for_impl();
 
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let de_lifetime: syn::Lifetime = syn::parse_quote!('__msgpack_de);
+    input
+        .generics
+        .params
+        .insert(0, syn::parse_quote!(#de_lifetime));
+    let (impl_generics, _, where_clause) = input.generics.split_for_impl();
 
     Ok(quote! {
         #[automatically_derived]
