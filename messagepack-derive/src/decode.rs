@@ -383,7 +383,7 @@ fn sorted_array_fields(fields: &[FieldInfo]) -> syn::Result<Vec<&FieldInfo>> {
 fn minimum_array_len(fields: &[&FieldInfo]) -> usize {
     fields
         .iter()
-        .rposition(|field| !field.attrs.default)
+        .rposition(|field| !field.attrs.default && option_inner(&field.ty).is_none())
         .map(|index| index + 1)
         .unwrap_or(0)
 }
