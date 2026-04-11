@@ -15,5 +15,5 @@ quote = "1"
 syn = { version = "2", features = ["full", "extra-traits"] }
 
 [dev-dependencies]
-messagepack-core = { version = "0.2.2", features = ["std"] }
+messagepack-core = { version = "0.2", features = ["std"] }
 trybuild = "1"
