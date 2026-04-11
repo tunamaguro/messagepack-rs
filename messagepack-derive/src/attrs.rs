@@ -42,18 +42,6 @@ impl ContainerAttrs {
         }
         Ok(result)
     }
-
-    /// Whether the struct should be encoded as a map.
-    /// Default is `true` for named-field structs, `false` for tuple structs.
-    pub fn is_map(&self, is_named: bool) -> bool {
-        if self.array {
-            false
-        } else if self.map {
-            true
-        } else {
-            is_named
-        }
-    }
 }
 
 /// Field-level attributes (`#[msgpack(...)]` on a field).
