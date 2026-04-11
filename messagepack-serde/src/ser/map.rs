@@ -1,16 +1,49 @@
 use super::Error;
 use super::Serializer;
 use super::num::NumEncoder;
-use messagepack_core::io::IoWrite;
+use messagepack_core::{Encode as _, encode::MapFormatEncoder, io::IoWrite};
 use serde::ser;
 
-pub struct SerializeMap<'a, 'b, W, Num> {
-    ser: &'a mut Serializer<'b, W, Num>,
+pub(super) enum SerializeMap<'a, 'b, W, Num> {
+    MapWithLen {
+        ser: &'a mut Serializer<'b, W, Num>,
+    },
+    #[cfg(feature = "alloc")]
+    MapWithoutLen {
+        ser: &'a mut Serializer<'b, W, Num>,
+        key_value: Option<crate::value::Value>,
+        map_values: alloc::vec::Vec<(crate::value::Value, crate::value::Value)>,
+    },
 }
 
-impl<'a, 'b, W, Num> SerializeMap<'a, 'b, W, Num> {
-    pub(super) fn new(ser: &'a mut Serializer<'b, W, Num>) -> Self {
-        Self { ser }
+impl<'a, 'b, W, Num> SerializeMap<'a, 'b, W, Num>
+where
+    'b: 'a,
+    W: IoWrite,
+    Num: NumEncoder<W>,
+{
+    pub fn new(
+        ser: &'a mut Serializer<'b, W, Num>,
+        len: Option<usize>,
+    ) -> Result<Self, Error<W::Error>> {
+        if let Some(len) = len {
+            ser.current_length += MapFormatEncoder::new(len).encode(ser.writer)?;
+            Ok(Self::MapWithLen { ser })
+        } else {
+            #[cfg(feature = "alloc")]
+            {
+                Ok(Self::MapWithoutLen {
+                    ser,
+                    key_value: None,
+                    map_values: alloc::vec::Vec::new(),
+                })
+            }
+
+            #[cfg(not(feature = "alloc"))]
+            {
+                Err(Error::SeqLenNone)
+            }
+        }
     }
 }
 
@@ -27,18 +60,60 @@ where
     where
         T: ?Sized + ser::Serialize,
     {
-        key.serialize(self.ser.as_mut())
+        match self {
+            Self::MapWithLen { ser } => key.serialize(ser.as_mut()),
+            #[cfg(feature = "alloc")]
+            Self::MapWithoutLen { key_value, .. } => {
+                *key_value =
+                    Some(crate::value::to_value(key).map_err(crate::ser::error::convert_error)?);
+                Ok(())
+            }
+        }
     }
 
     fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: ?Sized + ser::Serialize,
     {
-        value.serialize(self.ser.as_mut())
+        match self {
+            Self::MapWithLen { ser } => value.serialize(ser.as_mut()),
+            #[cfg(feature = "alloc")]
+            Self::MapWithoutLen {
+                key_value,
+                map_values,
+                ..
+            } => {
+                let key = key_value.take().ok_or_else(|| -> Self::Error {
+                    serde::ser::Error::custom("`serialize_value` called before `serialize_key`")
+                })?;
+                let value =
+                    crate::value::to_value(value).map_err(crate::ser::error::convert_error)?;
+                map_values.push((key, value));
+                Ok(())
+            }
+        }
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
+        match self {
+            Self::MapWithLen { .. } => Ok(()),
+            #[cfg(feature = "alloc")]
+            Self::MapWithoutLen {
+                ser,
+                map_values,
+                key_value,
+            } => {
+                use serde::Serialize;
+                if key_value.is_some() {
+                    return Err(serde::ser::Error::custom(
+                        "`serialize_key` called but `serialize_value` not called",
+                    ));
+                }
+                let map = crate::value::Value::Map(map_values);
+                map.serialize(ser.as_mut())?;
+                Ok(())
+            }
+        }
     }
 }
 

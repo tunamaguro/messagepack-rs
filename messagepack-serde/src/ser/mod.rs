@@ -2,19 +2,16 @@
 //!
 //! ## Limitation
 //!
-//! MessagePack requires the length header of arrays and maps to be written
-//! before any elements are encoded. Therefore this serializer needs serde
-//! to provide the exact length up front. If serde calls
-//! `serialize_seq(None)` or `serialize_map(None)`, this serializer returns
-//! `Error::SeqLenNone`.
+//! MessagePack requires the length header of arrays and maps to be written before any elements are encoded.
+//! When the `alloc` feature is disabled, this serializer therefore needs serde to provide the exact length up front.
+//! If length is not provided, return [Error::SeqLenNone].
 //!
-//! Examples with `serde(flatten)`:
+//! With `alloc` feature, unknown-length sequences and maps are buffered until their final length is known.
+//! This allows serializers that emit including `serde(flatten)`.
 //!
 //! ```rust
 //! use serde::Serialize;
-//! use std::collections::HashMap;
 //!
-//! // Fails
 //! #[derive(Serialize)]
 //! struct Inner { b: u8, c: u8 }
 //!
@@ -27,8 +24,12 @@
 //!
 //! let mut buf = [0u8; 32];
 //! let v = Outer { a: 1, extra: Inner { b: 2, c: 3 } };
-//! let err = messagepack_serde::ser::to_slice(&v, &mut buf).unwrap_err();
-//! assert_eq!(err, messagepack_serde::ser::Error::SeqLenNone);
+//! let res = messagepack_serde::ser::to_slice(&v, &mut buf);
+//!
+//! #[cfg(feature = "alloc")]
+//! assert!(res.is_ok());
+//! #[cfg(not(feature = "alloc"))]
+//! assert!(matches!(res, Err(messagepack_serde::ser::Error::SeqLenNone)));
 //! ```
 //!
 
@@ -44,7 +45,7 @@ pub use error::Error;
 
 use messagepack_core::{
     Encode,
-    encode::{BinaryEncoder, MapFormatEncoder, NilEncoder, array::ArrayFormatEncoder},
+    encode::{BinaryEncoder, MapFormatEncoder, NilEncoder},
     io::{IoWrite, SliceWriter, WError},
 };
 
@@ -343,9 +344,8 @@ where
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        let len = len.ok_or(Error::SeqLenNone)?;
-        self.current_length += ArrayFormatEncoder(len).encode(self.writer)?;
-        Ok(seq::SerializeSeq::new(self))
+        let seq = seq::SerializeSeq::new(self, len)?;
+        Ok(seq)
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
@@ -369,14 +369,11 @@ where
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
         self.current_length += MapFormatEncoder::new(1).encode(self.writer)?;
         self.serialize_str(variant)?;
-        self.current_length += ArrayFormatEncoder(len).encode(self.writer)?;
-        Ok(seq::SerializeSeq::new(self))
+        self.serialize_seq(Some(len))
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        let len = len.ok_or(Error::SeqLenNone)?;
-        self.current_length += MapFormatEncoder::new(len).encode(self.writer)?;
-        Ok(map::SerializeMap::new(self))
+        map::SerializeMap::new(self, len)
     }
 
     fn serialize_struct(
@@ -384,8 +381,7 @@ where
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        self.current_length += MapFormatEncoder::new(len).encode(self.writer)?;
-        Ok(map::SerializeMap::new(self))
+        self.serialize_map(Some(len))
     }
 
     fn serialize_struct_variant(
@@ -625,6 +621,67 @@ mod tests {
         let buf = &mut [0u8; 128];
         let len = to_slice(&v, buf).unwrap();
         assert_eq!(buf[..len], [0xe0]);
+    }
+
+    #[test]
+    #[cfg(not(feature = "alloc"))]
+    fn encode_flatten_struct() {
+        #[derive(Serialize)]
+        struct Inner {
+            b: u8,
+            c: u8,
+        }
+
+        #[derive(Serialize)]
+        struct Outer {
+            a: u8,
+            #[serde(flatten)]
+            extra: Inner,
+        }
+
+        let mut buf = [0u8; 128];
+        let v = Outer {
+            a: 1,
+            extra: Inner { b: 2, c: 3 },
+        };
+        let res = to_slice(&v, &mut buf);
+        assert!(matches!(res, Err(Error::SeqLenNone)));
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn encode_flatten_struct() {
+        #[derive(Serialize)]
+        struct Inner {
+            b: u8,
+            c: u8,
+        }
+
+        #[derive(Serialize)]
+        struct Outer {
+            a: u8,
+            #[serde(flatten)]
+            extra: Inner,
+        }
+
+        let mut buf = [0u8; 128];
+        let v = Outer {
+            a: 1,
+            extra: Inner { b: 2, c: 3 },
+        };
+        let len = to_slice(&v, &mut buf).unwrap();
+        assert_eq!(
+            buf[..len],
+            [
+                0x83, // fixmap len = 3
+                0xa1, b'a', // key "a"
+                0x01, // value 1
+                0xa1, b'b', // key "b"
+                0x02, // value 2
+                0xa1, b'c', // key "c"
+                0x03, // value 3
+            ]
+        );
     }
 
     #[cfg(feature = "std")]

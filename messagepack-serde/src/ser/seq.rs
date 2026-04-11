@@ -1,16 +1,45 @@
-use super::{Serializer, num::NumEncoder};
-use messagepack_core::io::IoWrite;
+use super::{Error, Serializer, num::NumEncoder};
+use messagepack_core::{Encode as _, encode::array::ArrayFormatEncoder, io::IoWrite};
 use serde::ser;
 
-use super::error::Error;
-
-pub struct SerializeSeq<'a, 'b, W, Num> {
-    ser: &'a mut Serializer<'b, W, Num>,
+pub(super) enum SerializeSeq<'a, 'b, W, Num> {
+    SeqWithLen {
+        ser: &'a mut Serializer<'b, W, Num>,
+    },
+    #[cfg(feature = "alloc")]
+    SeqWithoutLen {
+        ser: &'a mut Serializer<'b, W, Num>,
+        array_values: alloc::vec::Vec<crate::value::Value>,
+    },
 }
 
-impl<'a, 'b, W, Num> SerializeSeq<'a, 'b, W, Num> {
-    pub(super) fn new(ser: &'a mut Serializer<'b, W, Num>) -> Self {
-        Self { ser }
+impl<'a, 'b, W, Num> SerializeSeq<'a, 'b, W, Num>
+where
+    'b: 'a,
+    W: IoWrite,
+    Num: NumEncoder<W>,
+{
+    pub fn new(
+        ser: &'a mut Serializer<'b, W, Num>,
+        len: Option<usize>,
+    ) -> Result<Self, Error<W::Error>> {
+        if let Some(len) = len {
+            ser.current_length += ArrayFormatEncoder(len).encode(ser.writer)?;
+            Ok(Self::SeqWithLen { ser })
+        } else {
+            #[cfg(feature = "alloc")]
+            {
+                Ok(Self::SeqWithoutLen {
+                    ser,
+                    array_values: alloc::vec::Vec::new(),
+                })
+            }
+
+            #[cfg(not(feature = "alloc"))]
+            {
+                Err(Error::SeqLenNone)
+            }
+        }
     }
 }
 
@@ -27,11 +56,29 @@ where
     where
         T: ?Sized + ser::Serialize,
     {
-        value.serialize(self.ser.as_mut())
+        match self {
+            Self::SeqWithLen { ser, .. } => value.serialize(ser.as_mut()),
+            #[cfg(feature = "alloc")]
+            Self::SeqWithoutLen { array_values, .. } => {
+                let val =
+                    crate::value::to_value(value).map_err(crate::ser::error::convert_error)?;
+                array_values.push(val);
+                Ok(())
+            }
+        }
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
+        match self {
+            Self::SeqWithLen { .. } => Ok(()),
+            #[cfg(feature = "alloc")]
+            Self::SeqWithoutLen { ser, array_values } => {
+                use serde::Serialize;
+                let array = crate::value::Value::Array(array_values);
+                array.serialize(ser.as_mut())?;
+                Ok(())
+            }
+        }
     }
 }
 
