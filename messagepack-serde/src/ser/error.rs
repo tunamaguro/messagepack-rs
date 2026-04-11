@@ -9,22 +9,22 @@ pub enum Error<T> {
     Encode(CoreError<T>),
     /// Try serialize  array or map but not passed length
     SeqLenNone,
-    #[cfg(not(feature = "std"))]
+    #[cfg(not(feature = "alloc"))]
     /// Parse error
     Custom,
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     /// Parse error
-    Message(String),
+    Custom(alloc::string::String),
 }
 
 impl<T: core::fmt::Display> core::fmt::Display for Error<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Error::Encode(e) => e.fmt(f),
-            #[cfg(not(feature = "std"))]
-            Error::Custom => write!(f, "Not match serializer format"),
-            #[cfg(feature = "std")]
-            Error::Message(msg) => f.write_str(msg),
+            #[cfg(not(feature = "alloc"))]
+            Error::Custom => write!(f, "unknown error"),
+            #[cfg(feature = "alloc")]
+            Error::Custom(msg) => f.write_str(msg),
             Error::SeqLenNone => write!(f, "array/map family must be provided length"),
         }
     }
@@ -46,14 +46,14 @@ where
     where
         T: core::fmt::Display,
     {
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(feature = "alloc"))]
         {
             Self::Custom
         }
 
-        #[cfg(feature = "std")]
+        #[cfg(feature = "alloc")]
         {
-            Self::Message(msg.to_string())
+            Self::Custom(msg.to_string())
         }
     }
 }

@@ -44,7 +44,7 @@ pub use error::Error;
 
 use messagepack_core::{
     Encode,
-    encode::{BinaryEncoder, MapFormatEncoder, NilEncoder, array::ArrayFormatEncoder},
+    encode::{BinaryEncoder, MapFormatEncoder, NilEncoder},
     io::{IoWrite, SliceWriter, WError},
 };
 
@@ -343,9 +343,8 @@ where
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        let len = len.ok_or(Error::SeqLenNone)?;
-        self.current_length += ArrayFormatEncoder(len).encode(self.writer)?;
-        Ok(seq::SerializeSeq::new(self))
+        let seq = seq::SerializeSeq::new(self, len)?;
+        Ok(seq)
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
@@ -369,8 +368,7 @@ where
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
         self.current_length += MapFormatEncoder::new(1).encode(self.writer)?;
         self.serialize_str(variant)?;
-        self.current_length += ArrayFormatEncoder(len).encode(self.writer)?;
-        Ok(seq::SerializeSeq::new(self))
+        self.serialize_seq(Some(len))
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
