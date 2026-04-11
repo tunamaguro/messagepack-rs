@@ -4,10 +4,9 @@ use proc_macro2::Span;
 use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::{
-    Attribute, Data, DeriveInput, Error, Expr, ExprLit, Field, Fields, GenericArgument, Generics,
-    Ident, Lit, LitInt, LitStr, Member, Meta, MetaList, MetaNameValue, Path, PathArguments, Type,
-    TypeArray, TypeGroup, TypeParen, TypePath, TypeReference, TypeSlice, TypeTuple, WhereClause,
-    parse_quote,
+    Attribute, Data, DeriveInput, Error, Field, Fields, GenericArgument, Generics, Ident, LitInt,
+    LitStr, Member, Meta, MetaList, Path, PathArguments, Type, TypeArray, TypeGroup, TypeParen,
+    TypePath, TypeReference, TypeSlice, TypeTuple, WhereClause, parse_quote,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,8 +56,12 @@ pub struct FieldInfo {
 }
 
 impl FieldInfo {
-    pub fn is_skipped(&self) -> bool {
-        self.is_phantom || self.attrs.default
+    pub fn is_skipped_for_encode(&self) -> bool {
+        self.is_phantom
+    }
+
+    pub fn is_skipped_for_decode(&self) -> bool {
+        self.is_phantom
     }
 }
 
@@ -237,20 +240,6 @@ fn parse_field_attrs(attrs: &[Attribute]) -> syn::Result<FieldAttrs> {
                     }
                     Err(meta.error("unsupported field attribute"))
                 })?;
-            }
-            Meta::NameValue(MetaNameValue {
-                value:
-                    Expr::Lit(ExprLit {
-                        lit: Lit::Str(lit), ..
-                    }),
-                path,
-                ..
-            }) => {
-                if path.is_ident("encode_with") {
-                    out.encode_with = Some(lit.parse()?);
-                } else if path.is_ident("decode_with") {
-                    out.decode_with = Some(lit.parse()?);
-                }
             }
             other => {
                 return Err(Error::new(

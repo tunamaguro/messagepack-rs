@@ -13,10 +13,7 @@ fn assert_derive<'de, T: Encode + Decode<'de>>() {}
 #[derive(Encode, Decode)]
 struct S2<T>(#[msgpack(default)] Option<T>);
 
-
-struct NoDefault;
-
 fn main() {
-    assert_derive::<S1<NoDefault>>();
-    assert_derive::<S2<NoDefault>>();
+    assert_derive::<S1<u8>>();
+    assert_derive::<S2<u8>>();
 }

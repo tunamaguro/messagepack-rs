@@ -48,7 +48,10 @@ fn encode_tuple(fields: &[FieldInfo], mode: Option<ContainerMode>) -> syn::Resul
 
     validate_skipped_fields(fields)?;
 
-    let active = fields.iter().filter(|field| !field.is_skipped()).collect::<Vec<_>>();
+    let active = fields
+        .iter()
+        .filter(|field| !field.is_skipped_for_encode())
+        .collect::<Vec<_>>();
     let writes = active
         .iter()
         .map(|field| encode_field_expr(field))
@@ -70,7 +73,10 @@ fn encode_named(fields: &[FieldInfo], mode: Option<ContainerMode>) -> syn::Resul
 
     match mode.unwrap_or(ContainerMode::Map) {
         ContainerMode::Map => {
-            let active = fields.iter().filter(|field| !field.is_skipped()).collect::<Vec<_>>();
+            let active = fields
+                .iter()
+                .filter(|field| !field.is_skipped_for_encode())
+                .collect::<Vec<_>>();
             let writes = active
                 .iter()
                 .map(|field| {
@@ -129,7 +135,10 @@ fn validate_skipped_fields(fields: &[FieldInfo]) -> syn::Result<()> {
 }
 
 fn sorted_array_fields(fields: &[FieldInfo]) -> syn::Result<Vec<&FieldInfo>> {
-    let mut active = fields.iter().filter(|field| !field.is_skipped()).collect::<Vec<_>>();
+    let mut active = fields
+        .iter()
+        .filter(|field| !field.is_skipped_for_encode())
+        .collect::<Vec<_>>();
     for field in &active {
         if field.attrs.key.is_none() {
             return Err(syn::Error::new(
@@ -175,7 +184,7 @@ fn add_encode_bounds(generics: &mut syn::Generics, style: &StructStyle) {
 
     ensure_where_clause(generics);
     for field in fields {
-        if field.is_skipped() || field.attrs.encode_with.is_some() {
+        if field.is_skipped_for_encode() || field.attrs.encode_with.is_some() {
             continue;
         }
         if field.attrs.bytes {

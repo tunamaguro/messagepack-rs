@@ -1,4 +1,5 @@
 use messagepack_core::decode::Decode;
+use messagepack_core::encode::Encode as _;
 use messagepack_core::io::SliceReader;
 use messagepack_derive::{Decode, Encode};
 
@@ -31,6 +32,24 @@ fn allow_option_default() {
     assert_eq!(decoded, S2 { foo: 12, bar: 0 });
 }
 
+#[test]
+fn default_named_field_roundtrip_preserves_encoded_value() {
+    let value = S2 { foo: 12, bar: 42 };
+    let mut buf = Vec::new();
+    value.encode(&mut buf).unwrap();
+
+    let expected = [
+        0x82, // fixmap 2
+        0xa3, b'f', b'o', b'o', 0x0c, // "foo": 12
+        0xa3, b'b', b'a', b'r', 0x2a, // "bar": 42
+    ];
+    assert_eq!(buf, expected);
+
+    let mut reader = SliceReader::new(&buf);
+    let decoded = <S2 as Decode>::decode(&mut reader).unwrap();
+    assert_eq!(decoded, value);
+}
+
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct S3<T> {
     foo: u8,
@@ -55,4 +74,18 @@ fn allow_tuple_default_missing() {
     let mut reader = SliceReader::new(&data);
     let decoded = <S4 as Decode>::decode(&mut reader).unwrap();
     assert_eq!(decoded, S4(12, 0));
+}
+
+#[test]
+fn default_tuple_field_roundtrip_preserves_encoded_value() {
+    let value = S4(12, 42);
+    let mut buf = Vec::new();
+    value.encode(&mut buf).unwrap();
+
+    let expected = [0x92, 0x0c, 0x2a];
+    assert_eq!(buf, expected);
+
+    let mut reader = SliceReader::new(&buf);
+    let decoded = <S4 as Decode>::decode(&mut reader).unwrap();
+    assert_eq!(decoded, value);
 }

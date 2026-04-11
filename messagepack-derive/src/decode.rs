@@ -106,15 +106,35 @@ fn decode_tuple(
     }
     validate_decode_fields(fields)?;
 
-    let active = fields.iter().filter(|field| !field.is_skipped()).collect::<Vec<_>>();
+    let active = fields
+        .iter()
+        .filter(|field| !field.is_skipped_for_decode())
+        .collect::<Vec<_>>();
     let len = active.len();
-    let decode_steps = active
+    let min_len = minimum_array_len(&active);
+    let declarations = active
         .iter()
         .map(|field| {
             let local = field_local(field);
+            let ty = replace_lifetimes(&field.ty, de_lifetime);
+            Ok(quote! {
+                let mut #local: ::core::option::Option<#ty> = ::core::option::Option::None;
+            })
+        })
+        .collect::<syn::Result<Vec<_>>>()?;
+    let arms = active
+        .iter()
+        .enumerate()
+        .map(|(index, field)| {
+            let local = field_local(field);
             let expr = decode_field_expr(field, de_lifetime)?;
             Ok(quote! {
-                let #local = #expr;
+                #index => {
+                    if #local.is_some() {
+                        return Err(::messagepack_core::decode::Error::InvalidData);
+                    }
+                    #local = Some(#expr);
+                }
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;
@@ -127,12 +147,20 @@ fn decode_tuple(
             ::messagepack_core::Format::Array32 => ::messagepack_core::decode::NbyteReader::<4>::read(__reader)?,
             _ => return Err(::messagepack_core::decode::Error::UnexpectedFormat),
         };
-        if __len != #len {
+        if __len < #min_len || __len > #len {
             return Err(::messagepack_core::decode::Error::InvalidData);
         }
         #(
-            #decode_steps
+            #declarations
         )*
+        for __index in 0..__len {
+            match __index {
+                #(
+                    #arms
+                )*
+                _ => unreachable!(),
+            }
+        }
         Ok(#output_ty(
             #(#build),*
         ))
@@ -185,7 +213,10 @@ fn decode_named_map(
     de_lifetime: &syn::Lifetime,
     output_ty: &TokenStream,
 ) -> syn::Result<TokenStream> {
-    let active = fields.iter().filter(|field| !field.is_skipped()).collect::<Vec<_>>();
+    let active = fields
+        .iter()
+        .filter(|field| !field.is_skipped_for_decode())
+        .collect::<Vec<_>>();
     let declarations = active
         .iter()
         .map(|field| {
@@ -248,11 +279,12 @@ fn decode_named_array(
     let active = match mode.unwrap_or(ContainerMode::Map) {
         ContainerMode::Map => fields
             .iter()
-            .filter(|field| !field.is_skipped())
+            .filter(|field| !field.is_skipped_for_decode())
             .collect::<Vec<_>>(),
         ContainerMode::Array => sorted_array_fields(fields)?,
     };
     let len = active.len();
+    let min_len = minimum_array_len(&active);
     let declarations = active
         .iter()
         .map(|field| {
@@ -291,7 +323,7 @@ fn decode_named_array(
     let build = fields.iter().map(|field| named_field_build(field)).collect::<Vec<_>>();
 
     Ok(quote! {
-        if __len != #len {
+        if __len < #min_len || __len > #len {
             return Err(::messagepack_core::decode::Error::InvalidData);
         }
         #(
@@ -324,7 +356,10 @@ fn validate_decode_fields(fields: &[FieldInfo]) -> syn::Result<()> {
 }
 
 fn sorted_array_fields(fields: &[FieldInfo]) -> syn::Result<Vec<&FieldInfo>> {
-    let mut active = fields.iter().filter(|field| !field.is_skipped()).collect::<Vec<_>>();
+    let mut active = fields
+        .iter()
+        .filter(|field| !field.is_skipped_for_decode())
+        .collect::<Vec<_>>();
     for field in &active {
         if field.attrs.key.is_none() {
             return Err(syn::Error::new(
@@ -345,11 +380,26 @@ fn sorted_array_fields(fields: &[FieldInfo]) -> syn::Result<Vec<&FieldInfo>> {
     Ok(active)
 }
 
+fn minimum_array_len(fields: &[&FieldInfo]) -> usize {
+    fields
+        .iter()
+        .rposition(|field| !field.attrs.default)
+        .map(|index| index + 1)
+        .unwrap_or(0)
+}
+
 fn decode_field_expr(field: &FieldInfo, de_lifetime: &syn::Lifetime) -> syn::Result<TokenStream> {
     let target_ty = &field.ty;
     if let Some(path) = &field.attrs.decode_with {
         return Ok(quote! {{
             let __value: #target_ty = #path(__reader)?;
+            __value
+        }});
+    }
+    if field.attrs.bytes {
+        let decode_ty = replace_lifetimes(target_ty, de_lifetime);
+        return Ok(quote! {{
+            let __value: #decode_ty = <#decode_ty as ::messagepack_core::decode::DecodeBytes<#de_lifetime>>::decode_bytes(__reader)?;
             __value
         }});
     }
@@ -359,7 +409,7 @@ fn decode_field_expr(field: &FieldInfo, de_lifetime: &syn::Lifetime) -> syn::Res
             ty: inner.clone(),
             attrs: crate::shared::FieldAttrs {
                 key: None,
-                bytes: false,
+                bytes: field.attrs.bytes,
                 default: false,
                 encode_with: None,
                 decode_with: None,
@@ -410,7 +460,8 @@ fn decode_non_option_expr(
         };
         let inner_expr = decode_field_expr(&inner_field, de_lifetime)?;
         return Ok(quote! {{
-            let __value: #target_ty = ::std::boxed::Box::new(#inner_expr);
+            extern crate alloc as __msgpack_alloc;
+            let __value: #target_ty = __msgpack_alloc::boxed::Box::new(#inner_expr);
             __value
         }});
     }
@@ -429,7 +480,7 @@ fn decode_non_option_with_format_expr(
     let decode_ty = replace_lifetimes(target_ty, de_lifetime);
     if field.attrs.bytes {
         return Ok(quote! {{
-            let __value: #decode_ty = <#decode_ty as ::messagepack_core::decode::DecodeBytes<#de_lifetime>>::decode_bytes(__reader)?;
+            let __value: #decode_ty = <#decode_ty as ::messagepack_core::decode::DecodeBytes<#de_lifetime>>::decode_bytes_with_format(#format, __reader)?;
             __value
         }});
     }
@@ -445,7 +496,8 @@ fn decode_non_option_with_format_expr(
         };
         let inner_expr = decode_non_option_with_format_expr(&inner_field, de_lifetime, format)?;
         return Ok(quote! {{
-            let __value: #target_ty = ::std::boxed::Box::new(#inner_expr);
+            extern crate alloc as __msgpack_alloc;
+            let __value: #target_ty = __msgpack_alloc::boxed::Box::new(#inner_expr);
             __value
         }});
     }
@@ -466,20 +518,28 @@ fn field_local(field: &FieldInfo) -> syn::Ident {
 }
 
 fn tuple_field_build(field: &FieldInfo) -> TokenStream {
-    if field.is_phantom || field.attrs.default {
+    if field.is_phantom {
         return quote! { ::core::default::Default::default() };
     }
     let local = field_local(field);
-    quote! { #local }
+    if field.attrs.default {
+        quote! { #local.unwrap_or_default() }
+    } else if option_inner(&field.ty).is_some() {
+        quote! { #local.unwrap_or(::core::option::Option::None) }
+    } else {
+        quote! { #local.ok_or(::messagepack_core::decode::Error::InvalidData)? }
+    }
 }
 
 fn named_field_build(field: &FieldInfo) -> TokenStream {
     let member = &field.member;
-    let value = if field.is_phantom || field.attrs.default {
+    let value = if field.is_phantom {
         quote! { ::core::default::Default::default() }
     } else {
         let local = field_local(field);
-        if option_inner(&field.ty).is_some() {
+        if field.attrs.default {
+            quote! { #local.unwrap_or_default() }
+        } else if option_inner(&field.ty).is_some() {
             quote! { #local.unwrap_or(::core::option::Option::None) }
         } else {
             quote! { #local.ok_or(::messagepack_core::decode::Error::InvalidData)? }
@@ -511,7 +571,6 @@ fn add_decode_bounds(
         }
         if field.attrs.default {
             add_type_bound(generics, field.ty.clone(), default_bound.clone());
-            continue;
         }
         if field.attrs.decode_with.is_some() {
             continue;
