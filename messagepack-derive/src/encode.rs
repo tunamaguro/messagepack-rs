@@ -1,33 +1,12 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput};
-
-use crate::bound;
+use syn::DeriveInput;
 
 pub fn derive_encode(input: DeriveInput) -> syn::Result<TokenStream> {
     let name = &input.ident;
-
-    let data_struct = match &input.data {
-        Data::Struct(ds) => ds,
-        Data::Enum(_) => {
-            return Err(syn::Error::new_spanned(
-                &input,
-                "Encode derive is not yet supported for enums",
-            ));
-        }
-        Data::Union(_) => {
-            return Err(syn::Error::new_spanned(
-                &input,
-                "Encode derive is not supported for unions",
-            ));
-        }
-    };
-
     let body = quote! { todo!() };
 
-    let encode_bound: syn::Path = syn::parse_quote!(::messagepack_core::encode::Encode);
-    let generics = bound::with_bound(&input.generics, &data_struct.fields, &encode_bound);
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     Ok(quote! {
         #[automatically_derived]

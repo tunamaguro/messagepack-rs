@@ -2,10 +2,8 @@
 
 //! Derive marco for [messagepack_core::encode::Encode] and [messagepack_core::decode::Decode]
 
-mod attrs;
 mod decode;
 mod encode;
-mod bound;
 
 use proc_macro::TokenStream;
 use syn::{DeriveInput, parse_macro_input};
