@@ -1,0 +1,5 @@
+error: `map` and `array` are mutually exclusive
+ --> tests/fail/map_and_array.rs:5:16
+  |
+5 | #[msgpack(map, array)]
+  |                ^^^^^

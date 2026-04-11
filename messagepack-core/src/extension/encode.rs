@@ -4,8 +4,11 @@ use crate::encode::{self, Encode};
 use crate::formats::Format;
 use crate::io::IoWrite;
 
-impl<'a, W: IoWrite> Encode<W> for ExtensionRef<'a> {
-    fn encode(&self, writer: &mut W) -> core::result::Result<usize, encode::Error<W::Error>> {
+impl Encode for ExtensionRef<'_> {
+    fn encode<W: IoWrite>(
+        &self,
+        writer: &mut W,
+    ) -> core::result::Result<usize, encode::Error<W::Error>> {
         let data_len = self.data.len();
         let type_byte = self.r#type.to_be_bytes()[0];
 
@@ -65,15 +68,21 @@ impl<'a, W: IoWrite> Encode<W> for ExtensionRef<'a> {
     }
 }
 
-impl<const N: usize, W: IoWrite> Encode<W> for FixedExtension<N> {
-    fn encode(&self, writer: &mut W) -> core::result::Result<usize, encode::Error<W::Error>> {
+impl<const N: usize> Encode for FixedExtension<N> {
+    fn encode<W: IoWrite>(
+        &self,
+        writer: &mut W,
+    ) -> core::result::Result<usize, encode::Error<W::Error>> {
         self.as_ref().encode(writer)
     }
 }
 
 #[cfg(feature = "alloc")]
-impl<W: IoWrite> Encode<W> for super::owned::ExtensionOwned {
-    fn encode(&self, writer: &mut W) -> core::result::Result<usize, encode::Error<W::Error>> {
+impl Encode for super::owned::ExtensionOwned {
+    fn encode<W: IoWrite>(
+        &self,
+        writer: &mut W,
+    ) -> core::result::Result<usize, encode::Error<W::Error>> {
         self.as_ref().encode(writer)
     }
 }

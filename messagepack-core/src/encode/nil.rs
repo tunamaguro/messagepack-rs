@@ -6,25 +6,21 @@ use crate::{formats::Format, io::IoWrite};
 /// Encode the MessagePack `nil` value.
 pub struct NilEncoder;
 
-impl<W: IoWrite> Encode<W> for NilEncoder {
-    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl Encode for NilEncoder {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         writer.write(&Format::Nil.as_slice())?;
         Ok(1)
     }
 }
 
-impl<W: IoWrite> Encode<W> for () {
-    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl Encode for () {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         NilEncoder.encode(writer)
     }
 }
 
-impl<W, V> Encode<W> for Option<V>
-where
-    W: IoWrite,
-    V: Encode<W>,
-{
-    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl<V: Encode> Encode for Option<V> {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match self {
             Some(other) => other.encode(writer),
             _ => NilEncoder.encode(writer),

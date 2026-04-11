@@ -1,0 +1,19 @@
+[package]
+name = "messagepack-derive"
+description = "Derive macros for messagepack-core Encode/Decode traits"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full", "extra-traits"] }
+
+[dev-dependencies]
+messagepack-core = { workspace = true, features = ["std"] }
+trybuild = "1"

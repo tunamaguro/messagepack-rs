@@ -39,11 +39,34 @@ impl<'de> DecodeBorrowed<'de> for &'de str {
 }
 
 /// Borrowed or copied UTF‑8 string reference
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ReferenceStr<'de, 'a> {
     /// Borrowed from the input (`'de`).
     Borrowed(&'de str),
     /// Copied into a transient buffer bound to `'a`.
     Copied(&'a str),
+}
+
+impl ReferenceStr<'_, '_> {
+    /// Borrow the underlying string regardless of `Borrowed` or `Copied`.
+    pub const fn as_str(&self) -> &str {
+        match self {
+            ReferenceStr::Borrowed(s) => s,
+            ReferenceStr::Copied(s) => s,
+        }
+    }
+}
+
+impl PartialEq<str> for ReferenceStr<'_, '_> {
+    fn eq(&self, other: &str) -> bool {
+        self.as_str() == other
+    }
+}
+
+impl PartialEq<ReferenceStr<'_, '_>> for str {
+    fn eq(&self, other: &ReferenceStr<'_, '_>) -> bool {
+        other.as_str() == self
+    }
 }
 
 /// Decode a MessagePack string and return a [ReferenceStr]
@@ -81,6 +104,36 @@ impl<'de> Decode<'de> for ReferenceStrDecoder {
                 Ok(ReferenceStr::Copied(s))
             }
         }
+    }
+}
+
+/// Decode a Messagepack string without utf-8 validation.
+/// This is useful for lowering the decoding cost.
+pub struct ReferenceStrBinDecoder;
+
+impl<'de> Decode<'de> for ReferenceStrBinDecoder {
+    type Value<'a>
+        = crate::io::Reference<'de, 'a>
+    where
+        Self: 'a,
+        'de: 'a;
+
+    fn decode_with_format<'a, R>(
+        format: Format,
+        reader: &'a mut R,
+    ) -> Result<Self::Value<'a>, Error<R::Error>>
+    where
+        R: IoRead<'de>,
+        'de: 'a,
+    {
+        let len = match format {
+            Format::FixStr(n) => n.into(),
+            Format::Str8 => NbyteReader::<1>::read(reader)?,
+            Format::Str16 => NbyteReader::<2>::read(reader)?,
+            Format::Str32 => NbyteReader::<4>::read(reader)?,
+            _ => return Err(Error::UnexpectedFormat),
+        };
+        reader.read_slice(len).map_err(Error::Io)
     }
 }
 
