@@ -3,8 +3,8 @@
 use super::{Encode, Result};
 use crate::{formats::Format, io::IoWrite};
 
-impl Encode for bool {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl<W: IoWrite> Encode<W> for bool {
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match self {
             true => {
                 writer.write(&Format::True.as_slice())?;
@@ -18,8 +18,11 @@ impl Encode for bool {
     }
 }
 
-impl Encode for core::sync::atomic::AtomicBool {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
+impl<W> Encode<W> for core::sync::atomic::AtomicBool
+where
+    W: IoWrite,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, W::Error> {
         self.load(core::sync::atomic::Ordering::Relaxed)
             .encode(writer)
     }
@@ -33,7 +36,10 @@ mod tests {
     #[rstest]
     #[case(true,[0xc3])]
     #[case(false,[0xc2])]
-    fn encode_bool<V: Encode, E: AsRef<[u8]> + Sized>(#[case] value: V, #[case] expected: E) {
+    fn encode_bool<V: Encode<Vec<u8>>, E: AsRef<[u8]> + Sized>(
+        #[case] value: V,
+        #[case] expected: E,
+    ) {
         let expected = expected.as_ref();
 
         let mut buf = vec![];

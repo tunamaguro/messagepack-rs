@@ -66,82 +66,25 @@ impl<'de> super::Decode<'de> for ReferenceDecoder {
     }
 }
 
-/// Trait for decoding MessagePack binary data.
-///
-/// Used by the derive macro for `#[msgpack(bytes)]` fields.
-/// Implement this trait for types that can be decoded from a MessagePack bin format.
-pub trait DecodeBytes<'de>: Sized {
-    /// Decode binary data from the reader.
-    fn decode_bytes<R>(reader: &mut R) -> Result<Self, Error<R::Error>>
-    where
-        R: IoRead<'de>;
-}
+/// Owned `Vec<u8>` decoder for MessagePack bin8/16/32.
+#[cfg(feature = "alloc")]
+pub struct BinOwnedDecoder;
 
-impl<'de> DecodeBytes<'de> for &'de [u8] {
-    fn decode_bytes<R>(reader: &mut R) -> Result<Self, Error<R::Error>>
+#[cfg(feature = "alloc")]
+impl<'de> super::DecodeBorrowed<'de> for BinOwnedDecoder {
+    type Value = alloc::vec::Vec<u8>;
+
+    fn decode_borrowed_with_format<R>(
+        format: Format,
+        reader: &mut R,
+    ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
     {
-        <BinDecoder as DecodeBorrowed<'de>>::decode_borrowed(reader)
+        let val = ReferenceDecoder::decode_with_format(format, reader)?;
+        Ok(val.as_bytes().to_vec())
     }
 }
-
-impl<'de, const N: usize> DecodeBytes<'de> for [u8; N] {
-    fn decode_bytes<R>(reader: &mut R) -> Result<Self, Error<R::Error>>
-    where
-        R: IoRead<'de>,
-    {
-        let reference = ReferenceDecoder::decode_with_format(
-            <Format as DecodeBorrowed<'de>>::decode_borrowed(reader)?,
-            reader,
-        )?;
-        let bytes = reference.as_bytes();
-        bytes.try_into().map_err(|_| Error::InvalidData)
-    }
-}
-
-#[cfg(feature = "alloc")]
-mod alloc_impl {
-    use super::*;
-    /// Owned `Vec<u8>` decoder for MessagePack bin8/16/32.
-    pub struct BinOwnedDecoder;
-
-    impl<'de> super::DecodeBorrowed<'de> for BinOwnedDecoder {
-        type Value = alloc::vec::Vec<u8>;
-
-        fn decode_borrowed_with_format<R>(
-            format: Format,
-            reader: &mut R,
-        ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
-        where
-            R: IoRead<'de>,
-        {
-            let val = ReferenceDecoder::decode_with_format(format, reader)?;
-            Ok(val.as_bytes().to_vec())
-        }
-    }
-
-    impl<'de> DecodeBytes<'de> for alloc::vec::Vec<u8> {
-        fn decode_bytes<R>(reader: &mut R) -> Result<Self, Error<R::Error>>
-        where
-            R: IoRead<'de>,
-        {
-            <BinOwnedDecoder as DecodeBorrowed<'de>>::decode_borrowed(reader)
-        }
-    }
-
-    impl<'de> DecodeBytes<'de> for alloc::boxed::Box<[u8]> {
-        fn decode_bytes<R>(reader: &mut R) -> Result<Self, Error<R::Error>>
-        where
-            R: IoRead<'de>,
-        {
-            let v = <BinOwnedDecoder as DecodeBorrowed<'de>>::decode_borrowed(reader)?;
-            Ok(v.into_boxed_slice())
-        }
-    }
-}
-#[cfg(feature = "alloc")]
-pub use alloc_impl::BinOwnedDecoder;
 
 #[cfg(test)]
 mod tests {

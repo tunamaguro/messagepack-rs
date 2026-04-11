@@ -6,8 +6,8 @@ use crate::{formats::Format, io::IoWrite};
 /// Encode only the array header for an array of a given length.
 pub struct ArrayFormatEncoder(pub usize);
 
-impl Encode for ArrayFormatEncoder {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl<W: IoWrite> Encode<W> for ArrayFormatEncoder {
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match self.0 {
             0x00..=0b1111 => {
                 let cast = self.0 as u8;
@@ -37,8 +37,12 @@ impl Encode for ArrayFormatEncoder {
     }
 }
 
-impl<V: Encode> Encode for &[V] {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl<W, V> Encode<W> for &[V]
+where
+    W: IoWrite,
+    V: Encode<W>,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let format_len = ArrayFormatEncoder(self.len()).encode(writer)?;
         let array_len = self
             .iter()
@@ -48,8 +52,12 @@ impl<V: Encode> Encode for &[V] {
     }
 }
 
-impl<const N: usize, V: Encode> Encode for [V; N] {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl<const N: usize, W, V> Encode<W> for [V; N]
+where
+    W: IoWrite,
+    V: Encode<W>,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         self.as_slice().encode(writer)
     }
 }
@@ -61,8 +69,12 @@ macro_rules! tuple_impls {
         )+
     };
     (@impl $len:expr; $($n:tt $name:ident)+) => {
-        impl<$($name: Encode),+> Encode for ($($name,)+) {
-            fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        impl<W, $($name),+> Encode<W> for ($($name,)+)
+        where
+            W: IoWrite,
+            $($name: Encode<W>,)+
+        {
+            fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
                 let format_len = ArrayFormatEncoder($len).encode(writer)?;
                 let mut array_len = 0;
                 $(
@@ -94,8 +106,12 @@ tuple_impls! {
 }
 
 #[cfg(feature = "alloc")]
-impl<V: Encode> Encode for alloc::vec::Vec<V> {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+impl<W, V> Encode<W> for alloc::vec::Vec<V>
+where
+    W: IoWrite,
+    V: Encode<W>,
+{
+    fn encode(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         self.as_slice().encode(writer)
     }
 }
@@ -107,7 +123,7 @@ mod tests {
 
     #[rstest]
     #[case([1u8, 2u8, 3u8],[0x93, 0x01, 0x02, 0x03])]
-    fn encode_fix_array<V: Encode, Array: AsRef<[V]>, E: AsRef<[u8]> + Sized>(
+    fn encode_fix_array<V: Encode<Vec<u8>>, Array: AsRef<[V]>, E: AsRef<[u8]> + Sized>(
         #[case] value: Array,
         #[case] expected: E,
     ) {
@@ -146,7 +162,7 @@ mod tests {
     #[case((1u8,), &[0x91,0x01])]
     #[case((1u8,2u8), &[0x92,0x01,0x02])]
     #[case((1u8,2u8,3u8), &[0x93,0x01,0x02,0x03])]
-    fn encode_tuple<V: Encode>(#[case] v: V, #[case] expected: &[u8]) {
+    fn encode_tuple<V: Encode<Vec<u8>>>(#[case] v: V, #[case] expected: &[u8]) {
         let mut buf = Vec::new();
         let _ = v.encode(&mut buf).unwrap();
         assert_eq!(buf, expected);

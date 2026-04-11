@@ -5,10 +5,8 @@ use crate::{Format, io::IoRead};
 mod array;
 pub use array::ArrayDecoder;
 mod bin;
-pub use bin::BinDecoder;
 #[cfg(feature = "alloc")]
 pub use bin::BinOwnedDecoder;
-pub use bin::DecodeBytes;
 pub use bin::ReferenceDecoder;
 mod bool;
 mod float;
@@ -19,9 +17,6 @@ mod nil;
 pub use nil::NilDecoder;
 mod str;
 pub use str::{ReferenceStr, ReferenceStrDecoder};
-
-mod any;
-pub use any::Any;
 
 /// MessagePack decode error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -120,10 +115,6 @@ pub trait DecodeBorrowed<'de> {
     where
         R: IoRead<'de>;
 }
-
-/// Decode a value which owns its data
-pub trait DecodeOwned: for<'de> DecodeBorrowed<'de, Value = Self> {}
-impl<T> DecodeOwned for T where T: for<'de> DecodeBorrowed<'de, Value = Self> {}
 
 impl<'de, T> Decode<'de> for T
 where
