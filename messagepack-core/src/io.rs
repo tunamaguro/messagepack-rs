@@ -160,12 +160,6 @@ impl PartialEq<[u8]> for Reference<'_, '_> {
     }
 }
 
-impl PartialEq<Reference<'_, '_>> for [u8] {
-    fn eq(&self, other: &Reference<'_, '_>) -> bool {
-        self == other.as_bytes()
-    }
-}
-
 /// decode input source
 pub trait IoRead<'de> {
     /// Error type produced by the reader.

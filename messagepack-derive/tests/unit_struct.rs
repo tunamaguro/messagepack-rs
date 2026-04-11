@@ -4,7 +4,8 @@ use messagepack_derive::{Decode, Encode};
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct Unit;
 
-fn main() {
+#[test]
+fn round_trip_unit() {
     let unit = Unit;
     let mut buf = Vec::new();
     let size = unit.encode(&mut buf).unwrap();
