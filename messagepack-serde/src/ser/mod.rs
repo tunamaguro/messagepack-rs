@@ -623,6 +623,67 @@ mod tests {
         assert_eq!(buf[..len], [0xe0]);
     }
 
+    #[test]
+    #[cfg(not(feature = "alloc"))]
+    fn encode_flatten_struct() {
+        #[derive(Serialize)]
+        struct Inner {
+            b: u8,
+            c: u8,
+        }
+
+        #[derive(Serialize)]
+        struct Outer {
+            a: u8,
+            #[serde(flatten)]
+            extra: Inner,
+        }
+
+        let mut buf = [0u8; 128];
+        let v = Outer {
+            a: 1,
+            extra: Inner { b: 2, c: 3 },
+        };
+        let res = to_slice(&v, &mut buf);
+        assert!(matches!(res, Err(Error::SeqLenNone)));
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn encode_flatten_struct() {
+        #[derive(Serialize)]
+        struct Inner {
+            b: u8,
+            c: u8,
+        }
+
+        #[derive(Serialize)]
+        struct Outer {
+            a: u8,
+            #[serde(flatten)]
+            extra: Inner,
+        }
+
+        let mut buf = [0u8; 128];
+        let v = Outer {
+            a: 1,
+            extra: Inner { b: 2, c: 3 },
+        };
+        let len = to_slice(&v, &mut buf).unwrap();
+        assert_eq!(
+            buf[..len],
+            [
+                0x83, // fixmap len = 3
+                0xa1, b'a', // key "a"
+                0x01, // value 1
+                0xa1, b'b', // key "b"
+                0x02, // value 2
+                0xa1, b'c', // key "c"
+                0x03, // value 3
+            ]
+        );
+    }
+
     #[cfg(feature = "std")]
     #[test]
     fn encode_with_writer() {
