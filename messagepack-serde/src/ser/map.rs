@@ -64,7 +64,8 @@ where
             Self::MapWithLen { ser } => key.serialize(ser.as_mut()),
             #[cfg(feature = "alloc")]
             Self::MapWithoutLen { key_value, .. } => {
-                *key_value = Some(crate::value::to_value(key).map_err(crate::ser::error::convert_error)?);
+                *key_value =
+                    Some(crate::value::to_value(key).map_err(crate::ser::error::convert_error)?);
                 Ok(())
             }
         }
@@ -85,7 +86,8 @@ where
                 let key = key_value.take().ok_or_else(|| -> Self::Error {
                     serde::ser::Error::custom("`serialize_value` called before `serialize_key`")
                 })?;
-                let value = crate::value::to_value(value).map_err(crate::ser::error::convert_error)?;
+                let value =
+                    crate::value::to_value(value).map_err(crate::ser::error::convert_error)?;
                 map_values.push((key, value));
                 Ok(())
             }
@@ -97,9 +99,16 @@ where
             Self::MapWithLen { .. } => Ok(()),
             #[cfg(feature = "alloc")]
             Self::MapWithoutLen {
-                ser, map_values, ..
+                ser,
+                map_values,
+                key_value,
             } => {
                 use serde::Serialize;
+                if key_value.is_some() {
+                    return Err(serde::ser::Error::custom(
+                        "`serialize_key` called but `serialize_value` not called",
+                    ));
+                }
                 let map = crate::value::Value::Map(map_values);
                 map.serialize(ser.as_mut())?;
                 Ok(())
