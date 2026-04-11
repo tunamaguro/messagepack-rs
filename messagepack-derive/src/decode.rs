@@ -303,7 +303,10 @@ fn decode_named_array(
                 })
             })
             .collect::<syn::Result<Vec<_>>>()?;
-        let build = fields.iter().map(named_field_build_direct).collect::<Vec<_>>();
+        let build = fields
+            .iter()
+            .map(named_field_build_direct)
+            .collect::<Vec<_>>();
 
         return Ok(quote! {
             if __len != #len {

@@ -135,7 +135,6 @@ where
     }
 }
 
-
 #[test]
 fn basic_struct() {
     let point = Point { x: 10, y: 20 };
