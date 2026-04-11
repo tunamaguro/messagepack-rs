@@ -45,3 +45,22 @@ fn allow_generic_option_default() {
     let decoded = <S3<u8> as Decode>::decode(&mut reader).unwrap();
     assert_eq!(decoded, S3 { foo: 12, bar: 0 });
 }
+
+#[derive(Debug, PartialEq, Encode, Decode)]
+struct S4(u8, #[msgpack(default)] u8);
+
+#[test]
+fn allow_tuple_default_missing() {
+    let data = [0x91, 0x0c]; // [12]
+    let mut reader = SliceReader::new(&data);
+    let decoded = <S4 as Decode>::decode(&mut reader).unwrap();
+    assert_eq!(decoded, S4(12, 0));
+}
+
+#[test]
+fn allow_tuple_present_default_field() {
+    let data = [0x92, 0x0c, 0x2a]; // [12, 42]
+    let mut reader = SliceReader::new(&data);
+    let decoded = <S4 as Decode>::decode(&mut reader).unwrap();
+    assert_eq!(decoded, S4(12, 42));
+}
