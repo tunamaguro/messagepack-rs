@@ -9,12 +9,21 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
+messagepack-core = { path = "../messagepack-core" }
 messagepack-serde = { path = "../messagepack-serde" }
 
 
 [[bin]]
 name = "fuzz_value_serde"
 path = "fuzz_targets/fuzz_value_serde.rs"
+test = false
+doc = false
+bench = false
+
+
+[[bin]]
+name = "fuzz_any_core"
+path = "fuzz_targets/fuzz_any_core.rs"
 test = false
 doc = false
 bench = false
