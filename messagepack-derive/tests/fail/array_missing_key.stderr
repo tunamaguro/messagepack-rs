@@ -1,5 +1,0 @@
-error: all fields must have `#[msgpack(key = N)]` when using `#[msgpack(array)]`
- --> tests/fail/array_missing_key.rs:7:5
-  |
-7 |     name: String,
-  |     ^^^^

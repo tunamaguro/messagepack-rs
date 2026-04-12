@@ -1,5 +1,0 @@
-error: PhantomData fields cannot use `#[msgpack(key = N)]`
-  --> tests/fail/phantomdata_with_key.rs:10:5
-   |
-10 |     #[msgpack(key = 1)]
-   |     ^
