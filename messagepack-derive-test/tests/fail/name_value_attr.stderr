@@ -1,0 +1,5 @@
+error: expected #[msgpack(...)] field attribute
+ --> tests/fail/name_value_attr.rs:5:7
+  |
+5 |     #[msgpack = "bytes"]
+  |       ^^^^^^^

@@ -518,6 +518,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "messagepack-derive-test"
+version = "0.2.3"
+dependencies = [
+ "messagepack-core",
+ "messagepack-derive",
+ "trybuild",
+]
+
+[[package]]
 name = "messagepack-serde"
 version = "0.2.3"
 dependencies = [

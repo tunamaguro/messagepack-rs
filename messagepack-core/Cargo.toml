@@ -22,7 +22,7 @@ proptest = { workspace = true }
 default = ["std", "derive"]
 alloc = []
 std = ["alloc"]
-derive = ["messagepack-derive"]
+derive = ["dep:messagepack-derive"]
 
 [[test]]
 name = "int"

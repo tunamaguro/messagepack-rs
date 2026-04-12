@@ -1,0 +1,12 @@
+[package]
+name = "messagepack-derive-test"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dev-dependencies]
+messagepack-core = { workspace = true, features = ["std"] }
+messagepack-derive = { workspace = true }
+trybuild = "1"
