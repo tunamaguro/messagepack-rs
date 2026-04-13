@@ -32,6 +32,12 @@ jobs:
   benchmarks:
     name: Run benchmarks
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        mode: [simulation]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -48,6 +54,5 @@ jobs:
       - name: Run the benchmarks
         uses: CodSpeedHQ/action@d872884a306dd4853acf0f584f4b706cf0cc72a2 # v4.13.0
         with:
-          mode: "instrumentation"
-          run: cargo codspeed run
-          token: ${{ secrets.CODSPEED_TOKEN }}
+          mode: ${{ matrix.mode }}
+          run: cargo codspeed run -m ${{ matrix.mode }}
