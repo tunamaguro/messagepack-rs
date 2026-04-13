@@ -35,6 +35,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    matrix:
+      mode: [simulation, walltime]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -51,5 +53,5 @@ jobs:
       - name: Run the benchmarks
         uses: CodSpeedHQ/action@d872884a306dd4853acf0f584f4b706cf0cc72a2 # v4.13.0
         with:
-          mode: "simulation,walltime"
-          run: cargo codspeed run
+          mode: ${{ matrix.mode }}
+          run: cargo codspeed run -m ${{ matrix.mode }}
