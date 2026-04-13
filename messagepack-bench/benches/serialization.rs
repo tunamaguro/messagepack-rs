@@ -3,12 +3,11 @@
 #[cfg(not(codspeed))]
 use divan::counter::BytesCount;
 use messagepack_bench::{
-    ArrayTypes, ByteType, ByteTypeBorrowed, CompositeType, MapType, PrimitiveTypes, StrTypes,
-    StrTypesBorrowed,
+    ArrayTypes, BenchData, ByteType, ByteTypeBorrowed, CompositeType, MapType, PrimitiveTypes,
+    StrTypes, StrTypesBorrowed,
 };
 use messagepack_core::Encode;
 use serde::Serialize;
-use std::iter::repeat_with;
 
 #[global_allocator]
 static ALLOC: divan::AllocProfiler = divan::AllocProfiler::system();
@@ -18,15 +17,18 @@ fn main() {
     divan::main();
 }
 
-const LENS: &[usize] = &[1024];
-const BUFFER_SIZE: usize = (2u32.pow(16)) as usize;
+const LENS: &[usize] = &[256];
+const BUFFER_SIZE: usize = (2u32.pow(18)) as usize;
 
 #[divan::bench(
     types = [ArrayTypes, ByteType, ByteTypeBorrowed, CompositeType, MapType, PrimitiveTypes, StrTypes, StrTypesBorrowed],
     args = LENS
 )]
-fn serialize_messagepack_serde<T: Serialize + Default + Sync>(bencher: divan::Bencher, len: usize) {
-    let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
+fn serialize_messagepack_serde<T: Serialize + BenchData + Sync>(
+    bencher: divan::Bencher,
+    len: usize,
+) {
+    let s = T::generate_vec(len);
 
     #[allow(unused_mut)]
     let mut bencher = bencher.with_inputs(|| vec![0u8; BUFFER_SIZE * len]);
@@ -46,8 +48,8 @@ fn serialize_messagepack_serde<T: Serialize + Default + Sync>(bencher: divan::Be
     types = [ArrayTypes, ByteType, ByteTypeBorrowed, CompositeType, MapType, PrimitiveTypes, StrTypes, StrTypesBorrowed],
     args = LENS
 )]
-fn serialize_rmp_serde<T: Serialize + Default + Sync>(bencher: divan::Bencher, len: usize) {
-    let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
+fn serialize_rmp_serde<T: Serialize + BenchData + Sync>(bencher: divan::Bencher, len: usize) {
+    let s = T::generate_vec(len);
 
     #[allow(unused_mut)]
     let mut bencher = bencher.with_inputs(|| vec![0u8; BUFFER_SIZE * len]);
@@ -68,8 +70,8 @@ fn serialize_rmp_serde<T: Serialize + Default + Sync>(bencher: divan::Bencher, l
     types = [ArrayTypes, ByteType, ByteTypeBorrowed, CompositeType, MapType, PrimitiveTypes, StrTypes, StrTypesBorrowed],
     args = LENS
 )]
-fn serialize_messagepack_core<T: Encode + Default + Sync>(bencher: divan::Bencher, len: usize) {
-    let s = repeat_with(|| T::default()).take(len).collect::<Vec<_>>();
+fn serialize_messagepack_core<T: Encode + BenchData + Sync>(bencher: divan::Bencher, len: usize) {
+    let s = T::generate_vec(len);
 
     #[allow(unused_mut)]
     let mut bencher = bencher.with_inputs(|| vec![0u8; BUFFER_SIZE * len]);

@@ -3,9 +3,26 @@ use std::collections::HashMap;
 use messagepack_core::{Decode, Encode};
 use rand::{
     RngExt,
-    distr::{Alphanumeric, Distribution, StandardUniform},
+    distr::{Distribution, StandardUniform},
 };
 use serde::{Deserialize, Serialize};
+
+fn seed_rng() -> impl rand::Rng {
+    use rand::SeedableRng;
+    rand::rngs::SmallRng::seed_from_u64(31415)
+}
+
+pub trait BenchData {
+    fn generate() -> Self;
+    fn generate_vec(n: usize) -> Vec<Self>
+    where
+        Self: Sized,
+    {
+        core::iter::repeat_with(|| Self::generate())
+            .take(n)
+            .collect()
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct PrimitiveTypes {
@@ -36,9 +53,17 @@ impl Distribution<PrimitiveTypes> for StandardUniform {
     }
 }
 
-impl Default for PrimitiveTypes {
-    fn default() -> Self {
-        rand::random()
+impl BenchData for PrimitiveTypes {
+    fn generate() -> Self {
+        let mut rng = seed_rng();
+        rng.random()
+    }
+    fn generate_vec(n: usize) -> Vec<Self>
+    where
+        Self: Sized,
+    {
+        let rng = seed_rng();
+        rng.random_iter().take(n).collect()
     }
 }
 
@@ -49,13 +74,31 @@ pub struct StrTypes {
     long: String,
 }
 
-impl Default for StrTypes {
-    fn default() -> Self {
-        Self {
-            short: include_str!("../data/lorem-ipsum.txt").into(),
-            medium: include_str!("../data/jp-constitution.txt").into(),
-            long: include_str!("../data/raven.txt").into(),
+impl Distribution<StrTypes> for StandardUniform {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> StrTypes {
+        let short_len = rng.random_range(0..256);
+        let medium_len = rng.random_range(512..1024);
+        let long_len = rng.random_range(1024..4096);
+        StrTypes {
+            short: rng.random_iter::<char>().take(short_len).collect(),
+            medium: rng.random_iter::<char>().take(medium_len).collect(),
+            long: rng.random_iter::<char>().take(long_len).collect(),
         }
+    }
+}
+
+impl BenchData for StrTypes {
+    fn generate() -> Self {
+        let mut rng = seed_rng();
+        rng.random()
+    }
+
+    fn generate_vec(n: usize) -> Vec<Self>
+    where
+        Self: Sized,
+    {
+        let rng = seed_rng();
+        rng.random_iter().take(n).collect()
     }
 }
 
@@ -76,6 +119,12 @@ impl Default for StrTypesBorrowed<'_> {
     }
 }
 
+impl BenchData for StrTypesBorrowed<'_> {
+    fn generate() -> Self {
+        Default::default()
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct ArrayTypes {
     short: Vec<u8>,
@@ -83,12 +132,30 @@ pub struct ArrayTypes {
     long: Vec<u8>,
 }
 
-impl Default for ArrayTypes {
-    fn default() -> Self {
-        Self {
-            short: include_bytes!("../data/lorem-ipsum.txt").into(),
-            medium: include_bytes!("../data/jp-constitution.txt").into(),
-            long: include_bytes!("../data/raven.txt").into(),
+impl BenchData for ArrayTypes {
+    fn generate() -> Self {
+        let mut rng = seed_rng();
+        rng.random()
+    }
+
+    fn generate_vec(n: usize) -> Vec<Self>
+    where
+        Self: Sized,
+    {
+        let rng = seed_rng();
+        rng.random_iter().take(n).collect()
+    }
+}
+
+impl Distribution<ArrayTypes> for StandardUniform {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> ArrayTypes {
+        let short_len = rng.random_range(0..256);
+        let medium_len = rng.random_range(512..1024);
+        let long_len = rng.random_range(1024..4096);
+        ArrayTypes {
+            short: rng.random_iter().take(short_len).collect(),
+            medium: rng.random_iter().take(medium_len).collect(),
+            long: rng.random_iter().take(long_len).collect(),
         }
     }
 }
@@ -106,13 +173,31 @@ pub struct ByteType {
     long: Vec<u8>,
 }
 
-impl Default for ByteType {
-    fn default() -> Self {
-        Self {
-            short: include_bytes!("../data/lorem-ipsum.txt").into(),
-            medium: include_bytes!("../data/jp-constitution.txt").into(),
-            long: include_bytes!("../data/raven.txt").into(),
+impl Distribution<ByteType> for StandardUniform {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> ByteType {
+        let short_len = rng.random_range(0..256);
+        let medium_len = rng.random_range(512..1024);
+        let long_len = rng.random_range(1024..4096);
+        ByteType {
+            short: rng.random_iter().take(short_len).collect(),
+            medium: rng.random_iter().take(medium_len).collect(),
+            long: rng.random_iter().take(long_len).collect(),
         }
+    }
+}
+
+impl BenchData for ByteType {
+    fn generate() -> Self {
+        let mut rng = seed_rng();
+        rng.random()
+    }
+
+    fn generate_vec(n: usize) -> Vec<Self>
+    where
+        Self: Sized,
+    {
+        let rng = seed_rng();
+        rng.random_iter().take(n).collect()
     }
 }
 
@@ -139,6 +224,12 @@ impl Default for ByteTypeBorrowed<'_> {
     }
 }
 
+impl BenchData for ByteTypeBorrowed<'_> {
+    fn generate() -> Self {
+        Default::default()
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct MapType {
     small: HashMap<i32, String>,
@@ -148,28 +239,24 @@ pub struct MapType {
 
 impl Distribution<MapType> for StandardUniform {
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> MapType {
-        const SMALL_LEN: usize = 32;
-        const MEDIUM_LEN: usize = 128;
-        const LARGE_LEN: usize = 512;
+        let small_len = rng.random_range(0..256);
+        let medium_len = rng.random_range(512..1024);
+        let large_len = rng.random_range(1024..4096);
 
-        let mut small = HashMap::with_capacity(SMALL_LEN);
-        for _ in 0..SMALL_LEN {
+        let mut small = HashMap::with_capacity(small_len);
+        for _ in 0..small_len {
             let len = rng.random_range(0..256);
-            let s: String = rng
-                .sample_iter(&Alphanumeric)
-                .take(len)
-                .map(char::from)
-                .collect();
+            let s: String = rng.random_iter::<char>().take(len).collect();
             small.insert(rng.random(), s);
         }
 
-        let mut medium = HashMap::with_capacity(MEDIUM_LEN);
-        for _ in 0..MEDIUM_LEN {
+        let mut medium = HashMap::with_capacity(medium_len);
+        for _ in 0..medium_len {
             medium.insert(rng.random(), rng.random());
         }
 
-        let mut large = HashMap::with_capacity(LARGE_LEN);
-        for _ in 0..LARGE_LEN {
+        let mut large = HashMap::with_capacity(large_len);
+        for _ in 0..large_len {
             large.insert(rng.random(), rng.random());
         }
 
@@ -181,13 +268,21 @@ impl Distribution<MapType> for StandardUniform {
     }
 }
 
-impl Default for MapType {
-    fn default() -> Self {
-        rand::random()
+impl BenchData for MapType {
+    fn generate() -> Self {
+        let mut rng = seed_rng();
+        rng.random()
+    }
+    fn generate_vec(n: usize) -> Vec<Self>
+    where
+        Self: Sized,
+    {
+        let rng = seed_rng();
+        rng.random_iter().take(n).collect()
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct CompositeType {
     pub primitives: PrimitiveTypes,
     pub strings: StrTypes,
@@ -196,31 +291,14 @@ pub struct CompositeType {
     pub map: MapType,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use messagepack_serde::ser::to_slice;
-    use rmp_serde::to_vec_named;
-
-    #[test]
-    fn str_size() {
-        let s = StrTypes::default();
-
-        let rmp = to_vec_named(&s).unwrap();
-
-        let buf = &mut [0_u8; 4096 * 10];
-        let len = to_slice(&s, buf).unwrap();
-        assert_eq!(rmp.len(), len);
-    }
-
-    #[test]
-    fn byte_size() {
-        let s = ArrayTypes::default();
-
-        let rmp = to_vec_named(&s).unwrap();
-
-        let buf = &mut [0_u8; 4096 * 10];
-        let len = to_slice(&s, buf).unwrap();
-        assert_eq!(rmp.len(), len);
+impl BenchData for CompositeType {
+    fn generate() -> Self {
+        Self {
+            primitives: PrimitiveTypes::generate(),
+            strings: StrTypes::generate(),
+            bytes: ByteType::generate(),
+            arrays: ArrayTypes::generate(),
+            map: MapType::generate(),
+        }
     }
 }
