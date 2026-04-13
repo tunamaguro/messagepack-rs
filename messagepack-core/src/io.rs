@@ -38,7 +38,7 @@ impl<'a> SliceWriter<'a> {
         Self { buf, cursor: 0 }
     }
 
-    fn len(&self) -> usize {
+    const fn len(&self) -> usize {
         self.buf.len() - self.cursor
     }
 }
@@ -106,7 +106,7 @@ mod vec_writer {
 
     impl<'a> VecRefWriter<'a> {
         /// Create a new writer
-        pub fn new(vec: &'a mut alloc::vec::Vec<u8>) -> Self {
+        pub const fn new(vec: &'a mut alloc::vec::Vec<u8>) -> Self {
             Self { vec }
         }
     }
@@ -175,13 +175,12 @@ pub struct SliceReader<'de> {
 }
 impl<'de> SliceReader<'de> {
     /// create a new reader
-    pub fn new(buf: &'de [u8]) -> Self {
+    pub const fn new(buf: &'de [u8]) -> Self {
         Self { cursor: buf }
     }
 
-    /// Get the remaining, committed bytes (peeked bytes are not subtracted
-    /// until `consume()` is called).
-    pub fn rest(&self) -> &'de [u8] {
+    /// Get the remaining, committed bytes.
+    pub const fn rest(&self) -> &'de [u8] {
         self.cursor
     }
 }
@@ -256,11 +255,9 @@ mod iter_reader {
             }
 
             self.buf.extend(self.it.by_ref().take(len));
-            if self.buf.len() != len {
-                return Err(RError::BufferEmpty);
-            };
+            let (left, _right) = self.buf.split_at_checked(len).ok_or(RError::BufferEmpty)?;
 
-            Ok(super::Reference::Copied(&self.buf[..len]))
+            Ok(super::Reference::Copied(left))
         }
     }
 }
@@ -303,9 +300,10 @@ mod std_reader {
             if self.buf.len() < len {
                 self.buf.resize(len, 0);
             };
-            self.reader.read_exact(&mut self.buf[..len])?;
+            let left = &mut self.buf[..len];
+            self.reader.read_exact(left)?;
 
-            Ok(super::Reference::Copied(&self.buf[..len]))
+            Ok(super::Reference::Copied(left))
         }
     }
 }
