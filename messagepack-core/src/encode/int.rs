@@ -14,9 +14,13 @@ impl Encode for u8 {
                 Ok(1)
             }
             _ => {
-                writer.write(&Format::Uint8.as_slice())?;
-                writer.write(&self.to_be_bytes())?;
-                Ok(2)
+                let mut buf = [0u8; 2];
+                let [marker, rest @ ..] = &mut buf;
+                *marker = Format::Uint8.as_byte();
+                *rest = self.to_be_bytes();
+                writer.write(&buf)?;
+
+                Ok(buf.len())
             }
         }
     }
@@ -48,10 +52,13 @@ impl Encode for i8 {
                 Ok(1)
             }
             _ => {
-                writer.write(&Format::Int8.as_slice())?;
-                writer.write(&self.to_be_bytes())?;
+                let mut buf = [0u8; 2];
+                let [marker, rest @ ..] = &mut buf;
+                *marker = Format::Int8.as_byte();
+                *rest = self.to_be_bytes();
+                writer.write(&buf)?;
 
-                Ok(2)
+                Ok(buf.len())
             }
         }
     }
@@ -79,9 +86,12 @@ macro_rules! impl_encode_int {
     ($ty:ty,  $format:expr, $size:expr) => {
         impl Encode for $ty {
             fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
-                writer.write(&$format.as_slice())?;
-                writer.write(&self.to_be_bytes())?;
-                Ok($size)
+                let mut buf = [0u8; $size];
+                let [marker, rest @ ..] = &mut buf;
+                *marker = $format.as_byte();
+                *rest = self.to_be_bytes();
+                writer.write(&buf)?;
+                Ok(buf.len())
             }
         }
     };
