@@ -19,20 +19,30 @@ impl Encode for BinaryEncoder<'_> {
         let self_len = self.len();
         let format_len = match self_len {
             0x00..=0xff => {
-                let cast = self_len as u8;
-                writer.write(&[Format::Bin8.as_byte(), cast])?;
-                Ok(2)
+                let mut buf = [0u8; 2];
+                let [marker, rest @ ..] = &mut buf;
+                *marker = Format::Bin8.as_byte();
+                *rest = (self_len as u8).to_be_bytes();
+                writer.write(&buf)?;
+
+                Ok(buf.len())
             }
             0x100..=0xffff => {
-                let cast = (self_len as u16).to_be_bytes();
-                writer.write(&[Format::Bin16.as_byte(), cast[0], cast[1]])?;
-                Ok(3)
+                let mut buf = [0u8; 3];
+                let [marker, rest @ ..] = &mut buf;
+                *marker = Format::Bin16.as_byte();
+                *rest = (self_len as u16).to_be_bytes();
+                writer.write(&buf)?;
+                Ok(buf.len())
             }
             0x10000..=0xffffffff => {
-                let cast = (self_len as u32).to_be_bytes();
-                writer.write(&[Format::Bin32.as_byte(), cast[0], cast[1], cast[2], cast[3]])?;
+                let mut buf = [0u8; 5];
+                let [marker, rest @ ..] = &mut buf;
+                *marker = Format::Bin32.as_byte();
+                *rest = (self_len as u32).to_be_bytes();
+                writer.write(&buf)?;
 
-                Ok(5)
+                Ok(buf.len())
             }
             _ => Err(Error::InvalidFormat),
         }?;

@@ -5,17 +5,23 @@ use crate::{formats::Format, io::IoWrite};
 
 impl Encode for f32 {
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        writer.write(&Format::Float32.as_slice())?;
-        writer.write(&self.to_be_bytes())?;
-        Ok(5)
+        let mut buf = [0u8; 5];
+        let [marker, rest @ ..] = &mut buf;
+        *marker = Format::Float32.as_byte();
+        *rest = self.to_be_bytes();
+        writer.write(&buf)?;
+        Ok(buf.len())
     }
 }
 
 impl Encode for f64 {
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        writer.write(&Format::Float64.as_slice())?;
-        writer.write(&self.to_be_bytes())?;
-        Ok(9)
+        let mut buf = [0u8; 9];
+        let [marker, rest @ ..] = &mut buf;
+        *marker = Format::Float64.as_byte();
+        *rest = self.to_be_bytes();
+        writer.write(&buf)?;
+        Ok(buf.len())
     }
 }
 

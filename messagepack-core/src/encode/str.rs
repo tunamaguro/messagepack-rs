@@ -14,23 +14,33 @@ impl Encode for StrFormatEncoder {
                 Ok(1)
             }
             32..=0xff => {
-                let cast = self.0 as u8;
-                writer.write(&Format::Str8.as_slice())?;
-                writer.write(&cast.to_be_bytes())?;
-                Ok(2)
+                let mut buf = [0u8; 2];
+                let [marker, rest @ ..] = &mut buf;
+                *marker = Format::Str8.as_byte();
+                *rest = (self.0 as u8).to_be_bytes();
+                writer.write(&buf)?;
+
+                Ok(buf.len())
             }
             0x100..=0xffff => {
-                let cast = self.0 as u16;
-                writer.write(&Format::Str16.as_slice())?;
-                writer.write(&cast.to_be_bytes())?;
-                Ok(3)
+                let mut buf = [0u8; 3];
+                let [marker, rest @ ..] = &mut buf;
+                *marker = Format::Str16.as_byte();
+                *rest = (self.0 as u16).to_be_bytes();
+                writer.write(&buf)?;
+
+                Ok(buf.len())
             }
             0x10000..=0xffffffff => {
-                let cast = self.0 as u32;
-                writer.write(&Format::Str32.as_slice())?;
-                writer.write(&cast.to_be_bytes())?;
-                Ok(5)
+                let mut buf = [0u8; 5];
+                let [marker, rest @ ..] = &mut buf;
+                *marker = Format::Str32.as_byte();
+                *rest = (self.0 as u32).to_be_bytes();
+                writer.write(&buf)?;
+
+                Ok(buf.len())
             }
+
             _ => Err(Error::InvalidFormat),
         }
     }

@@ -40,21 +40,27 @@ impl Encode for MapFormatEncoder {
         match self.0 {
             0x00..=0xf => {
                 let cast = self.0 as u8;
-                writer.write(&[Format::FixMap(cast).as_byte()])?;
+                writer.write(&Format::FixMap(cast).as_slice())?;
 
                 Ok(1)
             }
             0x10..=0xffff => {
-                let cast = (self.0 as u16).to_be_bytes();
-                writer.write(&[Format::Map16.as_byte(), cast[0], cast[1]])?;
+                let mut buf = [0u8; 3];
+                let [marker, rest @ ..] = &mut buf;
+                *marker = Format::Map16.as_byte();
+                *rest = (self.0 as u16).to_be_bytes();
+                writer.write(&buf)?;
 
-                Ok(3)
+                Ok(buf.len())
             }
             0x10000..=0xffffffff => {
-                let cast = (self.0 as u32).to_be_bytes();
-                writer.write(&[Format::Map32.as_byte(), cast[0], cast[1], cast[2], cast[3]])?;
+                let mut buf = [0u8; 5];
+                let [marker, rest @ ..] = &mut buf;
+                *marker = Format::Map32.as_byte();
+                *rest = (self.0 as u32).to_be_bytes();
+                writer.write(&buf)?;
 
-                Ok(5)
+                Ok(buf.len())
             }
             _ => Err(Error::InvalidFormat),
         }
