@@ -9,6 +9,7 @@ pub struct BinDecoder;
 impl<'de> DecodeBorrowed<'de> for BinDecoder {
     type Value = &'de [u8];
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -27,6 +28,7 @@ impl<'de> DecodeBorrowed<'de> for BinDecoder {
 impl<'de> DecodeBorrowed<'de> for &'de [u8] {
     type Value = &'de [u8];
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -47,6 +49,8 @@ impl<'de> super::Decode<'de> for ReferenceDecoder {
     where
         Self: 'a,
         'de: 'a;
+
+    #[inline]
     fn decode_with_format<'a, R>(
         format: Format,
         reader: &'a mut R,
@@ -71,6 +75,7 @@ impl<'de> super::Decode<'de> for ReferenceDecoder {
 /// Used by the derive macro for `#[msgpack(bytes)]` fields.
 /// Implement this trait for types that can be decoded from a MessagePack bin format.
 pub trait DecodeBytes<'de>: Sized {
+    #[inline]
     /// Decode binary data from the reader.
     fn decode_bytes<R>(reader: &mut R) -> Result<Self, Error<R::Error>>
     where
@@ -87,6 +92,7 @@ pub trait DecodeBytes<'de>: Sized {
 }
 
 impl<'de> DecodeBytes<'de> for &'de [u8] {
+    #[inline]
     fn decode_bytes_with_format<R>(format: Format, reader: &mut R) -> Result<Self, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -96,6 +102,7 @@ impl<'de> DecodeBytes<'de> for &'de [u8] {
 }
 
 impl<'de, const N: usize> DecodeBytes<'de> for [u8; N] {
+    #[inline]
     fn decode_bytes_with_format<R>(format: Format, reader: &mut R) -> Result<Self, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -110,6 +117,7 @@ impl<'de, T> DecodeBytes<'de> for Option<T>
 where
     T: DecodeBytes<'de>,
 {
+    #[inline]
     fn decode_bytes_with_format<R>(format: Format, reader: &mut R) -> Result<Self, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -130,6 +138,7 @@ mod alloc_impl {
     impl<'de> super::DecodeBorrowed<'de> for BinOwnedDecoder {
         type Value = alloc::vec::Vec<u8>;
 
+        #[inline]
         fn decode_borrowed_with_format<R>(
             format: Format,
             reader: &mut R,
@@ -143,6 +152,7 @@ mod alloc_impl {
     }
 
     impl<'de> DecodeBytes<'de> for alloc::vec::Vec<u8> {
+        #[inline]
         fn decode_bytes_with_format<R>(
             format: Format,
             reader: &mut R,
@@ -155,6 +165,7 @@ mod alloc_impl {
     }
 
     impl<'de> DecodeBytes<'de> for alloc::boxed::Box<[u8]> {
+        #[inline]
         fn decode_bytes_with_format<R>(
             format: Format,
             reader: &mut R,

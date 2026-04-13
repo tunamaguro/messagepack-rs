@@ -9,6 +9,7 @@ pub struct NilDecoder;
 impl<'de> DecodeBorrowed<'de> for NilDecoder {
     type Value = ();
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         _reader: &mut R,
@@ -26,6 +27,7 @@ impl<'de> DecodeBorrowed<'de> for NilDecoder {
 impl<'de> DecodeBorrowed<'de> for () {
     type Value = ();
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -46,6 +48,8 @@ where
     where
         Self: 'a,
         'de: 'a;
+
+    #[inline]
     fn decode_with_format<'a, R>(
         format: Format,
         reader: &'a mut R,

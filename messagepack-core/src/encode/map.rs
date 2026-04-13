@@ -92,6 +92,7 @@ where
     J: Iterator<Item = KV>,
     KV: KVEncode,
 {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         let map_len = self
             .data
@@ -103,6 +104,7 @@ where
     }
 }
 
+#[inline]
 fn encode_iter<W, I>(writer: &mut W, len: usize, it: I) -> Result<usize, W::Error>
 where
     W: IoWrite,
@@ -140,6 +142,7 @@ impl<'data, KV> Deref for MapSliceEncoder<'data, KV> {
 }
 
 impl<KV: KVEncode> Encode for MapSliceEncoder<'_, KV> {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         encode_iter(writer, self.data.len(), self.data.iter())
     }
@@ -147,6 +150,7 @@ impl<KV: KVEncode> Encode for MapSliceEncoder<'_, KV> {
 
 #[cfg(feature = "alloc")]
 impl<K: Encode + Ord, V: Encode> Encode for alloc::collections::BTreeMap<K, V> {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         encode_iter(writer, self.len(), self.iter())
     }
@@ -159,6 +163,7 @@ where
     V: Encode,
     S: std::hash::BuildHasher,
 {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         encode_iter(writer, self.len(), self.iter())
     }
@@ -189,6 +194,7 @@ where
     J: Iterator<Item = KV> + ExactSizeIterator,
     KV: KVEncode,
 {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         let self_len = self.map.borrow().len();
         let format_len = MapFormatEncoder::new(self_len).encode(writer)?;

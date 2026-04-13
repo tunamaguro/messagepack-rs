@@ -4,6 +4,7 @@ use crate::{formats::Format, io::IoRead};
 impl<'de> DecodeBorrowed<'de> for u8 {
     type Value = Self;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -26,6 +27,7 @@ impl<'de> DecodeBorrowed<'de> for u8 {
 impl<'de> DecodeBorrowed<'de> for i8 {
     type Value = Self;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -50,6 +52,7 @@ macro_rules! impl_decode_int {
         impl<'de> DecodeBorrowed<'de> for $ty {
             type Value = Self;
 
+            #[inline]
             fn decode_borrowed_with_format<R>(
                 format: Format,
                 reader: &mut R,
@@ -84,6 +87,7 @@ impl_decode_int!(i64, Format::Int64);
 impl<'de> DecodeBorrowed<'de> for u128 {
     type Value = Self;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -99,6 +103,7 @@ impl<'de> DecodeBorrowed<'de> for u128 {
 impl<'de> DecodeBorrowed<'de> for i128 {
     type Value = Self;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -114,6 +119,7 @@ impl<'de> DecodeBorrowed<'de> for i128 {
 impl<'de> DecodeBorrowed<'de> for usize {
     type Value = Self;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -129,6 +135,7 @@ impl<'de> DecodeBorrowed<'de> for usize {
 impl<'de> DecodeBorrowed<'de> for isize {
     type Value = Self;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,

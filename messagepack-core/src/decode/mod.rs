@@ -72,6 +72,8 @@ pub trait Decode<'de> {
     where
         Self: 'a,
         'de: 'a;
+
+    #[inline]
     /// Decode the next value.
     fn decode<'a, R>(reader: &'a mut R) -> Result<Self::Value<'a>, Error<R::Error>>
     where
@@ -101,6 +103,7 @@ pub trait DecodeBorrowed<'de> {
     /// The decoded value.
     type Value;
 
+    #[inline]
     /// Decode the next value.
     fn decode_borrowed<R>(
         reader: &mut R,
@@ -136,6 +139,7 @@ where
         Self: 'a,
         'de: 'a;
 
+    #[inline]
     fn decode_with_format<'a, R>(
         format: Format,
         reader: &'a mut R,
@@ -150,6 +154,8 @@ where
 
 impl<'de> DecodeBorrowed<'de> for Format {
     type Value = Self;
+
+    #[inline]
     fn decode_borrowed<R>(reader: &mut R) -> Result<Self::Value, Error<R::Error>>
     where
         R: IoRead<'de>,
@@ -160,6 +166,7 @@ impl<'de> DecodeBorrowed<'de> for Format {
         Ok(Self::from_byte(byte[0]))
     }
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         _reader: &mut R,
@@ -176,6 +183,7 @@ pub struct NbyteReader<const NBYTE: usize>;
 
 macro_rules! impl_read {
     ($ty:ty) => {
+        #[inline]
         /// Read the next big‑endian integer of type `$ty` and return it as
         /// `usize` from `reader`.
         pub fn read<'de, R>(reader: &mut R) -> core::result::Result<usize, Error<R::Error>>

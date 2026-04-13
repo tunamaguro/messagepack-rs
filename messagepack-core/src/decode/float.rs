@@ -6,6 +6,7 @@ macro_rules! impl_decode_float {
         impl<'de> DecodeBorrowed<'de> for $ty {
             type Value = Self;
 
+            #[inline]
             fn decode_borrowed_with_format<R>(
                 format: Format,
                 reader: &mut R,

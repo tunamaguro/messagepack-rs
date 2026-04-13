@@ -9,6 +9,7 @@ pub struct StrDecoder;
 impl<'de> DecodeBorrowed<'de> for StrDecoder {
     type Value = &'de str;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -27,6 +28,7 @@ impl<'de> DecodeBorrowed<'de> for StrDecoder {
 impl<'de> DecodeBorrowed<'de> for &'de str {
     type Value = &'de str;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -78,6 +80,8 @@ impl<'de> Decode<'de> for ReferenceStrDecoder {
     where
         Self: 'a,
         'de: 'a;
+
+    #[inline]
     fn decode_with_format<'a, R>(
         format: Format,
         reader: &'a mut R,
@@ -118,6 +122,7 @@ impl<'de> Decode<'de> for ReferenceStrBinDecoder {
         Self: 'a,
         'de: 'a;
 
+    #[inline]
     fn decode_with_format<'a, R>(
         format: Format,
         reader: &'a mut R,
@@ -143,6 +148,7 @@ mod alloc_impl {
     impl<'de> DecodeBorrowed<'de> for alloc::string::String {
         type Value = alloc::string::String;
 
+        #[inline]
         fn decode_borrowed_with_format<R>(
             format: Format,
             reader: &mut R,

@@ -15,6 +15,7 @@ where
 {
     type Value = Array;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -42,6 +43,7 @@ where
 {
     type Value = [V::Value; N];
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -95,6 +97,7 @@ macro_rules! tuple_decode_impls {
             {
                 type Value = ($(<$name as DecodeBorrowed<'de>>::Value,)+);
 
+                #[inline]
                 fn decode_borrowed_with_format<R>(format: Format, reader: &mut R) -> core::result::Result<Self::Value, Error<R::Error>>
                 where
                     R: IoRead<'de>,
@@ -148,6 +151,7 @@ where
 {
     type Value = alloc::vec::Vec<V::Value>;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,

@@ -63,6 +63,7 @@ macro_rules! deref_impl {
         $(#[$attr])*
         impl<$($desc)+
         {
+            #[inline]
             fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
                 (**self).encode(writer)
             }
@@ -90,6 +91,7 @@ deref_impl! {
 }
 
 impl Encode for Format {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         writer.write(&self.as_slice())?;
         Ok(1)

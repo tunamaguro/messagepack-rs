@@ -9,6 +9,7 @@ use crate::{formats::Format, io::IoRead};
 pub struct MapDecoder<Map, K, V>(PhantomData<(Map, K, V)>);
 
 #[allow(clippy::type_complexity)]
+#[inline]
 fn decode_kv<'de, R, K, V>(reader: &mut R) -> Result<(K::Value, V::Value), Error<R::Error>>
 where
     R: IoRead<'de>,
@@ -28,6 +29,7 @@ where
 {
     type Value = Map;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -67,6 +69,7 @@ where
 {
     type Value = alloc::collections::BTreeMap<K::Value, V::Value>;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -87,6 +90,7 @@ where
 {
     type Value = std::collections::HashMap<K::Value, V::Value>;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,

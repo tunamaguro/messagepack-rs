@@ -60,6 +60,7 @@ impl Encode for StrDataEncoder<'_> {
 pub struct StrEncoder<'s>(pub &'s str);
 
 impl Encode for StrEncoder<'_> {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let self_len = self.0.len();
         let format_len = StrFormatEncoder(self_len).encode(writer)?;
