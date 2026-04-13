@@ -7,6 +7,7 @@ use crate::{formats::Format, io::IoWrite};
 pub struct ArrayFormatEncoder(pub usize);
 
 impl Encode for ArrayFormatEncoder {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match self.0 {
             0x00..=0b1111 => {

@@ -4,6 +4,7 @@ use super::{Encode, Result};
 use crate::{formats::Format, io::IoWrite};
 
 impl Encode for bool {
+     #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match self {
             true => {

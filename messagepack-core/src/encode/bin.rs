@@ -15,6 +15,7 @@ impl<'blob> core::ops::Deref for BinaryEncoder<'blob> {
 }
 
 impl Encode for BinaryEncoder<'_> {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let self_len = self.len();
         let format_len = match self_len {

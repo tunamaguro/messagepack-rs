@@ -46,6 +46,7 @@ impl<'a> SliceWriter<'a> {
 impl IoWrite for SliceWriter<'_> {
     type Error = WError;
 
+    #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         if self.len() >= buf.len() {
             let to = &mut self.buf[self.cursor..self.cursor + buf.len()];
@@ -62,6 +63,7 @@ impl IoWrite for SliceWriter<'_> {
 impl IoWrite for &mut [u8] {
     type Error = WError;
 
+    #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         let this = core::mem::take(self);
 
@@ -81,6 +83,7 @@ mod alloc_without_std {
     impl IoWrite for alloc::vec::Vec<u8> {
         type Error = core::convert::Infallible;
 
+        #[inline]
         fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
             VecRefWriter::new(self).write(buf)
         }
@@ -88,7 +91,8 @@ mod alloc_without_std {
 
     impl IoWrite for &mut alloc::vec::Vec<u8> {
         type Error = core::convert::Infallible;
-
+        
+        #[inline]
         fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
             VecRefWriter::new(self).write(buf)
         }
@@ -114,6 +118,7 @@ mod vec_writer {
     impl IoWrite for VecRefWriter<'_> {
         type Error = core::convert::Infallible;
 
+         #[inline]
         fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
             self.vec.extend_from_slice(buf);
             Ok(())
@@ -130,6 +135,7 @@ where
 {
     type Error = std::io::Error;
 
+     #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         self.write_all(buf)
     }
@@ -245,6 +251,8 @@ mod iter_reader {
         I: Iterator<Item = u8>,
     {
         type Error = RError;
+
+         #[inline]
         fn read_slice<'a>(
             &'a mut self,
             len: usize,
@@ -293,6 +301,7 @@ mod std_reader {
     {
         type Error = std::io::Error;
 
+         #[inline]
         fn read_slice<'a>(
             &'a mut self,
             len: usize,

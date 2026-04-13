@@ -4,6 +4,7 @@ use super::{Encode, Result};
 use crate::{formats::Format, io::IoWrite};
 
 impl Encode for f32 {
+     #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let mut buf = [0u8; 5];
         let [marker, rest @ ..] = &mut buf;
@@ -15,6 +16,7 @@ impl Encode for f32 {
 }
 
 impl Encode for f64 {
+     #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let mut buf = [0u8; 9];
         let [marker, rest @ ..] = &mut buf;

@@ -6,6 +6,7 @@ use super::{Encode, Error, Result};
 use crate::{formats::Format, io::IoWrite};
 
 impl Encode for u8 {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         match self {
             0x00..=0x7f => {
@@ -27,6 +28,7 @@ impl Encode for u8 {
 }
 
 impl Encode for u128 {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match u64::try_from(*self) {
             Ok(u64_uint) => u64_uint.encode(writer),
@@ -36,6 +38,7 @@ impl Encode for u128 {
 }
 
 impl Encode for usize {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match u64::try_from(*self) {
             Ok(u64_uint) => u64_uint.encode(writer),
@@ -45,6 +48,7 @@ impl Encode for usize {
 }
 
 impl Encode for i8 {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         match self {
             -32..=-1 => {
@@ -65,6 +69,7 @@ impl Encode for i8 {
 }
 
 impl Encode for isize {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         match i64::try_from(*self) {
             Ok(i64_int) => i64_int.encode(writer),
@@ -74,6 +79,7 @@ impl Encode for isize {
 }
 
 impl Encode for i128 {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         match i64::try_from(*self) {
             Ok(i64_int) => i64_int.encode(writer),
@@ -85,6 +91,7 @@ impl Encode for i128 {
 macro_rules! impl_encode_int {
     ($ty:ty,  $format:expr, $size:expr) => {
         impl Encode for $ty {
+            #[inline]
             fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
                 let mut buf = [0u8; $size];
                 let [marker, rest @ ..] = &mut buf;

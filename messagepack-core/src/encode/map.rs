@@ -36,6 +36,7 @@ impl MapFormatEncoder {
 }
 
 impl Encode for MapFormatEncoder {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         match self.0 {
             0x00..=0xf => {

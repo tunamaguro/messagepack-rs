@@ -7,6 +7,7 @@ use crate::{formats::Format, io::IoWrite};
 pub struct NilEncoder;
 
 impl Encode for NilEncoder {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         writer.write(&Format::Nil.as_slice())?;
         Ok(1)
@@ -14,12 +15,14 @@ impl Encode for NilEncoder {
 }
 
 impl Encode for () {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         NilEncoder.encode(writer)
     }
 }
 
 impl<V: Encode> Encode for Option<V> {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match self {
             Some(other) => other.encode(writer),
