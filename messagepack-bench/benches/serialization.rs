@@ -24,7 +24,7 @@ const BUFFER_SIZE: usize = (2u32.pow(18)) as usize;
     types = [ArrayTypes, ByteType, ByteTypeBorrowed, CompositeType, MapType, PrimitiveTypes, StrTypes, StrTypesBorrowed],
     args = LENS
 )]
-fn serialize_messagepack_serde<T: Serialize + BenchData + Sync>(
+fn messagepack_serde_serialize<T: Serialize + BenchData + Sync>(
     bencher: divan::Bencher,
     len: usize,
 ) {
@@ -48,7 +48,7 @@ fn serialize_messagepack_serde<T: Serialize + BenchData + Sync>(
     types = [ArrayTypes, ByteType, ByteTypeBorrowed, CompositeType, MapType, PrimitiveTypes, StrTypes, StrTypesBorrowed],
     args = LENS
 )]
-fn serialize_rmp_serde<T: Serialize + BenchData + Sync>(bencher: divan::Bencher, len: usize) {
+fn rmp_serde_serialize<T: Serialize + BenchData + Sync>(bencher: divan::Bencher, len: usize) {
     let s = T::generate_vec(len);
 
     #[allow(unused_mut)]
@@ -70,7 +70,7 @@ fn serialize_rmp_serde<T: Serialize + BenchData + Sync>(bencher: divan::Bencher,
     types = [ArrayTypes, ByteType, ByteTypeBorrowed, CompositeType, MapType, PrimitiveTypes, StrTypes, StrTypesBorrowed],
     args = LENS
 )]
-fn serialize_messagepack_core<T: Encode + BenchData + Sync>(bencher: divan::Bencher, len: usize) {
+fn messagepack_core_serialize<T: Encode + BenchData + Sync>(bencher: divan::Bencher, len: usize) {
     let s = T::generate_vec(len);
 
     #[allow(unused_mut)]

@@ -23,7 +23,7 @@ const LENS: &[usize] = &[256];
     types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StrTypes],
     args = LENS
 )]
-fn deserialize_messagepack_serde<T: Serialize + DeserializeOwned + BenchData + Sync>(
+fn messagepack_serde_deserialize<T: Serialize + DeserializeOwned + BenchData + Sync>(
     #[allow(unused_mut)] mut bencher: divan::Bencher,
     len: usize,
 ) {
@@ -42,7 +42,7 @@ fn deserialize_messagepack_serde<T: Serialize + DeserializeOwned + BenchData + S
 }
 
 #[divan::bench]
-fn deserialize_borrowed_messagepack_serde(#[allow(unused_mut)] mut bencher: divan::Bencher) {
+fn messagepack_serde_deserialize_borrowed(#[allow(unused_mut)] mut bencher: divan::Bencher) {
     let s = StrTypesBorrowed::default();
     let buf = messagepack_serde::to_vec(&s).unwrap();
 
@@ -61,7 +61,7 @@ fn deserialize_borrowed_messagepack_serde(#[allow(unused_mut)] mut bencher: diva
     types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StrTypes],
     args = LENS
 )]
-fn deserialize_rmp_serde<T: Serialize + DeserializeOwned + BenchData + Sync>(
+fn rmp_serde_deserialize<T: Serialize + DeserializeOwned + BenchData + Sync>(
     #[allow(unused_mut)] mut bencher: divan::Bencher,
     len: usize,
 ) {
@@ -80,7 +80,7 @@ fn deserialize_rmp_serde<T: Serialize + DeserializeOwned + BenchData + Sync>(
 }
 
 #[divan::bench]
-fn deserialize_borrowed_rmp_serde(#[allow(unused_mut)] mut bencher: divan::Bencher) {
+fn rmp_serde_deserialize_borrowed(#[allow(unused_mut)] mut bencher: divan::Bencher) {
     let s = StrTypesBorrowed::default();
     let buf = messagepack_serde::to_vec(&s).unwrap();
 
@@ -99,7 +99,7 @@ fn deserialize_borrowed_rmp_serde(#[allow(unused_mut)] mut bencher: divan::Bench
     types = [ArrayTypes, ByteType, CompositeType, MapType, PrimitiveTypes, StrTypes],
     args = LENS
 )]
-fn deserialize_messagepack_core<T: Serialize + DecodeOwned + BenchData + Sync>(
+fn messagepack_core_deserialize<T: Serialize + DecodeOwned + BenchData + Sync>(
     #[allow(unused_mut)] mut bencher: divan::Bencher,
     len: usize,
 ) {
@@ -120,7 +120,7 @@ fn deserialize_messagepack_core<T: Serialize + DecodeOwned + BenchData + Sync>(
 }
 
 #[divan::bench]
-fn deserialize_borrowed_messagepack_core(#[allow(unused_mut)] mut bencher: divan::Bencher) {
+fn messagepack_core_deserialize_borrowed(#[allow(unused_mut)] mut bencher: divan::Bencher) {
     let s = StrTypesBorrowed::default();
     let buf = messagepack_serde::to_vec(&s).unwrap();
 
@@ -150,9 +150,7 @@ const COMPLEX: &[u8] = &[
 ];
 
 #[divan::bench]
-fn deserialize_complex_messagepack_serde_from_slice(
-    #[allow(unused_mut)] mut bencher: divan::Bencher,
-) {
+fn messagepack_serde_deserialize_complex(#[allow(unused_mut)] mut bencher: divan::Bencher) {
     use messagepack_serde::{ValueRef, from_slice};
 
     #[cfg(not(codspeed))]
@@ -167,7 +165,7 @@ fn deserialize_complex_messagepack_serde_from_slice(
 }
 
 #[divan::bench]
-fn deserialize_complex_rmp_serde_from_slice(#[allow(unused_mut)] mut bencher: divan::Bencher) {
+fn rmp_serde_deserialize_complex(#[allow(unused_mut)] mut bencher: divan::Bencher) {
     use rmp_serde::from_slice;
     use rmpv::ValueRef;
 
@@ -179,38 +177,5 @@ fn deserialize_complex_rmp_serde_from_slice(#[allow(unused_mut)] mut bencher: di
     bencher.bench_local(|| {
         let input = core::hint::black_box(COMPLEX);
         let _val: ValueRef<'_> = from_slice(input).unwrap();
-    });
-}
-
-#[divan::bench]
-fn deserialize_complex_messagepack_serde_from_reader(
-    #[allow(unused_mut)] mut bencher: divan::Bencher,
-) {
-    use messagepack_serde::{Value, from_reader};
-
-    #[cfg(not(codspeed))]
-    {
-        bencher = bencher.counter(BytesCount::of_slice(&COMPLEX))
-    }
-
-    bencher.bench_local(|| {
-        let input = core::hint::black_box(std::io::Cursor::new(COMPLEX));
-        let _val: Value = from_reader(input).unwrap();
-    });
-}
-
-#[divan::bench]
-fn deserialize_complex_rmp_serde_from_reader(#[allow(unused_mut)] mut bencher: divan::Bencher) {
-    use rmp_serde::from_read;
-    use rmpv::Value;
-
-    #[cfg(not(codspeed))]
-    {
-        bencher = bencher.counter(BytesCount::of_slice(&COMPLEX))
-    }
-
-    bencher.bench_local(|| {
-        let input = core::hint::black_box(std::io::Cursor::new(COMPLEX));
-        let _val: Value = from_read(input).unwrap();
     });
 }
