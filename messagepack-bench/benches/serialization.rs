@@ -28,7 +28,7 @@ fn messagepack_serde_serialize<T: Serialize + BenchData + Sync>(
     bencher: divan::Bencher,
     len: usize,
 ) {
-    let s = T::generate_vec(len);
+    let s = core::hint::black_box(T::generate_vec(len));
 
     #[allow(unused_mut)]
     let mut bencher = bencher.with_inputs(|| vec![0u8; BUFFER_SIZE * len]);
@@ -40,7 +40,7 @@ fn messagepack_serde_serialize<T: Serialize + BenchData + Sync>(
 
     bencher.bench_local_refs(|buf| {
         let buf = core::hint::black_box(buf);
-        messagepack_serde::to_slice(core::hint::black_box(&s), buf).unwrap()
+        messagepack_serde::to_slice(&s, buf).unwrap()
     });
 }
 
@@ -49,7 +49,7 @@ fn messagepack_serde_serialize<T: Serialize + BenchData + Sync>(
     args = LENS
 )]
 fn rmp_serde_serialize<T: Serialize + BenchData + Sync>(bencher: divan::Bencher, len: usize) {
-    let s = T::generate_vec(len);
+    let s = core::hint::black_box(T::generate_vec(len));
 
     #[allow(unused_mut)]
     let mut bencher = bencher.with_inputs(|| vec![0u8; BUFFER_SIZE * len]);
@@ -62,7 +62,7 @@ fn rmp_serde_serialize<T: Serialize + BenchData + Sync>(bencher: divan::Bencher,
     bencher.bench_local_refs(|buf| {
         let buf = core::hint::black_box(buf);
         let mut ser = rmp_serde::Serializer::new(buf.as_mut_slice()).with_struct_map();
-        core::hint::black_box(&s).serialize(&mut ser)
+        s.serialize(&mut ser).unwrap()
     });
 }
 
@@ -71,7 +71,7 @@ fn rmp_serde_serialize<T: Serialize + BenchData + Sync>(bencher: divan::Bencher,
     args = LENS
 )]
 fn messagepack_core_serialize<T: Encode + BenchData + Sync>(bencher: divan::Bencher, len: usize) {
-    let s = T::generate_vec(len);
+    let s = core::hint::black_box(T::generate_vec(len));
 
     #[allow(unused_mut)]
     let mut bencher = bencher.with_inputs(|| vec![0u8; BUFFER_SIZE * len]);
@@ -84,6 +84,6 @@ fn messagepack_core_serialize<T: Encode + BenchData + Sync>(bencher: divan::Benc
     bencher.bench_local_refs(|buf| {
         let buf = core::hint::black_box(buf);
         let mut writer = messagepack_core::io::SliceWriter::new(buf.as_mut_slice());
-        core::hint::black_box(&s).encode(&mut writer)
+        s.encode(&mut writer).unwrap()
     });
 }

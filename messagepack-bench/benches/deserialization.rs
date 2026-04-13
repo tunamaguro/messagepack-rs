@@ -160,7 +160,7 @@ fn messagepack_serde_deserialize_complex(#[allow(unused_mut)] mut bencher: divan
 
     bencher.bench_local(|| {
         let input = core::hint::black_box(COMPLEX);
-        let _val = from_slice::<ValueRef<'_>>(input).unwrap();
+        from_slice::<ValueRef<'_>>(input).unwrap()
     });
 }
 
@@ -176,6 +176,6 @@ fn rmp_serde_deserialize_complex(#[allow(unused_mut)] mut bencher: divan::Benche
 
     bencher.bench_local(|| {
         let input = core::hint::black_box(COMPLEX);
-        let _val: ValueRef<'_> = from_slice(input).unwrap();
+        from_slice::<ValueRef<'_>>(input).unwrap()
     });
 }
