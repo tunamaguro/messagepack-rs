@@ -67,6 +67,7 @@ pub enum Any<'de> {
 
 impl<'de> DecodeBorrowed<'de> for Any<'de> {
     type Value = Self;
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,

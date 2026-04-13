@@ -5,6 +5,7 @@ use crate::formats::Format;
 use crate::io::IoWrite;
 
 impl Encode for ExtensionRef<'_> {
+    #[inline]
     fn encode<W: IoWrite>(
         &self,
         writer: &mut W,
@@ -69,6 +70,7 @@ impl Encode for ExtensionRef<'_> {
 }
 
 impl<const N: usize> Encode for FixedExtension<N> {
+    #[inline]
     fn encode<W: IoWrite>(
         &self,
         writer: &mut W,
@@ -79,6 +81,7 @@ impl<const N: usize> Encode for FixedExtension<N> {
 
 #[cfg(feature = "alloc")]
 impl Encode for super::owned::ExtensionOwned {
+    #[inline]
     fn encode<W: IoWrite>(
         &self,
         writer: &mut W,

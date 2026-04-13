@@ -11,6 +11,7 @@ use crate::{
 impl<'de> DecodeBorrowed<'de> for Timestamp32 {
     type Value = Timestamp32;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -31,6 +32,7 @@ impl<'de> DecodeBorrowed<'de> for Timestamp32 {
 impl<'de> DecodeBorrowed<'de> for Timestamp64 {
     type Value = Timestamp64;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -51,6 +53,7 @@ impl<'de> DecodeBorrowed<'de> for Timestamp64 {
 impl<'de> DecodeBorrowed<'de> for Timestamp96 {
     type Value = Timestamp96;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,

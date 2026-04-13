@@ -50,6 +50,7 @@ impl Encode for StrFormatEncoder {
 /// Encode only the string bytes without a header.
 pub struct StrDataEncoder<'a>(pub &'a str);
 impl Encode for StrDataEncoder<'_> {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let data = self.0.as_bytes();
         writer.write(data)?;
@@ -71,6 +72,7 @@ impl Encode for StrEncoder<'_> {
 }
 
 impl Encode for &str {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         StrEncoder(self).encode(writer)
     }
@@ -81,6 +83,7 @@ mod alloc_impl {
     use super::*;
 
     impl Encode for alloc::string::String {
+        #[inline]
         fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
             self.as_str().encode(writer)
         }

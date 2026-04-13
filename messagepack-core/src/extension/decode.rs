@@ -6,6 +6,7 @@ use crate::io::IoRead;
 impl<'de> DecodeBorrowed<'de> for ExtensionRef<'de> {
     type Value = ExtensionRef<'de>;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -30,6 +31,7 @@ impl<'de> DecodeBorrowed<'de> for ExtensionRef<'de> {
 impl<'de, const N: usize> DecodeBorrowed<'de> for FixedExtension<N> {
     type Value = FixedExtension<N>;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,
@@ -64,6 +66,7 @@ impl<'de, const N: usize> DecodeBorrowed<'de> for FixedExtension<N> {
 impl<'de> DecodeBorrowed<'de> for super::owned::ExtensionOwned {
     type Value = super::owned::ExtensionOwned;
 
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,

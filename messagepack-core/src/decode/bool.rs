@@ -25,7 +25,7 @@ impl<'de> DecodeBorrowed<'de> for bool {
 impl<'de> DecodeBorrowed<'de> for core::sync::atomic::AtomicBool {
     type Value = Self;
 
-     #[inline]
+    #[inline]
     fn decode_borrowed_with_format<R>(
         format: Format,
         reader: &mut R,

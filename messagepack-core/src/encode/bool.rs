@@ -4,7 +4,7 @@ use super::{Encode, Result};
 use crate::{formats::Format, io::IoWrite};
 
 impl Encode for bool {
-     #[inline]
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         match self {
             true => {
@@ -20,6 +20,7 @@ impl Encode for bool {
 }
 
 impl Encode for core::sync::atomic::AtomicBool {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         self.load(core::sync::atomic::Ordering::Relaxed)
             .encode(writer)

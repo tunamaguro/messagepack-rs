@@ -113,6 +113,7 @@ impl_encode_int!(i64, Format::Int64, 9);
 macro_rules! impl_nonzero_int {
     ($ty:ty) => {
         impl Encode for $ty {
+            #[inline]
             fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
                 self.get().encode(writer)
             }
@@ -134,6 +135,7 @@ macro_rules! impl_atomic_int {
     ($ty:ty, $bits:literal) => {
         #[cfg(target_has_atomic = $bits)]
         impl Encode for $ty {
+            #[inline]
             fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
                 self.load(core::sync::atomic::Ordering::Relaxed)
                     .encode(writer)
@@ -157,6 +159,7 @@ impl_atomic_int!(core::sync::atomic::AtomicIsize, "ptr");
 pub struct EncodeMinimizeInt<N>(pub N);
 
 impl<N: ToPrimitive> Encode for EncodeMinimizeInt<N> {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         let n = &self.0;
         if let Some(v) = n.to_u8() {

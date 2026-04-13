@@ -8,6 +8,7 @@ use crate::{
 };
 
 impl Encode for Timestamp32 {
+    #[inline]
     fn encode<W: IoWrite>(
         &self,
         writer: &mut W,
@@ -18,6 +19,7 @@ impl Encode for Timestamp32 {
 }
 
 impl Encode for Timestamp64 {
+    #[inline]
     fn encode<W: IoWrite>(
         &self,
         writer: &mut W,
@@ -28,6 +30,7 @@ impl Encode for Timestamp64 {
 }
 
 impl Encode for Timestamp96 {
+    #[inline]
     fn encode<W: IoWrite>(
         &self,
         writer: &mut W,

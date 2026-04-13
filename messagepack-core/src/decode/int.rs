@@ -153,6 +153,7 @@ macro_rules! impl_nonzero_int {
         impl<'de> DecodeBorrowed<'de> for core::num::NonZero<$ty> {
             type Value = Self;
 
+            #[inline]
             fn decode_borrowed_with_format<R>(
                 format: Format,
                 reader: &mut R,
@@ -183,6 +184,7 @@ macro_rules! impl_atomic_int {
         impl<'de> DecodeBorrowed<'de> for $ty {
             type Value = Self;
 
+            #[inline]
             fn decode_borrowed_with_format<R>(
                 format: Format,
                 reader: &mut R,

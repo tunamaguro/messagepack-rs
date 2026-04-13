@@ -91,7 +91,7 @@ mod alloc_without_std {
 
     impl IoWrite for &mut alloc::vec::Vec<u8> {
         type Error = core::convert::Infallible;
-        
+
         #[inline]
         fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
             VecRefWriter::new(self).write(buf)
@@ -118,7 +118,7 @@ mod vec_writer {
     impl IoWrite for VecRefWriter<'_> {
         type Error = core::convert::Infallible;
 
-         #[inline]
+        #[inline]
         fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
             self.vec.extend_from_slice(buf);
             Ok(())
@@ -135,7 +135,7 @@ where
 {
     type Error = std::io::Error;
 
-     #[inline]
+    #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         self.write_all(buf)
     }
@@ -252,7 +252,7 @@ mod iter_reader {
     {
         type Error = RError;
 
-         #[inline]
+        #[inline]
         fn read_slice<'a>(
             &'a mut self,
             len: usize,
@@ -301,7 +301,7 @@ mod std_reader {
     {
         type Error = std::io::Error;
 
-         #[inline]
+        #[inline]
         fn read_slice<'a>(
             &'a mut self,
             len: usize,

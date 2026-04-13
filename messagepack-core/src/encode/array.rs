@@ -39,6 +39,7 @@ impl Encode for ArrayFormatEncoder {
 }
 
 impl<V: Encode> Encode for &[V] {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         let format_len = ArrayFormatEncoder(self.len()).encode(writer)?;
         let array_len = self
@@ -50,6 +51,7 @@ impl<V: Encode> Encode for &[V] {
 }
 
 impl<const N: usize, V: Encode> Encode for [V; N] {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         self.as_slice().encode(writer)
     }
@@ -63,6 +65,7 @@ macro_rules! tuple_impls {
     };
     (@impl $len:expr; $($n:tt $name:ident)+) => {
         impl<$($name: Encode),+> Encode for ($($name,)+) {
+            #[inline]
             fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
                 let format_len = ArrayFormatEncoder($len).encode(writer)?;
                 let mut array_len = 0;
@@ -96,6 +99,7 @@ tuple_impls! {
 
 #[cfg(feature = "alloc")]
 impl<V: Encode> Encode for alloc::vec::Vec<V> {
+    #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
         self.as_slice().encode(writer)
     }
