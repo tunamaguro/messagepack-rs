@@ -61,7 +61,7 @@ fn rmp_serde_serialize<T: Serialize + BenchData + Sync>(bencher: divan::Bencher,
 
     bencher.bench_local_refs(|buf| {
         let buf = core::hint::black_box(buf);
-        let mut ser = rmp_serde::Serializer::new(buf).with_struct_map();
+        let mut ser = rmp_serde::Serializer::new(buf.as_mut_slice()).with_struct_map();
         core::hint::black_box(&s).serialize(&mut ser)
     });
 }
@@ -83,6 +83,7 @@ fn messagepack_core_serialize<T: Encode + BenchData + Sync>(bencher: divan::Benc
 
     bencher.bench_local_refs(|buf| {
         let buf = core::hint::black_box(buf);
-        core::hint::black_box(&s).encode(buf)
+        let mut writer = messagepack_core::io::SliceWriter::new(buf.as_mut_slice());
+        core::hint::black_box(&s).encode(&mut writer)
     });
 }
