@@ -85,7 +85,7 @@ mod alloc_impl {
 #[cfg(feature = "std")]
 mod std_impl {
     use super::*;
-    
+
     impl<'de, K, V> DecodeBorrowed<'de> for std::collections::HashMap<K, V>
     where
         K: DecodeBorrowed<'de>,

@@ -273,8 +273,8 @@ mod alloc_impl {
         where
             R: IoRead<'de>,
         {
-           let owned = T::Owned::decode_borrowed_with_format(format, reader)?;
-           Ok(alloc::borrow::Cow::Owned(owned))
+            let owned = T::Owned::decode_borrowed_with_format(format, reader)?;
+            Ok(alloc::borrow::Cow::Owned(owned))
         }
     }
-}   
+}
