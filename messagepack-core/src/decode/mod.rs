@@ -261,7 +261,7 @@ mod alloc_impl {
 
     impl<'de, 'a, T> DecodeBorrowed<'de> for alloc::borrow::Cow<'a, T>
     where
-        T: ?Sized + ToOwned,
+        T: ?Sized + alloc::borrow::ToOwned,
         T::Owned: DecodeBorrowed<'de, Value = T::Owned>,
     {
         type Value = alloc::borrow::Cow<'a, T>;

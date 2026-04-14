@@ -114,6 +114,6 @@ mod alloc_impl {
     deref_impl! {
         <'a, V> Encode for alloc::borrow::Cow<'a,V>
         where
-            V: Encode + ?Sized + ToOwned,
+            V: Encode + ?Sized + alloc::borrow::ToOwned,
     }
 }
