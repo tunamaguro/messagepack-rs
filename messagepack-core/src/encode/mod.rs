@@ -106,7 +106,7 @@ mod alloc_impl {
     }
 
     deref_impl! {
-        <V> Encode for std::sync::Arc<V>
+        <V> Encode for alloc::sync::Arc<V>
         where
             V: Encode + ?Sized,
     }
