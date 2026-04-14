@@ -205,17 +205,76 @@ impl NbyteReader<4> {
 }
 
 #[cfg(feature = "alloc")]
-const fn cautiously_size_hint<T>(hint: usize) -> usize {
-    const MAX_ALLOC_BYTES: usize = 1024 * 1024;
-    let element_byte: usize = core::mem::size_of::<T>();
-    if element_byte == 0 {
-        0
-    } else {
-        let max_elements = MAX_ALLOC_BYTES / element_byte;
-        if hint <= max_elements {
-            hint
-        } else {
-            max_elements
+mod alloc_impl {
+    use super::*;
+
+    impl<'de, T> DecodeBorrowed<'de> for alloc::boxed::Box<T>
+    where
+        T: DecodeBorrowed<'de>,
+    {
+        type Value = alloc::boxed::Box<T::Value>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            T::decode_borrowed_with_format(format, reader).map(|v| v.into())
+        }
+    }
+
+    impl<'de, T> DecodeBorrowed<'de> for alloc::rc::Rc<T>
+    where
+        T: DecodeBorrowed<'de>,
+    {
+        type Value = alloc::rc::Rc<T::Value>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            T::decode_borrowed_with_format(format, reader).map(|v| v.into())
+        }
+    }
+
+    impl<'de, T> DecodeBorrowed<'de> for alloc::sync::Arc<T>
+    where
+        T: DecodeBorrowed<'de>,
+    {
+        type Value = alloc::sync::Arc<T::Value>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            T::decode_borrowed_with_format(format, reader).map(|v| v.into())
+        }
+    }
+
+    impl<'de, 'a, T> DecodeBorrowed<'de> for alloc::borrow::Cow<'a, T>
+    where
+        T: ?Sized + alloc::borrow::ToOwned,
+        T::Owned: DecodeBorrowed<'de, Value = T::Owned>,
+    {
+        type Value = alloc::borrow::Cow<'a, T>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            let owned = T::Owned::decode_borrowed_with_format(format, reader)?;
+            Ok(alloc::borrow::Cow::Owned(owned))
         }
     }
 }

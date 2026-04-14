@@ -142,33 +142,117 @@ tuple_decode_impls! {
 }
 
 #[cfg(feature = "alloc")]
-impl<'de, V> DecodeBorrowed<'de> for alloc::vec::Vec<V>
-where
-    V: DecodeBorrowed<'de>,
-{
-    type Value = alloc::vec::Vec<V::Value>;
+mod alloc_impl {
+    use super::*;
 
-    fn decode_borrowed_with_format<R>(
-        format: Format,
-        reader: &mut R,
-    ) -> core::result::Result<Self::Value, Error<R::Error>>
+    impl<'de, V> DecodeBorrowed<'de> for alloc::vec::Vec<V>
     where
-        R: IoRead<'de>,
+        V: DecodeBorrowed<'de>,
     {
-        let len = match format {
-            Format::FixArray(len) => len.into(),
-            Format::Array16 => NbyteReader::<2>::read(reader)?,
-            Format::Array32 => NbyteReader::<4>::read(reader)?,
-            _ => return Err(Error::UnexpectedFormat),
-        };
+        type Value = alloc::vec::Vec<V::Value>;
 
-        let size_hint = super::cautiously_size_hint::<V>(len);
-        let mut out: alloc::vec::Vec<<V as DecodeBorrowed<'de>>::Value> =
-            alloc::vec::Vec::with_capacity(size_hint);
-        for _ in 0..len {
-            out.push(V::decode_borrowed(reader)?);
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> core::result::Result<Self::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
         }
-        Ok(out)
+    }
+
+    impl<'de, V> DecodeBorrowed<'de> for alloc::collections::VecDeque<V>
+    where
+        V: DecodeBorrowed<'de>,
+    {
+        type Value = alloc::collections::VecDeque<V::Value>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> core::result::Result<Self::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
+        }
+    }
+
+    impl<'de, V> DecodeBorrowed<'de> for alloc::collections::LinkedList<V>
+    where
+        V: DecodeBorrowed<'de>,
+    {
+        type Value = alloc::collections::LinkedList<V::Value>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> core::result::Result<Self::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
+        }
+    }
+
+    impl<'de, V> DecodeBorrowed<'de> for alloc::collections::BinaryHeap<V>
+    where
+        V: DecodeBorrowed<'de>,
+        V::Value: Ord,
+    {
+        type Value = alloc::collections::BinaryHeap<V::Value>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> core::result::Result<Self::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
+        }
+    }
+
+    impl<'de, V> DecodeBorrowed<'de> for alloc::collections::BTreeSet<V>
+    where
+        V: DecodeBorrowed<'de>,
+        V::Value: Ord,
+    {
+        type Value = alloc::collections::BTreeSet<V::Value>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> core::result::Result<Self::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+mod std_impl {
+    use super::*;
+
+    impl<'de, V> DecodeBorrowed<'de> for std::collections::HashSet<V>
+    where
+        V: DecodeBorrowed<'de>,
+        V::Value: Eq + core::hash::Hash,
+    {
+        type Value = std::collections::HashSet<V::Value>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> core::result::Result<Self::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
+        }
     }
 }
 

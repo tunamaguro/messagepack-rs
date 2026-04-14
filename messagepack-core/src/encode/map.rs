@@ -145,24 +145,30 @@ impl<KV: KVEncode> Encode for MapSliceEncoder<'_, KV> {
 }
 
 #[cfg(feature = "alloc")]
-impl<K: Encode + Ord, V: Encode> Encode for alloc::collections::BTreeMap<K, V> {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        encode_iter(writer, self.len(), self.iter())
+mod alloc_impl {
+    use super::*;
+
+    impl<K: Encode + Ord, V: Encode> Encode for alloc::collections::BTreeMap<K, V> {
+        fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+            encode_iter(writer, self.len(), self.iter())
+        }
     }
 }
 
 #[cfg(feature = "std")]
-impl<K, V, S> Encode for std::collections::HashMap<K, V, S>
-where
-    K: Encode + Eq + core::hash::Hash,
-    V: Encode,
-    S: std::hash::BuildHasher,
-{
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        encode_iter(writer, self.len(), self.iter())
+mod std_impl {
+    use super::*;
+    impl<K, V, S> Encode for std::collections::HashMap<K, V, S>
+    where
+        K: Encode + Eq + core::hash::Hash,
+        V: Encode,
+        S: std::hash::BuildHasher,
+    {
+        fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+            encode_iter(writer, self.len(), self.iter())
+        }
     }
 }
-
 /// Encode a map from an owned iterator, writing items lazily.
 pub struct MapEncoder<I, J, KV> {
     map: RefCell<J>,

@@ -37,14 +37,20 @@ impl Encode for ArrayFormatEncoder {
     }
 }
 
+fn iter_encode_array<V: Encode, I: ExactSizeIterator<Item = V>, W: IoWrite>(
+    iter: I,
+    writer: &mut W,
+) -> Result<usize, <W as IoWrite>::Error> {
+    let format_len = ArrayFormatEncoder(iter.len()).encode(writer)?;
+    let array_len = iter
+        .map(|v| v.encode(writer))
+        .try_fold(0, |acc, v| v.map(|n| acc + n))?;
+    Ok(format_len + array_len)
+}
+
 impl<V: Encode> Encode for &[V] {
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        let format_len = ArrayFormatEncoder(self.len()).encode(writer)?;
-        let array_len = self
-            .iter()
-            .map(|v| v.encode(writer))
-            .try_fold(0, |acc, v| v.map(|n| acc + n))?;
-        Ok(format_len + array_len)
+        iter_encode_array(self.iter(), writer)
     }
 }
 
@@ -94,9 +100,48 @@ tuple_impls! {
 }
 
 #[cfg(feature = "alloc")]
-impl<V: Encode> Encode for alloc::vec::Vec<V> {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        self.as_slice().encode(writer)
+mod alloc_impl {
+    use super::*;
+
+    impl<V: Encode> Encode for alloc::vec::Vec<V> {
+        fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+            self.as_slice().encode(writer)
+        }
+    }
+
+    impl<V: Encode> Encode for alloc::collections::VecDeque<V> {
+        fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+            iter_encode_array(self.iter(), writer)
+        }
+    }
+
+    impl<V: Encode> Encode for alloc::collections::LinkedList<V> {
+        fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+            iter_encode_array(self.iter(), writer)
+        }
+    }
+
+    impl<V: Encode> Encode for alloc::collections::BinaryHeap<V> {
+        fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+            iter_encode_array(self.iter(), writer)
+        }
+    }
+
+    impl<V: Encode> Encode for alloc::collections::BTreeSet<V> {
+        fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+            iter_encode_array(self.iter(), writer)
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+mod std_impl {
+    use super::*;
+
+    impl<V: Encode> Encode for std::collections::HashSet<V> {
+        fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
+            iter_encode_array(self.iter(), writer)
+        }
     }
 }
 
