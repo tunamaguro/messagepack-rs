@@ -59,42 +59,50 @@ where
 }
 
 #[cfg(feature = "alloc")]
-impl<'de, K, V> DecodeBorrowed<'de> for alloc::collections::BTreeMap<K, V>
-where
-    K: DecodeBorrowed<'de>,
-    V: DecodeBorrowed<'de>,
-    K::Value: Ord,
-{
-    type Value = alloc::collections::BTreeMap<K::Value, V::Value>;
+mod alloc_impl {
+    use super::*;
 
-    fn decode_borrowed_with_format<R>(
-        format: Format,
-        reader: &mut R,
-    ) -> Result<Self::Value, Error<R::Error>>
+    impl<'de, K, V> DecodeBorrowed<'de> for alloc::collections::BTreeMap<K, V>
     where
-        R: IoRead<'de>,
+        K: DecodeBorrowed<'de>,
+        V: DecodeBorrowed<'de>,
+        K::Value: Ord,
     {
-        MapDecoder::<Self::Value, K, V>::decode_borrowed_with_format(format, reader)
+        type Value = alloc::collections::BTreeMap<K::Value, V::Value>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> Result<Self::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            MapDecoder::<Self::Value, K, V>::decode_borrowed_with_format(format, reader)
+        }
     }
 }
 
 #[cfg(feature = "std")]
-impl<'de, K, V> DecodeBorrowed<'de> for std::collections::HashMap<K, V>
-where
-    K: DecodeBorrowed<'de>,
-    V: DecodeBorrowed<'de>,
-    K::Value: Eq + core::hash::Hash,
-{
-    type Value = std::collections::HashMap<K::Value, V::Value>;
-
-    fn decode_borrowed_with_format<R>(
-        format: Format,
-        reader: &mut R,
-    ) -> Result<Self::Value, Error<R::Error>>
+mod std_impl {
+    use super::*;
+    
+    impl<'de, K, V> DecodeBorrowed<'de> for std::collections::HashMap<K, V>
     where
-        R: IoRead<'de>,
+        K: DecodeBorrowed<'de>,
+        V: DecodeBorrowed<'de>,
+        K::Value: Eq + core::hash::Hash,
     {
-        MapDecoder::<Self::Value, K, V>::decode_borrowed_with_format(format, reader)
+        type Value = std::collections::HashMap<K::Value, V::Value>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> Result<Self::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            MapDecoder::<Self::Value, K, V>::decode_borrowed_with_format(format, reader)
+        }
     }
 }
 
