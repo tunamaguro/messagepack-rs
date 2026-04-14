@@ -11,7 +11,7 @@ use crate::{
 ///
 /// This reads and discards one complete value (including nested containers).
 /// Useful when encountering unknown map keys during decoding.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Any<'de> {
     /// Nil
     Nil,

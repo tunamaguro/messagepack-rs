@@ -155,19 +155,7 @@ where
     where
         R: IoRead<'de>,
     {
-        let len = match format {
-            Format::FixArray(len) => len.into(),
-            Format::Array16 => NbyteReader::<2>::read(reader)?,
-            Format::Array32 => NbyteReader::<4>::read(reader)?,
-            _ => return Err(Error::UnexpectedFormat),
-        };
-
-        let mut out: alloc::vec::Vec<<V as DecodeBorrowed<'de>>::Value> =
-            alloc::vec::Vec::with_capacity(len);
-        for _ in 0..len {
-            out.push(V::decode_borrowed(reader)?);
-        }
-        Ok(out)
+        ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
     }
 }
 
