@@ -204,6 +204,7 @@ impl NbyteReader<4> {
     impl_read! {u32}
 }
 
+#[cfg(feature = "alloc")]
 const fn cautiously_size_hint<T>(hint: usize) -> usize {
     const MAX_ALLOC_BYTES: usize = 1024 * 1024;
     let element_byte: usize = core::mem::size_of::<T>();
