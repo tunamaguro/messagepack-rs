@@ -27,3 +27,19 @@ path = "fuzz_targets/fuzz_any_core.rs"
 test = false
 doc = false
 bench = false
+
+
+[[bin]]
+name = "fuzz_any_array"
+path = "fuzz_targets/fuzz_any_array.rs"
+test = false
+doc = false
+bench = false
+
+
+[[bin]]
+name = "fuzz_any_map"
+path = "fuzz_targets/fuzz_any_map.rs"
+test = false
+doc = false
+bench = false
