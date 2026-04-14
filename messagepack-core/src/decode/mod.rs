@@ -203,3 +203,78 @@ impl NbyteReader<2> {
 impl NbyteReader<4> {
     impl_read! {u32}
 }
+
+#[cfg(feature = "alloc")]
+mod alloc_impl {
+    use super::*;
+
+    impl<'de, T> DecodeBorrowed<'de> for alloc::boxed::Box<T>
+    where
+        T: DecodeBorrowed<'de>,
+    {
+        type Value = alloc::boxed::Box<T::Value>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            T::decode_borrowed_with_format(format, reader).map(|v| v.into())
+        }
+    }
+
+    impl<'de, T> DecodeBorrowed<'de> for alloc::rc::Rc<T>
+    where
+        T: DecodeBorrowed<'de>,
+    {
+        type Value = alloc::rc::Rc<T::Value>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            T::decode_borrowed_with_format(format, reader).map(|v| v.into())
+        }
+    }
+
+    impl<'de, T> DecodeBorrowed<'de> for alloc::sync::Arc<T>
+    where
+        T: DecodeBorrowed<'de>,
+    {
+        type Value = alloc::sync::Arc<T::Value>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+            T::decode_borrowed_with_format(format, reader).map(|v| v.into())
+        }
+    }
+
+    impl<'de, 'a, T> DecodeBorrowed<'de> for alloc::borrow::Cow<'a, T>
+    where
+        T: ?Sized + ToOwned,
+        T::Owned: DecodeBorrowed<'de, Value = T::Owned>,
+    {
+        type Value = alloc::borrow::Cow<'a, T>;
+
+        fn decode_borrowed_with_format<R>(
+            format: Format,
+            reader: &mut R,
+        ) -> Result<<Self as DecodeBorrowed<'de>>::Value, Error<R::Error>>
+        where
+            R: IoRead<'de>,
+        {
+           let owned = T::Owned::decode_borrowed_with_format(format, reader)?;
+           Ok(alloc::borrow::Cow::Owned(owned))
+        }
+    }
+}   

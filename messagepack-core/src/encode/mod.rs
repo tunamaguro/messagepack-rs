@@ -55,6 +55,13 @@ pub trait Encode {
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error>;
 }
 
+impl Encode for Format {
+    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
+        writer.write(&self.as_slice())?;
+        Ok(1)
+    }
+}
+
 macro_rules! deref_impl {
     (
         $(#[$attr:meta])*
@@ -83,15 +90,30 @@ deref_impl! {
 }
 
 #[cfg(feature = "alloc")]
-deref_impl! {
-    <V> Encode for alloc::boxed::Box<V>
-    where
-        V: Encode + ?Sized,
-}
+mod alloc_impl {
+    use super::*;
 
-impl Encode for Format {
-    fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, <W as IoWrite>::Error> {
-        writer.write(&self.as_slice())?;
-        Ok(1)
+    deref_impl! {
+        <V> Encode for alloc::boxed::Box<V>
+        where
+            V: Encode + ?Sized,
+    }
+
+    deref_impl! {
+        <V> Encode for alloc::rc::Rc<V>
+        where
+            V: Encode + ?Sized,
+    }
+
+    deref_impl! {
+        <V> Encode for std::sync::Arc<V>
+        where
+            V: Encode + ?Sized,
+    }
+
+    deref_impl! {
+        <'a, V> Encode for alloc::borrow::Cow<'a,V>
+        where
+            V: Encode + ?Sized + ToOwned,
     }
 }
