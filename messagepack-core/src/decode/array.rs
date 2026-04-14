@@ -162,8 +162,9 @@ where
             _ => return Err(Error::UnexpectedFormat),
         };
 
+        let size_hint = super::cautiously_size_hint::<V>(len);
         let mut out: alloc::vec::Vec<<V as DecodeBorrowed<'de>>::Value> =
-            alloc::vec::Vec::with_capacity(len);
+            alloc::vec::Vec::with_capacity(size_hint);
         for _ in 0..len {
             out.push(V::decode_borrowed(reader)?);
         }
