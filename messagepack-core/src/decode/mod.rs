@@ -203,3 +203,18 @@ impl NbyteReader<2> {
 impl NbyteReader<4> {
     impl_read! {u32}
 }
+
+const fn cautiously_size_hint<T>(hint: usize) -> usize {
+    const MAX_ALLOC_BYTES: usize = 1024 * 1024;
+    let element_byte: usize = core::mem::size_of::<T>();
+    if element_byte == 0 {
+        0
+    } else {
+        let max_elements = MAX_ALLOC_BYTES / element_byte;
+        if hint <= max_elements {
+            hint
+        } else {
+            max_elements
+        }
+    }
+}
