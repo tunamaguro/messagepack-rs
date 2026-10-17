@@ -49,13 +49,12 @@ let
     strictDeps = true;
     inherit doCheck dontStrip;
 
-    env =
-      {
-        CARGO_PROFILE = profile;
-      }
-      // lib.optionalAttrs (rustFlags != null) {
-        RUSTFLAGS = rustFlags;
-      };
+    env = {
+      CARGO_PROFILE = profile;
+    }
+    // lib.optionalAttrs (rustFlags != null) {
+      RUSTFLAGS = rustFlags;
+    };
   };
 
   cargoArtifacts = craneLib.buildDepsOnly (
@@ -78,18 +77,16 @@ let
     ++ cargoExtraArgs
   );
 
-  packageArgs =
-    commonArgs
-    // {
-      inherit
-        cargoArtifacts
-        cargoBuildExtraArgs
-        doInstallCargoArtifacts
-        installCargoArtifactsMode
-        ;
-      inherit pname;
-      cargoExtraArgs = packageCargoExtraArgs;
-    };
+  packageArgs = commonArgs // {
+    inherit
+      cargoArtifacts
+      cargoBuildExtraArgs
+      doInstallCargoArtifacts
+      installCargoArtifactsMode
+      ;
+    inherit pname;
+    cargoExtraArgs = packageCargoExtraArgs;
+  };
 in
 craneLib.buildPackage (
   packageArgs

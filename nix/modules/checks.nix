@@ -6,7 +6,9 @@
       package = config.packages.debug;
       inherit (package.passthru) commonArgs cargoArtifacts craneLib;
       src = commonArgs.src;
-      checkArgs = commonArgs // { inherit cargoArtifacts; };
+      checkArgs = commonArgs // {
+        inherit cargoArtifacts;
+      };
     in
     {
       checks = {
