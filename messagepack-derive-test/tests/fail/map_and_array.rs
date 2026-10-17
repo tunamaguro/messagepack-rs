@@ -1,5 +1,5 @@
 // Test: map and array are mutually exclusive
-use messagepack_derive::{Encode, Decode};
+use messagepack_derive::{Decode, Encode};
 
 #[derive(Encode, Decode)]
 #[msgpack(map, array)]

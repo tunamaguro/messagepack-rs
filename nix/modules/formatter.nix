@@ -10,9 +10,6 @@
           enable = true;
           package = rustToolchain;
           includes = [ "*.rs" ];
-          # `trybuild` snapshots reference source lines, so leave the
-          # intentional compile-failure fixtures untouched.
-          excludes = [ "messagepack-derive-test/tests/fail/*.rs" ];
         };
 
         mdformat = {
