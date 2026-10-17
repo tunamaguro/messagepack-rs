@@ -1,5 +1,5 @@
 // Test: array mode requires key on all fields
-use messagepack_derive::{Encode, Decode};
+use messagepack_derive::{Decode, Encode};
 
 #[derive(Encode, Decode)]
 #[msgpack(array)]
