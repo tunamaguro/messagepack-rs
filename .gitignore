@@ -1,1 +1,9 @@
+# direnv
+.direnv
+
+# Added by cargo
 /target
+
+# Nix
+/result
+/result-*
