@@ -22,6 +22,7 @@
       ];
 
       imports = [
+        ./nix/modules/apps.nix
         ./nix/modules/packages.nix
         ./nix/modules/partitions.nix
       ];
