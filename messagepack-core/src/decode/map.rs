@@ -100,8 +100,9 @@ mod std_impl {
         where
             R: IoRead<'de>,
         {
-            // `HashMap: FromIterator` ignores the source `size_hint` and grows
-            // its table incrementally, so reserve the exact capacity up front.
+            // `collect::<Result<_, _>>()` drops the source `size_hint`, so the
+            // generic `MapDecoder` path would let `HashMap` grow incrementally.
+            // Reserve the exact capacity up front instead.
             let len = decode_map_len(format, reader)?;
             let mut map = Self::Value::with_capacity(len);
             for _ in 0..len {

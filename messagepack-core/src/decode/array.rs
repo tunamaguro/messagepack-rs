@@ -5,6 +5,21 @@ use core::marker::PhantomData;
 use super::{DecodeBorrowed, Error, NbyteReader};
 use crate::{formats::Format, io::IoRead};
 
+fn decode_array_len<'de, R>(
+    format: Format,
+    reader: &mut R,
+) -> core::result::Result<usize, Error<R::Error>>
+where
+    R: IoRead<'de>,
+{
+    match format {
+        Format::FixArray(len) => Ok(len.into()),
+        Format::Array16 => NbyteReader::<2>::read(reader),
+        Format::Array32 => NbyteReader::<4>::read(reader),
+        _ => Err(Error::UnexpectedFormat),
+    }
+}
+
 /// Decode a MessagePack array of `V` into `Array` collecting iterator.
 pub struct ArrayDecoder<Array, V>(PhantomData<(Array, V)>);
 
@@ -22,13 +37,10 @@ where
     where
         R: IoRead<'de>,
     {
-        let len = match format {
-            Format::FixArray(len) => len.into(),
-            Format::Array16 => NbyteReader::<2>::read(reader)?,
-            Format::Array32 => NbyteReader::<4>::read(reader)?,
-            _ => return Err(Error::UnexpectedFormat),
-        };
+        let len = decode_array_len(format, reader)?;
 
+        // `collect::<Result<_, _>>()` drops the source `size_hint`, so
+        // collections with preallocatable storage should reserve explicitly.
         let out = (0..len)
             .map(|_| V::decode_borrowed(reader))
             .collect::<core::result::Result<Array, Error<R::Error>>>()?;
@@ -158,7 +170,12 @@ mod alloc_impl {
         where
             R: IoRead<'de>,
         {
-            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
+            let len = decode_array_len(format, reader)?;
+            let mut out = Self::Value::with_capacity(len);
+            for _ in 0..len {
+                out.push(V::decode_borrowed(reader)?);
+            }
+            Ok(out)
         }
     }
 
@@ -175,7 +192,12 @@ mod alloc_impl {
         where
             R: IoRead<'de>,
         {
-            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
+            let len = decode_array_len(format, reader)?;
+            let mut out = Self::Value::with_capacity(len);
+            for _ in 0..len {
+                out.push_back(V::decode_borrowed(reader)?);
+            }
+            Ok(out)
         }
     }
 
@@ -210,7 +232,13 @@ mod alloc_impl {
         where
             R: IoRead<'de>,
         {
-            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
+            let len = decode_array_len(format, reader)?;
+            let mut items = alloc::vec::Vec::with_capacity(len);
+            for _ in 0..len {
+                items.push(V::decode_borrowed(reader)?);
+            }
+            // `From<Vec<_>>` heapifies in O(n) without extra allocation.
+            Ok(Self::Value::from(items))
         }
     }
 
@@ -251,7 +279,12 @@ mod std_impl {
         where
             R: IoRead<'de>,
         {
-            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
+            let len = decode_array_len(format, reader)?;
+            let mut out = Self::Value::with_capacity(len);
+            for _ in 0..len {
+                out.insert(V::decode_borrowed(reader)?);
+            }
+            Ok(out)
         }
     }
 }
@@ -363,6 +396,38 @@ mod tests {
         let mut r = crate::io::SliceReader::new(buf);
         let v = <alloc::vec::Vec<u8> as Decode>::decode(&mut r).unwrap();
         assert_eq!(v, alloc::vec![42u8, 43]);
+        assert!(r.rest().is_empty());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn vec_deque_of_u8_success() {
+        let buf = &[0x93, 0x2a, 0x2b, 0x2c]; // [42,43,44]
+        let mut r = crate::io::SliceReader::new(buf);
+        let v = <alloc::collections::VecDeque<u8> as Decode>::decode(&mut r).unwrap();
+        assert_eq!(alloc::vec::Vec::from(v), alloc::vec![42u8, 43, 44]);
+        assert!(r.rest().is_empty());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn binary_heap_of_u8_success() {
+        let buf = &[0x93, 0x2b, 0x2a, 0x2c]; // [43,42,44]
+        let mut r = crate::io::SliceReader::new(buf);
+        let h = <alloc::collections::BinaryHeap<u8> as Decode>::decode(&mut r).unwrap();
+        assert_eq!(h.into_sorted_vec(), alloc::vec![42u8, 43, 44]);
+        assert!(r.rest().is_empty());
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn hash_set_of_u8_success() {
+        let buf = &[0x93, 0x2a, 0x2b, 0x2a]; // [42,43,42]
+        let mut r = crate::io::SliceReader::new(buf);
+        let s = <std::collections::HashSet<u8> as Decode>::decode(&mut r).unwrap();
+        assert_eq!(s.len(), 2);
+        assert!(s.contains(&42));
+        assert!(s.contains(&43));
         assert!(r.rest().is_empty());
     }
 }
