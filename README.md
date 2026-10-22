@@ -8,8 +8,7 @@ messagepack for Rust `no_std`
 
 Minimal messagepack implementation
 
-
-## messagepack-serde  [![Crates.io Version](https://img.shields.io/crates/v/messagepack_serde)](https://crates.io/crates/messagepack-serde)
+## messagepack-serde [![Crates.io Version](https://img.shields.io/crates/v/messagepack_serde)](https://crates.io/crates/messagepack-serde)
 
 [Documentation](https://docs.rs/messagepack-serde/latest/messagepack_serde/)
 

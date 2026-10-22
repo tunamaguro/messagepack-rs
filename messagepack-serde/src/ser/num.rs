@@ -3,7 +3,7 @@ use messagepack_core::{
     encode::{Error, float::EncodeMinimizeFloat, int::EncodeMinimizeInt},
     io::IoWrite,
 };
-use num_traits::{ToPrimitive, float::FloatCore};
+use num_traits::float::FloatCore;
 
 /// Decide how numeric values are encoded.
 pub trait NumEncoder<W: IoWrite> {
@@ -177,13 +177,6 @@ impl<W: IoWrite> NumEncoder<W> for Exact {
 pub struct LosslessMinimize;
 
 impl LosslessMinimize {
-    fn encode_int<T: ToPrimitive, W: IoWrite>(
-        v: T,
-        writer: &mut W,
-    ) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        EncodeMinimizeInt(v).encode(writer)
-    }
-
     fn encode_float<T: Into<EncodeMinimizeFloat>, W: IoWrite>(
         v: T,
         writer: &mut W,
@@ -194,51 +187,135 @@ impl LosslessMinimize {
     }
 }
 
+macro_rules! encode_min {
+    ($v:expr, $writer:expr, $op:tt, $(($ty:ty, $bound:expr)),* $(,)?) => {
+        $(
+            if $v $op ($bound as _) {
+                return ($v as $ty).encode($writer);
+            }
+        )*
+    };
+}
+
+macro_rules! impl_minimize_int {
+    () => {
+        #[inline]
+        fn encode_i8(v: i8, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            if v >= 0 {
+                (v as u8).encode(writer)
+            } else {
+                v.encode(writer)
+            }
+        }
+
+        #[inline]
+        fn encode_i16(v: i16, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            if v >= 0 {
+                encode_min!(v, writer, <=, (u8, u8::MAX));
+                (v as u16).encode(writer)
+            } else {
+                encode_min!(v, writer, >=, (i8, i8::MIN));
+                v.encode(writer)
+            }
+        }
+
+        #[inline]
+        fn encode_i32(v: i32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            if v >= 0 {
+                encode_min!(v, writer, <=, (u8, u8::MAX), (u16, u16::MAX));
+                (v as u32).encode(writer)
+            } else {
+                encode_min!(v, writer, >=, (i8, i8::MIN), (i16, i16::MIN));
+                v.encode(writer)
+            }
+        }
+
+        #[inline]
+        fn encode_i64(v: i64, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            if v >= 0 {
+                encode_min!(v, writer, <=, (u8, u8::MAX), (u16, u16::MAX), (u32, u32::MAX));
+                (v as u64).encode(writer)
+            } else {
+                encode_min!(v, writer, >=, (i8, i8::MIN), (i16, i16::MIN), (i32, i32::MIN));
+                v.encode(writer)
+            }
+        }
+
+        #[inline]
+        fn encode_i128(v: i128, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            if v >= 0 {
+                encode_min!(
+                    v,
+                    writer,
+                    <=,
+                    (u8, u8::MAX),
+                    (u16, u16::MAX),
+                    (u32, u32::MAX),
+                    (u64, u64::MAX)
+                );
+                Err(Error::InvalidFormat)
+            } else {
+                encode_min!(
+                    v,
+                    writer,
+                    >=,
+                    (i8, i8::MIN),
+                    (i16, i16::MIN),
+                    (i32, i32::MIN),
+                    (i64, i64::MIN)
+                );
+                Err(Error::InvalidFormat)
+            }
+        }
+
+        #[inline]
+        fn encode_u8(v: u8, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            v.encode(writer)
+        }
+
+        #[inline]
+        fn encode_u16(v: u16, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            encode_min!(v, writer, <=, (u8, u8::MAX));
+            v.encode(writer)
+        }
+
+        #[inline]
+        fn encode_u32(v: u32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            encode_min!(v, writer, <=, (u8, u8::MAX), (u16, u16::MAX));
+            v.encode(writer)
+        }
+
+        #[inline]
+        fn encode_u64(v: u64, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            encode_min!(v, writer, <=, (u8, u8::MAX), (u16, u16::MAX), (u32, u32::MAX));
+            v.encode(writer)
+        }
+
+        #[inline]
+        fn encode_u128(v: u128, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            encode_min!(
+                v,
+                writer,
+                <=,
+                (u8, u8::MAX),
+                (u16, u16::MAX),
+                (u32, u32::MAX),
+                (u64, u64::MAX)
+            );
+            Err(Error::InvalidFormat)
+        }
+    };
+}
+
 impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
-    fn encode_i8(v: i8, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
+    impl_minimize_int!();
 
-    fn encode_i16(v: i16, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_i32(v: i32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_i64(v: i64, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_i128(v: i128, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_u8(v: u8, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_u16(v: u16, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_u32(v: u32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_u64(v: u64, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_u128(v: u128, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
+    #[inline]
     fn encode_f32(v: f32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
         Self::encode_float(v, writer)
     }
 
+    #[inline]
     fn encode_f64(v: f64, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
         Self::encode_float(v, writer)
     }
@@ -246,8 +323,9 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 
 /// Encode a given numeric value by aggressively minimising its format.
 ///
-/// If the float is finite and its fractional part is zero, it first tries to encode it as an integer.
-/// If this conversion fails, it falls back to encoding the value as a float.
+/// If the float is finite and its fractional part is zero, it encodes the value as an integer
+/// when the integer representation is no larger than the float representation.
+/// Otherwise it encodes the value as a float.
 ///
 /// ## Examples
 ///
@@ -289,76 +367,52 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 /// let expected = [1_u8]; // 1 encoded in `positive fixint`
 /// assert_eq!(buf,expected);
 /// ```
+///
+/// A float whose integer representation is larger is encoded as a float.
+///
+/// ```rust
+/// use serde::Serialize;
+/// use messagepack_serde::ser::{to_slice_with_config, AggressiveMinimize};
+///
+/// let mut buf = [0_u8;5];
+/// to_slice_with_config(&1e10_f32, &mut buf, AggressiveMinimize).unwrap();
+///
+/// let expected = [0xca,0x50,0x15,0x02,0xf9]; // 1e10 encoded in `float 32`
+/// assert_eq!(buf,expected);
+/// ```
 pub struct AggressiveMinimize;
 
 impl AggressiveMinimize {
-    fn encode_int<T: ToPrimitive, W: IoWrite>(
-        v: T,
-        writer: &mut W,
-    ) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        EncodeMinimizeInt(v).encode(writer)
-    }
-
-    fn encode_float<T: FloatCore + Into<EncodeMinimizeFloat>, W: IoWrite>(
-        v: T,
-        writer: &mut W,
-    ) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        if v.is_finite() && v.fract().is_zero() {
-            let size = Self::encode_int(v, writer).or_else(|_| v.into().encode(writer))?;
-            Ok(size)
-        } else {
-            let size = v.into().encode(writer)?;
-            Ok(size)
-        }
+    fn fits_int<T: FloatCore>(v: T, min: T, max: T) -> bool {
+        (min..max).contains(&v) && v.fract().is_zero()
     }
 }
 
 impl<W: IoWrite> NumEncoder<W> for AggressiveMinimize {
-    fn encode_i8(v: i8, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
+    impl_minimize_int!();
 
-    fn encode_i16(v: i16, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_i32(v: i32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_i64(v: i64, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_i128(v: i128, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_u8(v: u8, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_u16(v: u16, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_u32(v: u32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_u64(v: u64, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
-    fn encode_u128(v: u128, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_int(v, writer)
-    }
-
+    #[inline]
     fn encode_f32(v: f32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_float(v, writer)
+        if Self::fits_int(v, i32::MIN as f32, (1_u64 << 32) as f32) {
+            EncodeMinimizeInt(v).encode(writer)
+        } else {
+            v.encode(writer)
+        }
     }
 
+    #[inline]
     fn encode_f64(v: f64, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-        Self::encode_float(v, writer)
+        if v.is_finite() && (v as f32) as f64 == v {
+            if Self::fits_int(v, i32::MIN as f64, (1_u64 << 32) as f64) {
+                return EncodeMinimizeInt(v).encode(writer);
+            }
+            return (v as f32).encode(writer);
+        }
+
+        if Self::fits_int(v, i64::MIN as f64, (1_u128 << 64) as f64) {
+            EncodeMinimizeInt(v).encode(writer)
+        } else {
+            v.encode(writer)
+        }
     }
 }

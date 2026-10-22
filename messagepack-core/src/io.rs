@@ -28,33 +28,31 @@ impl core::error::Error for WError {}
 
 /// Simple writer that writes into a mutable byte slice.
 pub struct SliceWriter<'a> {
-    buf: &'a mut [u8],
-    cursor: usize,
+    remaining: &'a mut [u8],
 }
 
 impl<'a> SliceWriter<'a> {
     /// Create a new writer over the given buffer.
     pub fn new(buf: &'a mut [u8]) -> Self {
-        Self { buf, cursor: 0 }
-    }
-
-    const fn len(&self) -> usize {
-        self.buf.len() - self.cursor
+        Self { remaining: buf }
     }
 }
 
 impl IoWrite for SliceWriter<'_> {
     type Error = WError;
 
+    #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        if self.len() >= buf.len() {
-            let to = &mut self.buf[self.cursor..self.cursor + buf.len()];
-            to.copy_from_slice(buf);
-            self.cursor += buf.len();
-            Ok(())
-        } else {
-            Err(WError::BufferFull)
+        if buf.len() > self.remaining.len() {
+            return Err(WError::BufferFull);
         }
+
+        let this = core::mem::take(&mut self.remaining);
+        let (written, rest) = this.split_at_mut(buf.len());
+        written.copy_from_slice(buf);
+        self.remaining = rest;
+
+        Ok(())
     }
 }
 
@@ -63,11 +61,12 @@ impl IoWrite for &mut [u8] {
     type Error = WError;
 
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        let this = core::mem::take(self);
+        if buf.len() > self.len() {
+            return Err(WError::BufferFull);
+        }
 
-        let (written, rest) = this
-            .split_at_mut_checked(buf.len())
-            .ok_or(WError::BufferFull)?;
+        let this = core::mem::take(self);
+        let (written, rest) = this.split_at_mut(buf.len());
         written.copy_from_slice(buf);
         *self = rest;
 
@@ -320,6 +319,17 @@ mod tests {
         let buf: &mut [u8] = &mut [0u8];
         let mut writer = SliceWriter::new(buf);
         writer.write(&[1, 2]).unwrap();
+    }
+
+    #[test]
+    fn failed_write_keeps_remaining_space() {
+        let mut buf = [0_u8; 4];
+        let mut writer = SliceWriter::new(&mut buf);
+
+        assert!(writer.write(&[1, 2, 3, 4, 5]).is_err());
+        writer.write(&[1, 2, 3, 4]).unwrap();
+
+        assert_eq!(buf, [1, 2, 3, 4]);
     }
 
     #[test]

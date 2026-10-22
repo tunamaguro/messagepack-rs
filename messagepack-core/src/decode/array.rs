@@ -5,6 +5,21 @@ use core::marker::PhantomData;
 use super::{DecodeBorrowed, Error, NbyteReader};
 use crate::{formats::Format, io::IoRead};
 
+fn decode_array_len<'de, R>(
+    format: Format,
+    reader: &mut R,
+) -> core::result::Result<usize, Error<R::Error>>
+where
+    R: IoRead<'de>,
+{
+    match format {
+        Format::FixArray(len) => Ok(len.into()),
+        Format::Array16 => NbyteReader::<2>::read(reader),
+        Format::Array32 => NbyteReader::<4>::read(reader),
+        _ => Err(Error::UnexpectedFormat),
+    }
+}
+
 /// Decode a MessagePack array of `V` into `Array` collecting iterator.
 pub struct ArrayDecoder<Array, V>(PhantomData<(Array, V)>);
 
@@ -22,12 +37,7 @@ where
     where
         R: IoRead<'de>,
     {
-        let len = match format {
-            Format::FixArray(len) => len.into(),
-            Format::Array16 => NbyteReader::<2>::read(reader)?,
-            Format::Array32 => NbyteReader::<4>::read(reader)?,
-            _ => return Err(Error::UnexpectedFormat),
-        };
+        let len = decode_array_len(format, reader)?;
 
         let out = (0..len)
             .map(|_| V::decode_borrowed(reader))
@@ -144,6 +154,7 @@ tuple_decode_impls! {
 #[cfg(feature = "alloc")]
 mod alloc_impl {
     use super::*;
+    use crate::decode::cautiously_reserve;
 
     impl<'de, V> DecodeBorrowed<'de> for alloc::vec::Vec<V>
     where
@@ -158,7 +169,12 @@ mod alloc_impl {
         where
             R: IoRead<'de>,
         {
-            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
+            let len = decode_array_len(format, reader)?;
+            let mut out = Self::Value::with_capacity(cautiously_reserve::<V::Value>(len));
+            for _ in 0..len {
+                out.push(V::decode_borrowed(reader)?);
+            }
+            Ok(out)
         }
     }
 
@@ -175,7 +191,8 @@ mod alloc_impl {
         where
             R: IoRead<'de>,
         {
-            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
+            let items = alloc::vec::Vec::<V>::decode_borrowed_with_format(format, reader)?;
+            Ok(Self::Value::from(items))
         }
     }
 
@@ -210,7 +227,8 @@ mod alloc_impl {
         where
             R: IoRead<'de>,
         {
-            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
+            let items = alloc::vec::Vec::<V>::decode_borrowed_with_format(format, reader)?;
+            Ok(Self::Value::from(items))
         }
     }
 
@@ -236,6 +254,7 @@ mod alloc_impl {
 #[cfg(feature = "std")]
 mod std_impl {
     use super::*;
+    use crate::decode::cautiously_reserve;
 
     impl<'de, V> DecodeBorrowed<'de> for std::collections::HashSet<V>
     where
@@ -251,7 +270,12 @@ mod std_impl {
         where
             R: IoRead<'de>,
         {
-            ArrayDecoder::<Self::Value, V>::decode_borrowed_with_format(format, reader)
+            let len = decode_array_len(format, reader)?;
+            let mut out = Self::Value::with_capacity(cautiously_reserve::<V::Value>(len));
+            for _ in 0..len {
+                out.insert(V::decode_borrowed(reader)?);
+            }
+            Ok(out)
         }
     }
 }
