@@ -1,10 +1,12 @@
-use messagepack_core::Format;
-use messagepack_serde::ser::{AggressiveMinimize, to_slice_with_config};
+use messagepack_core::io::{IoWrite, SliceWriter};
 
 #[test]
-fn aggressive_minimize_falls_back_to_float_after_buffer_full() {
-    let mut buf = [0_u8; 5];
-    let len = to_slice_with_config(&1e10_f32, &mut buf, AggressiveMinimize).unwrap();
-    assert_eq!(len, 5);
-    assert_eq!(buf[0], Format::Float32.as_byte());
+fn failed_write_keeps_remaining_space() {
+    let mut buf = [0_u8; 4];
+    let mut writer = SliceWriter::new(&mut buf);
+
+    assert!(writer.write(&[1, 2, 3, 4, 5]).is_err());
+    writer.write(&[1, 2, 3, 4]).unwrap();
+
+    assert_eq!(buf, [1, 2, 3, 4]);
 }
