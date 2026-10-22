@@ -61,11 +61,12 @@ impl IoWrite for &mut [u8] {
     type Error = WError;
 
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        let this = core::mem::take(self);
+        if buf.len() > self.len() {
+            return Err(WError::BufferFull);
+        }
 
-        let (written, rest) = this
-            .split_at_mut_checked(buf.len())
-            .ok_or(WError::BufferFull)?;
+        let this = core::mem::take(self);
+        let (written, rest) = this.split_at_mut(buf.len());
         written.copy_from_slice(buf);
         *self = rest;
 
