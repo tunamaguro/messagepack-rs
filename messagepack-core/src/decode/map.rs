@@ -49,8 +49,6 @@ where
     {
         let len = decode_map_len(format, reader)?;
 
-        // Collecting through `Result` short-circuits on the first error and
-        // preserves the exact `size_hint` of the source range.
         (0..len)
             .map(|_| decode_kv::<R, K, V>(reader))
             .collect::<Result<Map, Error<R::Error>>>()
@@ -84,6 +82,7 @@ mod alloc_impl {
 #[cfg(feature = "std")]
 mod std_impl {
     use super::*;
+    use crate::decode::cautiously_reserve;
 
     impl<'de, K, V> DecodeBorrowed<'de> for std::collections::HashMap<K, V>
     where
@@ -100,11 +99,9 @@ mod std_impl {
         where
             R: IoRead<'de>,
         {
-            // `collect::<Result<_, _>>()` drops the source `size_hint`, so the
-            // generic `MapDecoder` path would let `HashMap` grow incrementally.
-            // Reserve the exact capacity up front instead.
             let len = decode_map_len(format, reader)?;
-            let mut map = Self::Value::with_capacity(len);
+            let mut map =
+                Self::Value::with_capacity(cautiously_reserve::<(K::Value, V::Value)>(len));
             for _ in 0..len {
                 let (k, v) = decode_kv::<R, K, V>(reader)?;
                 map.insert(k, v);
@@ -195,5 +192,13 @@ mod tests {
         assert_eq!(m.get(&1), Some(&true));
         assert_eq!(m.get(&3), Some(&false));
         assert!(r.rest().is_empty());
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn hashmap_huge_len_does_not_preallocate() {
+        let buf = &[0xdf, 0xff, 0xff, 0xff, 0xff];
+        let mut r = crate::io::SliceReader::new(buf);
+        assert!(<std::collections::HashMap<u8, u8> as Decode>::decode(&mut r).is_err());
     }
 }

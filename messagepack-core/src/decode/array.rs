@@ -39,8 +39,6 @@ where
     {
         let len = decode_array_len(format, reader)?;
 
-        // `collect::<Result<_, _>>()` drops the source `size_hint`, so
-        // collections with preallocatable storage should reserve explicitly.
         let out = (0..len)
             .map(|_| V::decode_borrowed(reader))
             .collect::<core::result::Result<Array, Error<R::Error>>>()?;
@@ -156,6 +154,7 @@ tuple_decode_impls! {
 #[cfg(feature = "alloc")]
 mod alloc_impl {
     use super::*;
+    use crate::decode::cautiously_reserve;
 
     impl<'de, V> DecodeBorrowed<'de> for alloc::vec::Vec<V>
     where
@@ -171,7 +170,7 @@ mod alloc_impl {
             R: IoRead<'de>,
         {
             let len = decode_array_len(format, reader)?;
-            let mut out = Self::Value::with_capacity(len);
+            let mut out = Self::Value::with_capacity(cautiously_reserve::<V::Value>(len));
             for _ in 0..len {
                 out.push(V::decode_borrowed(reader)?);
             }
@@ -193,7 +192,7 @@ mod alloc_impl {
             R: IoRead<'de>,
         {
             let len = decode_array_len(format, reader)?;
-            let mut out = Self::Value::with_capacity(len);
+            let mut out = Self::Value::with_capacity(cautiously_reserve::<V::Value>(len));
             for _ in 0..len {
                 out.push_back(V::decode_borrowed(reader)?);
             }
@@ -233,11 +232,11 @@ mod alloc_impl {
             R: IoRead<'de>,
         {
             let len = decode_array_len(format, reader)?;
-            let mut items = alloc::vec::Vec::with_capacity(len);
+            let mut items = alloc::vec::Vec::with_capacity(cautiously_reserve::<V::Value>(len));
             for _ in 0..len {
                 items.push(V::decode_borrowed(reader)?);
             }
-            // `From<Vec<_>>` heapifies in O(n) without extra allocation.
+            // O(n) heapify.
             Ok(Self::Value::from(items))
         }
     }
@@ -264,6 +263,7 @@ mod alloc_impl {
 #[cfg(feature = "std")]
 mod std_impl {
     use super::*;
+    use crate::decode::cautiously_reserve;
 
     impl<'de, V> DecodeBorrowed<'de> for std::collections::HashSet<V>
     where
@@ -280,7 +280,7 @@ mod std_impl {
             R: IoRead<'de>,
         {
             let len = decode_array_len(format, reader)?;
-            let mut out = Self::Value::with_capacity(len);
+            let mut out = Self::Value::with_capacity(cautiously_reserve::<V::Value>(len));
             for _ in 0..len {
                 out.insert(V::decode_borrowed(reader)?);
             }
@@ -417,6 +417,14 @@ mod tests {
         let h = <alloc::collections::BinaryHeap<u8> as Decode>::decode(&mut r).unwrap();
         assert_eq!(h.into_sorted_vec(), alloc::vec![42u8, 43, 44]);
         assert!(r.rest().is_empty());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn vec_huge_len_does_not_preallocate() {
+        let buf = &[0xdd, 0xff, 0xff, 0xff, 0xff];
+        let mut r = crate::io::SliceReader::new(buf);
+        assert!(<alloc::vec::Vec<u8> as Decode>::decode(&mut r).is_err());
     }
 
     #[cfg(feature = "std")]
