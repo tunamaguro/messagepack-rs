@@ -28,33 +28,30 @@ impl core::error::Error for WError {}
 
 /// Simple writer that writes into a mutable byte slice.
 pub struct SliceWriter<'a> {
-    buf: &'a mut [u8],
-    cursor: usize,
+    remaining: &'a mut [u8],
 }
 
 impl<'a> SliceWriter<'a> {
     /// Create a new writer over the given buffer.
     pub fn new(buf: &'a mut [u8]) -> Self {
-        Self { buf, cursor: 0 }
-    }
-
-    const fn len(&self) -> usize {
-        self.buf.len() - self.cursor
+        Self { remaining: buf }
     }
 }
 
 impl IoWrite for SliceWriter<'_> {
     type Error = WError;
 
+    #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        if self.len() >= buf.len() {
-            let to = &mut self.buf[self.cursor..self.cursor + buf.len()];
-            to.copy_from_slice(buf);
-            self.cursor += buf.len();
-            Ok(())
-        } else {
-            Err(WError::BufferFull)
-        }
+        let this = core::mem::take(&mut self.remaining);
+
+        let (written, rest) = this
+            .split_at_mut_checked(buf.len())
+            .ok_or(WError::BufferFull)?;
+        written.copy_from_slice(buf);
+        self.remaining = rest;
+
+        Ok(())
     }
 }
 
