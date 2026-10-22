@@ -231,12 +231,7 @@ mod alloc_impl {
         where
             R: IoRead<'de>,
         {
-            let len = decode_array_len(format, reader)?;
-            let mut items = alloc::vec::Vec::with_capacity(cautiously_reserve::<V::Value>(len));
-            for _ in 0..len {
-                items.push(V::decode_borrowed(reader)?);
-            }
-            // O(n) heapify.
+            let items = alloc::vec::Vec::<V>::decode_borrowed_with_format(format, reader)?;
             Ok(Self::Value::from(items))
         }
     }
