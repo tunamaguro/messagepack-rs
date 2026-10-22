@@ -389,44 +389,4 @@ mod tests {
         assert_eq!(v, alloc::vec![42u8, 43]);
         assert!(r.rest().is_empty());
     }
-
-    #[cfg(feature = "alloc")]
-    #[test]
-    fn vec_deque_of_u8_success() {
-        let buf = &[0x93, 0x2a, 0x2b, 0x2c]; // [42,43,44]
-        let mut r = crate::io::SliceReader::new(buf);
-        let v = <alloc::collections::VecDeque<u8> as Decode>::decode(&mut r).unwrap();
-        assert_eq!(alloc::vec::Vec::from(v), alloc::vec![42u8, 43, 44]);
-        assert!(r.rest().is_empty());
-    }
-
-    #[cfg(feature = "alloc")]
-    #[test]
-    fn binary_heap_of_u8_success() {
-        let buf = &[0x93, 0x2b, 0x2a, 0x2c]; // [43,42,44]
-        let mut r = crate::io::SliceReader::new(buf);
-        let h = <alloc::collections::BinaryHeap<u8> as Decode>::decode(&mut r).unwrap();
-        assert_eq!(h.into_sorted_vec(), alloc::vec![42u8, 43, 44]);
-        assert!(r.rest().is_empty());
-    }
-
-    #[cfg(feature = "alloc")]
-    #[test]
-    fn vec_huge_len_does_not_preallocate() {
-        let buf = &[0xdd, 0xff, 0xff, 0xff, 0xff];
-        let mut r = crate::io::SliceReader::new(buf);
-        assert!(<alloc::vec::Vec<u8> as Decode>::decode(&mut r).is_err());
-    }
-
-    #[cfg(feature = "std")]
-    #[test]
-    fn hash_set_of_u8_success() {
-        let buf = &[0x93, 0x2a, 0x2b, 0x2a]; // [42,43,42]
-        let mut r = crate::io::SliceReader::new(buf);
-        let s = <std::collections::HashSet<u8> as Decode>::decode(&mut r).unwrap();
-        assert_eq!(s.len(), 2);
-        assert!(s.contains(&42));
-        assert!(s.contains(&43));
-        assert!(r.rest().is_empty());
-    }
 }

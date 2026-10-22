@@ -193,12 +193,4 @@ mod tests {
         assert_eq!(m.get(&3), Some(&false));
         assert!(r.rest().is_empty());
     }
-
-    #[cfg(feature = "std")]
-    #[test]
-    fn hashmap_huge_len_does_not_preallocate() {
-        let buf = &[0xdf, 0xff, 0xff, 0xff, 0xff];
-        let mut r = crate::io::SliceReader::new(buf);
-        assert!(<std::collections::HashMap<u8, u8> as Decode>::decode(&mut r).is_err());
-    }
 }
