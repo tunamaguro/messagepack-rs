@@ -20,6 +20,18 @@ where
     Ok((k, v))
 }
 
+fn decode_map_len<'de, R>(format: Format, reader: &mut R) -> Result<usize, Error<R::Error>>
+where
+    R: IoRead<'de>,
+{
+    match format {
+        Format::FixMap(len) => Ok(len.into()),
+        Format::Map16 => NbyteReader::<2>::read(reader),
+        Format::Map32 => NbyteReader::<4>::read(reader),
+        _ => Err(Error::UnexpectedFormat),
+    }
+}
+
 impl<'de, Map, K, V> DecodeBorrowed<'de> for MapDecoder<Map, K, V>
 where
     K: DecodeBorrowed<'de>,
@@ -35,26 +47,11 @@ where
     where
         R: IoRead<'de>,
     {
-        let len = match format {
-            Format::FixMap(len) => len.into(),
-            Format::Map16 => NbyteReader::<2>::read(reader)?,
-            Format::Map32 => NbyteReader::<4>::read(reader)?,
-            _ => return Err(Error::UnexpectedFormat),
-        };
+        let len = decode_map_len(format, reader)?;
 
-        let mut err: Option<Error<R::Error>> = None;
-        let iter = (0..len).map_while(|_| match decode_kv::<R, K, V>(reader) {
-            Ok((k, v)) => Some((k, v)),
-            Err(e) => {
-                err = Some(e);
-                None
-            }
-        });
-        let res = Map::from_iter(iter);
-        match err {
-            Some(e) => Err(e),
-            None => Ok(res),
-        }
+        (0..len)
+            .map(|_| decode_kv::<R, K, V>(reader))
+            .collect::<Result<Map, Error<R::Error>>>()
     }
 }
 
@@ -85,6 +82,7 @@ mod alloc_impl {
 #[cfg(feature = "std")]
 mod std_impl {
     use super::*;
+    use crate::decode::cautiously_reserve;
 
     impl<'de, K, V> DecodeBorrowed<'de> for std::collections::HashMap<K, V>
     where
@@ -101,7 +99,14 @@ mod std_impl {
         where
             R: IoRead<'de>,
         {
-            MapDecoder::<Self::Value, K, V>::decode_borrowed_with_format(format, reader)
+            let len = decode_map_len(format, reader)?;
+            let mut map =
+                Self::Value::with_capacity(cautiously_reserve::<(K::Value, V::Value)>(len));
+            for _ in 0..len {
+                let (k, v) = decode_kv::<R, K, V>(reader)?;
+                map.insert(k, v);
+            }
+            Ok(map)
         }
     }
 }

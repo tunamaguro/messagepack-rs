@@ -1,5 +1,5 @@
 // Test: enum should fail to derive
-use messagepack_derive::{Encode, Decode};
+use messagepack_derive::{Decode, Encode};
 
 #[derive(Encode, Decode)]
 enum MyEnum {

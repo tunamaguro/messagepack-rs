@@ -23,6 +23,18 @@ pub use str::{ReferenceStr, ReferenceStrBinDecoder, ReferenceStrDecoder};
 mod any;
 pub use any::Any;
 
+// Cap preallocation for untrusted lengths.
+#[cfg(feature = "alloc")]
+pub(crate) fn cautiously_reserve<T>(len: usize) -> usize {
+    const MAX_ALLOC_BYTES: usize = 1024 * 1024;
+    let element_byte: usize = core::mem::size_of::<T>();
+    if element_byte == 0 {
+        0
+    } else {
+        len.min(MAX_ALLOC_BYTES / element_byte)
+    }
+}
+
 /// MessagePack decode error
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Error<E> {

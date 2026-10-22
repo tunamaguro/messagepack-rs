@@ -48,10 +48,11 @@ messagepack-serde = { version = "0.2", default-features = false }
 
 ## Features
 
-- `no_std` support  
+- `no_std` support\
   If you want to use `std::io::Read` or `std::io::Write`, enable the `std` feature and use `messagepack_serde::from_reader` or `messagepack_serde::to_writer`.
 
 - Flexible numeric serialization
+
   - Provides multiple serialization strategies:
     - `Exact`: Serializes numeric types exactly as provided.
     - `LosslessMinimize`: Minimizes size without losing information (default).

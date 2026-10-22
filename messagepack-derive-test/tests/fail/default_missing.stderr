@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `NoDefault: Encode` is not satisfied
-  --> tests/fail/default_missing.rs:20:21
+  --> tests/fail/default_missing.rs:19:21
    |
-20 |     assert_derive::<S1<NoDefault>>();
+19 |     assert_derive::<S1<NoDefault>>();
    |                     ^^^^^^^^^^^^^ the trait `Encode` is not implemented for `NoDefault`
    |
    = help: the following other types implement trait `Encode`:
@@ -29,9 +29,9 @@ note: required by a bound in `assert_derive`
    = note: this error originates in the derive macro `Encode` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `NoDefault: Default` is not satisfied
-  --> tests/fail/default_missing.rs:20:21
+  --> tests/fail/default_missing.rs:19:21
    |
-20 |     assert_derive::<S1<NoDefault>>();
+19 |     assert_derive::<S1<NoDefault>>();
    |                     ^^^^^^^^^^^^^ the trait `Default` is not implemented for `NoDefault`
    |
    = help: the following other types implement trait `Decode<'de>`:
@@ -53,14 +53,14 @@ note: required by a bound in `assert_derive`
    = note: this error originates in the derive macro `Decode` (in Nightly builds, run with -Z macro-backtrace for more info)
 help: consider annotating `NoDefault` with `#[derive(Default)]`
    |
-17 + #[derive(Default)]
-18 | struct NoDefault;
+16 + #[derive(Default)]
+17 | struct NoDefault;
    |
 
 error[E0277]: the trait bound `NoDefault: DecodeBorrowed<'_>` is not satisfied
-  --> tests/fail/default_missing.rs:20:21
+  --> tests/fail/default_missing.rs:19:21
    |
-20 |     assert_derive::<S1<NoDefault>>();
+19 |     assert_derive::<S1<NoDefault>>();
    |                     ^^^^^^^^^^^^^ the trait `DecodeBorrowed<'_>` is not implemented for `NoDefault`
    |
    = help: the following other types implement trait `DecodeBorrowed<'de>`:
@@ -87,9 +87,9 @@ note: required by a bound in `assert_derive`
    = note: this error originates in the derive macro `Decode` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `NoDefault: Encode` is not satisfied
-  --> tests/fail/default_missing.rs:21:21
+  --> tests/fail/default_missing.rs:20:21
    |
-21 |     assert_derive::<S2<NoDefault>>();
+20 |     assert_derive::<S2<NoDefault>>();
    |                     ^^^^^^^^^^^^^ the trait `Encode` is not implemented for `NoDefault`
    |
    = help: the following other types implement trait `Encode`:
@@ -117,9 +117,9 @@ note: required by a bound in `assert_derive`
    = note: this error originates in the derive macro `Encode` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `NoDefault: Default` is not satisfied
-  --> tests/fail/default_missing.rs:21:21
+  --> tests/fail/default_missing.rs:20:21
    |
-21 |     assert_derive::<S2<NoDefault>>();
+20 |     assert_derive::<S2<NoDefault>>();
    |                     ^^^^^^^^^^^^^ the trait `Default` is not implemented for `NoDefault`
    |
    = help: the following other types implement trait `Decode<'de>`:
@@ -141,14 +141,14 @@ note: required by a bound in `assert_derive`
    = note: this error originates in the derive macro `Decode` (in Nightly builds, run with -Z macro-backtrace for more info)
 help: consider annotating `NoDefault` with `#[derive(Default)]`
    |
-17 + #[derive(Default)]
-18 | struct NoDefault;
+16 + #[derive(Default)]
+17 | struct NoDefault;
    |
 
 error[E0277]: the trait bound `NoDefault: DecodeBorrowed<'_>` is not satisfied
-  --> tests/fail/default_missing.rs:21:21
+  --> tests/fail/default_missing.rs:20:21
    |
-21 |     assert_derive::<S2<NoDefault>>();
+20 |     assert_derive::<S2<NoDefault>>();
    |                     ^^^^^^^^^^^^^ the trait `DecodeBorrowed<'_>` is not implemented for `NoDefault`
    |
    = help: the following other types implement trait `DecodeBorrowed<'de>`:
