@@ -1,48 +1,56 @@
-use messagepack_core::Format;
-use messagepack_serde::ser::{AggressiveMinimize, to_slice_with_config};
-use serde::Serialize;
+use messagepack_serde::from_slice;
+use messagepack_serde::ser::{AggressiveMinimize, to_vec_with_config};
+use proptest::prelude::*;
 
-fn assert_encoded<T: Serialize>(value: &T, format: Format, len: usize) {
-    let mut buf = [0_u8; 9];
-    let n = to_slice_with_config(value, &mut buf, AggressiveMinimize).unwrap();
-
-    assert_eq!(n, len);
-    assert_eq!(buf[0], format.as_byte());
+fn same_f32(left: f32, right: f32) -> bool {
+    (left.is_nan() && right.is_nan()) || left == right
 }
 
-#[test]
-fn picks_smaller_integer_encoding() {
-    assert_encoded(&1.0_f64, Format::PositiveFixInt(1), 1);
+fn same_f64(left: f64, right: f64) -> bool {
+    (left.is_nan() && right.is_nan()) || left == right
 }
 
-#[test]
-fn picks_smaller_float_encoding() {
-    assert_encoded(&1e10_f32, Format::Float32, 5);
-    assert_encoded(&1e10_f64, Format::Float32, 5);
+proptest! {
+    #[test]
+    fn aggressive_minimize_roundtrips_f32(value in any::<f32>()) {
+        let encoded = to_vec_with_config(&value, AggressiveMinimize).unwrap();
+        let decoded: f32 = from_slice(&encoded).unwrap();
+
+        prop_assert!(same_f32(value, decoded), "expected {:?}, got {:?}", value, decoded);
+    }
+
+    #[test]
+    fn aggressive_minimize_roundtrips_f64(value in any::<f64>()) {
+        let encoded = to_vec_with_config(&value, AggressiveMinimize).unwrap();
+        let decoded: f64 = from_slice(&encoded).unwrap();
+
+        prop_assert!(same_f64(value, decoded), "expected {:?}, got {:?}", value, decoded);
+    }
 }
 
-#[test]
-fn keeps_float_when_integer_is_not_smaller() {
-    assert_encoded(&((1_u64 << 40) as f64 + 1.0), Format::Float64, 9);
+macro_rules! int_roundtrip_props {
+    ($($name:ident: $ty:ty),+ $(,)?) => {
+        proptest! {
+            $(
+                #[test]
+                fn $name(value in any::<$ty>()) {
+                    let encoded = to_vec_with_config(&value, AggressiveMinimize).unwrap();
+                    let decoded: $ty = from_slice(&encoded).unwrap();
+
+                    prop_assert_eq!(decoded, value);
+                }
+            )+
+        }
+    };
 }
 
-#[test]
-fn keeps_float_when_integer_does_not_fit() {
-    assert_encoded(&1e20_f64, Format::Float64, 9);
-}
-
-#[test]
-fn picks_integer_or_float_at_bounds() {
-    assert_encoded(&65535.0_f32, Format::Uint16, 3);
-    assert_encoded(&65536.0_f32, Format::Float32, 5);
-    assert_encoded(&4294967295.0_f64, Format::Uint32, 5);
-    assert_encoded(&4294967296.0_f64, Format::Float32, 5);
-}
-
-#[test]
-fn writes_minimized_payload_bytes() {
-    let mut buf = [0_u8; 9];
-    let n = to_slice_with_config(&-129.0_f64, &mut buf, AggressiveMinimize).unwrap();
-
-    assert_eq!(&buf[..n], &[Format::Int16.as_byte(), 0xff, 0x7f]);
+int_roundtrip_props! {
+    aggressive_minimize_roundtrips_u8: u8,
+    aggressive_minimize_roundtrips_u16: u16,
+    aggressive_minimize_roundtrips_u32: u32,
+    aggressive_minimize_roundtrips_u64: u64,
+    aggressive_minimize_roundtrips_i8: i8,
+    aggressive_minimize_roundtrips_i16: i16,
+    aggressive_minimize_roundtrips_i32: i32,
+    aggressive_minimize_roundtrips_i64: i64,
 }

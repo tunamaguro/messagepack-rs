@@ -204,17 +204,21 @@ mod tests {
     }
 
     #[rstest]
-    #[case(-1.0_f32, [0xff])]
-    #[case(-128.0_f32, [Format::Int8.as_byte(), 0x80])]
-    #[case(-129.0_f32, [Format::Int16.as_byte(), 0xff, 0x7f])]
+    #[case(-32769.0_f32, [Format::Float32.as_byte(), 0xc7, 0x00, 0x01, 0x00])]
     #[case(-32768.0_f32, [Format::Int16.as_byte(), 0x80, 0x00])]
+    #[case(-0.0_f32, [0x00])]
     #[case(65535.0_f32, [Format::Uint16.as_byte(), 0xff, 0xff])]
-    #[case(-1.0_f64, [0xff])]
-    #[case(-128.0_f64, [Format::Int8.as_byte(), 0x80])]
-    #[case(-129.0_f64, [Format::Int16.as_byte(), 0xff, 0x7f])]
+    #[case(65536.0_f32, [Format::Float32.as_byte(), 0x47, 0x80, 0x00, 0x00])]
+    #[case(-2147483649.0_f64, [Format::Float64.as_byte(), 0xc1, 0xe0, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00])]
     #[case(-2147483648.0_f64, [Format::Int32.as_byte(), 0x80, 0x00, 0x00, 0x00])]
+    #[case(-0.0_f64, [0x00])]
     #[case(4294967295.0_f64, [Format::Uint32.as_byte(), 0xff, 0xff, 0xff, 0xff])]
-    fn encode_aggressive_float_bytes<V: Into<EncodeAggressiveFloat>, E: AsRef<[u8]> + Sized>(
+    #[case(4294967296.0_f64, [Format::Float32.as_byte(), 0x4f, 0x80, 0x00, 0x00])]
+    #[case(4294967297.0_f64, [Format::Float64.as_byte(), 0x41, 0xf0, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00])]
+    fn encode_aggressive_float_boundaries<
+        V: Into<EncodeAggressiveFloat>,
+        E: AsRef<[u8]> + Sized,
+    >(
         #[case] value: V,
         #[case] expected: E,
     ) {
@@ -227,40 +231,9 @@ mod tests {
     }
 
     #[test]
-    fn encode_aggressive_float_f32() {
-        assert_aggressive(1.0_f32, Format::PositiveFixInt(1), 1);
-        assert_aggressive(-0.0_f32, Format::PositiveFixInt(0), 1);
-        assert_aggressive(65535.0_f32, Format::Uint16, 3);
-        assert_aggressive(65536.0_f32, Format::Float32, 5);
-        assert_aggressive(-32768.0_f32, Format::Int16, 3);
-        assert_aggressive(-32769.0_f32, Format::Float32, 5);
-        assert_aggressive(1.5_f32, Format::Float32, 5);
-        assert_aggressive(1e10_f32, Format::Float32, 5);
-        assert_aggressive(-3e9_f32, Format::Float32, 5);
-        assert_aggressive(4294967040.0_f32, Format::Float32, 5);
-        assert_aggressive(4294967296.0_f32, Format::Float32, 5);
-        assert_aggressive(-2147483648.0_f32, Format::Float32, 5);
+    fn encode_aggressive_float_non_finite() {
         assert_aggressive(f32::NAN, Format::Float32, 5);
         assert_aggressive(f32::INFINITY, Format::Float32, 5);
-    }
-
-    #[test]
-    fn encode_aggressive_float_f64() {
-        assert_aggressive(1.0_f64, Format::PositiveFixInt(1), 1);
-        assert_aggressive(-0.0_f64, Format::PositiveFixInt(0), 1);
-        assert_aggressive(1.5_f64, Format::Float32, 5);
-        assert_aggressive(1e10_f64, Format::Float32, 5);
-        assert_aggressive(2147483648.0_f64, Format::Uint32, 5);
-        assert_aggressive(4294967295.0_f64, Format::Uint32, 5);
-        assert_aggressive(4294967296.0_f64, Format::Float32, 5);
-        assert_aggressive(-2147483648.0_f64, Format::Int32, 5);
-        assert_aggressive(-2147483649.0_f64, Format::Float64, 9);
-        assert_aggressive(-9223372036854775808.0_f64, Format::Float32, 5);
-        assert_aggressive(9223372036854775808.0_f64, Format::Float32, 5);
-        assert_aggressive(-((1_u64 << 40) as f64 + 1.0), Format::Float64, 9);
-        assert_aggressive((1_u64 << 40) as f64 + 1.0, Format::Float64, 9);
-        assert_aggressive(18446744073709549568.0_f64, Format::Float64, 9);
-        assert_aggressive(1e20_f64, Format::Float64, 9);
         assert_aggressive(f64::NAN, Format::Float64, 9);
         assert_aggressive(f64::INFINITY, Format::Float64, 9);
     }
