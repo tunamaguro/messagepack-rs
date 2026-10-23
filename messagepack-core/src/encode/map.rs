@@ -210,7 +210,7 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case([("123", EncodeMinimizeInt(123)), ("456", EncodeMinimizeInt(456))], [0x82, 0xa3, 0x31, 0x32, 0x33, 0x7b, 0xa3, 0x34, 0x35, 0x36, 0xcd, 0x01, 0xc8])]
+    #[case([("123", EncodeMinimizeInt::from(123)), ("456", EncodeMinimizeInt::from(456))], [0x82, 0xa3, 0x31, 0x32, 0x33, 0x7b, 0xa3, 0x34, 0x35, 0x36, 0xcd, 0x01, 0xc8])]
     fn encode_slice_fix_array<K, V, Map, E>(#[case] value: Map, #[case] expected: E)
     where
         K: Encode,
@@ -228,7 +228,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case([("123", EncodeMinimizeInt(123)), ("456", EncodeMinimizeInt(456))], [0x82, 0xa3, 0x31, 0x32, 0x33, 0x7b, 0xa3, 0x34, 0x35, 0x36, 0xcd, 0x01, 0xc8])]
+    #[case([("123", EncodeMinimizeInt::from(123)), ("456", EncodeMinimizeInt::from(456))], [0x82, 0xa3, 0x31, 0x32, 0x33, 0x7b, 0xa3, 0x34, 0x35, 0x36, 0xcd, 0x01, 0xc8])]
     fn encode_iter_fix_array<I, KV, E>(#[case] value: I, #[case] expected: E)
     where
         I: IntoIterator<Item = KV>,
