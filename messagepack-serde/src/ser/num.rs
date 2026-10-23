@@ -229,7 +229,7 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 /// Encode a given numeric value by aggressively minimising its format.
 ///
 /// If the float is finite and its fractional part is zero, it encodes the value as an integer
-/// when the integer representation is no larger than the float representation.
+/// when that representation is smaller than the float representation.
 /// Otherwise it encodes the value as a float.
 ///
 /// ## Examples
@@ -273,7 +273,7 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 /// assert_eq!(buf,expected);
 /// ```
 ///
-/// A float whose integer representation is larger is encoded as a float.
+/// A float whose integer representation is not smaller is encoded as a float.
 ///
 /// ```rust
 /// use serde::Serialize;

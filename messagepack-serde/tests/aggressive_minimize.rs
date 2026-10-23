@@ -23,8 +23,8 @@ fn picks_smaller_float_encoding() {
 }
 
 #[test]
-fn uses_integer_when_float_is_not_smaller() {
-    assert_encoded(&((1_u64 << 40) as f64 + 1.0), Format::Uint64, 9);
+fn keeps_float_when_integer_is_not_smaller() {
+    assert_encoded(&((1_u64 << 40) as f64 + 1.0), Format::Float64, 9);
 }
 
 #[test]
@@ -34,8 +34,13 @@ fn keeps_float_when_integer_does_not_fit() {
 
 #[test]
 fn chooses_by_encoded_size_at_integer_bounds() {
-    assert_encoded(&4294967296.0_f32, Format::Float32, 5);
-    assert_encoded(&-2147483648.0_f32, Format::Int32, 5);
+    assert_encoded(&65535.0_f32, Format::Uint16, 3);
+    assert_encoded(&65536.0_f32, Format::Float32, 5);
+    assert_encoded(&-32768.0_f32, Format::Int16, 3);
+    assert_encoded(&-32769.0_f32, Format::Float32, 5);
+    assert_encoded(&-2147483648.0_f32, Format::Float32, 5);
     assert_encoded(&4294967295.0_f64, Format::Uint32, 5);
-    assert_encoded(&18446744073709549568.0_f64, Format::Uint64, 9);
+    assert_encoded(&-2147483648.0_f64, Format::Int32, 5);
+    assert_encoded(&4294967296.0_f64, Format::Float32, 5);
+    assert_encoded(&18446744073709549568.0_f64, Format::Float64, 9);
 }
