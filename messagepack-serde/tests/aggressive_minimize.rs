@@ -1,5 +1,5 @@
 use messagepack_serde::from_slice;
-use messagepack_serde::ser::{AggressiveMinimize, to_vec_with_config};
+use messagepack_serde::ser::{AggressiveMinimize, to_slice_with_config};
 use proptest::prelude::*;
 
 fn same_f32(left: f32, right: f32) -> bool {
@@ -13,16 +13,18 @@ fn same_f64(left: f64, right: f64) -> bool {
 proptest! {
     #[test]
     fn aggressive_minimize_roundtrips_f32(value in any::<f32>()) {
-        let encoded = to_vec_with_config(&value, AggressiveMinimize).unwrap();
-        let decoded: f32 = from_slice(&encoded).unwrap();
+        let mut encoded = [0_u8; 9];
+        let len = to_slice_with_config(&value, &mut encoded, AggressiveMinimize).unwrap();
+        let decoded: f32 = from_slice(&encoded[..len]).unwrap();
 
         prop_assert!(same_f32(value, decoded), "expected {:?}, got {:?}", value, decoded);
     }
 
     #[test]
     fn aggressive_minimize_roundtrips_f64(value in any::<f64>()) {
-        let encoded = to_vec_with_config(&value, AggressiveMinimize).unwrap();
-        let decoded: f64 = from_slice(&encoded).unwrap();
+        let mut encoded = [0_u8; 9];
+        let len = to_slice_with_config(&value, &mut encoded, AggressiveMinimize).unwrap();
+        let decoded: f64 = from_slice(&encoded[..len]).unwrap();
 
         prop_assert!(same_f64(value, decoded), "expected {:?}, got {:?}", value, decoded);
     }
@@ -34,8 +36,10 @@ macro_rules! int_roundtrip_props {
             $(
                 #[test]
                 fn $name(value in any::<$ty>()) {
-                    let encoded = to_vec_with_config(&value, AggressiveMinimize).unwrap();
-                    let decoded: $ty = from_slice(&encoded).unwrap();
+                    let mut encoded = [0_u8; 9];
+                    let len =
+                        to_slice_with_config(&value, &mut encoded, AggressiveMinimize).unwrap();
+                    let decoded: $ty = from_slice(&encoded[..len]).unwrap();
 
                     prop_assert_eq!(decoded, value);
                 }
