@@ -190,17 +190,72 @@ impl LosslessMinimize {
     }
 }
 
+macro_rules! encode_min {
+    ($v:expr, $writer:expr, $op:tt, $(($ty:ty, $bound:expr)),* $(,)?) => {
+        $(
+            if $v $op ($bound as _) {
+                return ($v as $ty).encode($writer);
+            }
+        )*
+    };
+}
+
 macro_rules! impl_minimize_int {
     () => {
-        impl_minimize_int! {
-            encode_i8(i8) => I8,
-            encode_i16(i16) => I16,
-            encode_i32(i32) => I32,
-            encode_i64(i64) => I64,
-            encode_u8(u8) => U8,
-            encode_u16(u16) => U16,
-            encode_u32(u32) => U32,
-            encode_u64(u64) => U64,
+        #[inline]
+        fn encode_i8(v: i8, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            if v >= 0 {
+                (v as u8).encode(writer)
+            } else {
+                v.encode(writer)
+            }
+        }
+
+        #[inline]
+        fn encode_i16(v: i16, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            if v >= 0 {
+                encode_min!(v, writer, <=, (u8, u8::MAX));
+                (v as u16).encode(writer)
+            } else {
+                encode_min!(v, writer, >=, (i8, i8::MIN));
+                v.encode(writer)
+            }
+        }
+
+        #[inline]
+        fn encode_i32(v: i32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            if v >= 0 {
+                encode_min!(v, writer, <=, (u8, u8::MAX), (u16, u16::MAX));
+                (v as u32).encode(writer)
+            } else {
+                encode_min!(v, writer, >=, (i8, i8::MIN), (i16, i16::MIN));
+                v.encode(writer)
+            }
+        }
+
+        #[inline]
+        fn encode_i64(v: i64, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            if v >= 0 {
+                encode_min!(
+                    v,
+                    writer,
+                    <=,
+                    (u8, u8::MAX),
+                    (u16, u16::MAX),
+                    (u32, u32::MAX)
+                );
+                (v as u64).encode(writer)
+            } else {
+                encode_min!(
+                    v,
+                    writer,
+                    >=,
+                    (i8, i8::MIN),
+                    (i16, i16::MIN),
+                    (i32, i32::MIN)
+                );
+                v.encode(writer)
+            }
         }
 
         #[inline]
@@ -209,17 +264,39 @@ macro_rules! impl_minimize_int {
         }
 
         #[inline]
+        fn encode_u8(v: u8, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            v.encode(writer)
+        }
+
+        #[inline]
+        fn encode_u16(v: u16, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            encode_min!(v, writer, <=, (u8, u8::MAX));
+            v.encode(writer)
+        }
+
+        #[inline]
+        fn encode_u32(v: u32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            encode_min!(v, writer, <=, (u8, u8::MAX), (u16, u16::MAX));
+            v.encode(writer)
+        }
+
+        #[inline]
+        fn encode_u64(v: u64, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            encode_min!(
+                v,
+                writer,
+                <=,
+                (u8, u8::MAX),
+                (u16, u16::MAX),
+                (u32, u32::MAX)
+            );
+            v.encode(writer)
+        }
+
+        #[inline]
         fn encode_u128(v: u128, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
             EncodeMinimizeInt::from(v).encode(writer)
         }
-    };
-    ($($method:ident($ty:ty) => $variant:ident),* $(,)?) => {
-        $(
-            #[inline]
-            fn $method(v: $ty, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
-                EncodeMinimizeInt::$variant(v).encode(writer)
-            }
-        )*
     };
 }
 
