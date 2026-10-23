@@ -11,6 +11,7 @@ repository = { workspace = true }
 all-features = true
 
 [dependencies]
+num-traits = { workspace = true }
 messagepack-derive = { workspace = true, optional = true }
 
 [dev-dependencies]

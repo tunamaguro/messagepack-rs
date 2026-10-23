@@ -549,6 +549,7 @@ name = "messagepack-core"
 version = "0.2.4"
 dependencies = [
  "messagepack-derive",
+ "num-traits",
  "proptest",
  "rstest",
 ]
@@ -577,6 +578,7 @@ name = "messagepack-serde"
 version = "0.2.4"
 dependencies = [
  "messagepack-core",
+ "num-traits",
  "proptest",
  "rmp-serde",
  "rstest",
