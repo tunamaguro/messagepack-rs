@@ -71,7 +71,7 @@ impl Encode for EncodeMinimizeFloat {
 /// Encode a floating-point value using the smaller of its integer and float formats.
 ///
 /// Integral finite values are encoded as integers when that representation is smaller
-/// than the float representation. Other values use the smallest float representation.
+/// than the native float representation. Other values use the smallest float representation.
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub enum EncodeAggressiveFloat {
     /// Encode a 32-bit floating-point value.
@@ -93,30 +93,34 @@ impl From<f64> for EncodeAggressiveFloat {
 }
 
 macro_rules! impl_float_minimize {
-    ($ty:ty, $fits_int:ident, $minimized_int:ident, $signed:ty, $unsigned:ty) => {
+    ($ty:ty, $try_minimized_int:ident, $signed:ty, $unsigned:ty) => {
         #[inline]
-        fn $fits_int(value: $ty, min: $ty, max: $ty) -> bool {
-            (min..max).contains(&value)
-                && if value < 0.0 {
-                    (value as $signed) as $ty == value
-                } else {
-                    (value as $unsigned) as $ty == value
-                }
-        }
+        fn $try_minimized_int(value: $ty, min: $ty, max: $ty) -> Option<EncodeMinimizeInt> {
+            if !(min..max).contains(&value) {
+                return None;
+            }
 
-        #[inline]
-        fn $minimized_int(value: $ty) -> EncodeMinimizeInt {
             if value < 0.0 {
-                EncodeMinimizeInt::from(value as $signed)
+                let int = value as $signed;
+                if int as $ty == value {
+                    Some(EncodeMinimizeInt::from(int))
+                } else {
+                    None
+                }
             } else {
-                EncodeMinimizeInt::from(value as $unsigned)
+                let int = value as $unsigned;
+                if int as $ty == value {
+                    Some(EncodeMinimizeInt::from(int))
+                } else {
+                    None
+                }
             }
         }
     };
 }
 
-impl_float_minimize!(f32, fits_int_f32, minimized_int_from_f32, i16, u16);
-impl_float_minimize!(f64, fits_int_f64, minimized_int_from_f64, i32, u32);
+impl_float_minimize!(f32, try_minimized_int_from_f32, i16, u16);
+impl_float_minimize!(f64, try_minimized_int_from_f64, i32, u32);
 
 impl Encode for EncodeAggressiveFloat {
     #[inline]
@@ -124,20 +128,22 @@ impl Encode for EncodeAggressiveFloat {
         match self {
             EncodeAggressiveFloat::F32(v) => {
                 let v = *v;
-                if fits_int_f32(v, i16::MIN as f32, (1_u32 << 16) as f32) {
-                    minimized_int_from_f32(v).encode(writer)
+                if let Some(int) =
+                    try_minimized_int_from_f32(v, i16::MIN as f32, (1_u32 << 16) as f32)
+                {
+                    int.encode(writer)
                 } else {
                     v.encode(writer)
                 }
             }
             EncodeAggressiveFloat::F64(v) => {
                 let v = *v;
-                if fits_int_f64(v, i32::MIN as f64, (1_u64 << 32) as f64) {
-                    minimized_int_from_f64(v).encode(writer)
-                } else if is_exactly_representable(v) {
-                    (v as f32).encode(writer)
+                if let Some(int) =
+                    try_minimized_int_from_f64(v, i32::MIN as f64, (1_u64 << 32) as f64)
+                {
+                    int.encode(writer)
                 } else {
-                    v.encode(writer)
+                    EncodeMinimizeFloat::F64(v).encode(writer)
                 }
             }
         }
@@ -195,6 +201,29 @@ mod tests {
         assert_eq!(n, len);
         assert_eq!(buf.len(), len);
         assert_eq!(buf[0], format.as_byte());
+    }
+
+    #[rstest]
+    #[case(-1.0_f32, [0xff])]
+    #[case(-128.0_f32, [Format::Int8.as_byte(), 0x80])]
+    #[case(-129.0_f32, [Format::Int16.as_byte(), 0xff, 0x7f])]
+    #[case(-32768.0_f32, [Format::Int16.as_byte(), 0x80, 0x00])]
+    #[case(65535.0_f32, [Format::Uint16.as_byte(), 0xff, 0xff])]
+    #[case(-1.0_f64, [0xff])]
+    #[case(-128.0_f64, [Format::Int8.as_byte(), 0x80])]
+    #[case(-129.0_f64, [Format::Int16.as_byte(), 0xff, 0x7f])]
+    #[case(-2147483648.0_f64, [Format::Int32.as_byte(), 0x80, 0x00, 0x00, 0x00])]
+    #[case(4294967295.0_f64, [Format::Uint32.as_byte(), 0xff, 0xff, 0xff, 0xff])]
+    fn encode_aggressive_float_bytes<V: Into<EncodeAggressiveFloat>, E: AsRef<[u8]> + Sized>(
+        #[case] value: V,
+        #[case] expected: E,
+    ) {
+        let expected = expected.as_ref();
+        let mut buf = vec![];
+        let n = value.into().encode(&mut buf).unwrap();
+
+        assert_eq!(buf, expected);
+        assert_eq!(n, expected.len());
     }
 
     #[test]

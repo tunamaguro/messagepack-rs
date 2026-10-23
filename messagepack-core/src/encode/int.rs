@@ -215,30 +215,33 @@ macro_rules! encode_min {
     };
 }
 
+macro_rules! impl_encode_min_unsigned {
+    ($name:ident, $ty:ty, $(($smaller:ty, $bound:expr)),* $(,)?) => {
+        #[inline]
+        fn $name<W: IoWrite>(value: $ty, writer: &mut W) -> Result<usize, W::Error> {
+            encode_min!(value, writer, <=, $(($smaller, $bound)),*);
+            value.encode(writer)
+        }
+    };
+}
+impl_encode_min_unsigned!(encode_min_u16, u16, (u8, u8::MAX));
+impl_encode_min_unsigned!(encode_min_u32, u32, (u8, u8::MAX), (u16, u16::MAX));
+impl_encode_min_unsigned!(
+    encode_min_u64,
+    u64,
+    (u8, u8::MAX),
+    (u16, u16::MAX),
+    (u32, u32::MAX)
+);
+
 impl Encode for EncodeMinimizeInt {
     #[inline]
     fn encode<W: IoWrite>(&self, writer: &mut W) -> Result<usize, W::Error> {
         match *self {
             Self::U8(v) => v.encode(writer),
-            Self::U16(v) => {
-                encode_min!(v, writer, <=, (u8, u8::MAX));
-                v.encode(writer)
-            }
-            Self::U32(v) => {
-                encode_min!(v, writer, <=, (u8, u8::MAX), (u16, u16::MAX));
-                v.encode(writer)
-            }
-            Self::U64(v) => {
-                encode_min!(
-                    v,
-                    writer,
-                    <=,
-                    (u8, u8::MAX),
-                    (u16, u16::MAX),
-                    (u32, u32::MAX)
-                );
-                v.encode(writer)
-            }
+            Self::U16(v) => encode_min_u16(v, writer),
+            Self::U32(v) => encode_min_u32(v, writer),
+            Self::U64(v) => encode_min_u64(v, writer),
             Self::U128(v) => {
                 encode_min!(
                     v,
@@ -260,8 +263,7 @@ impl Encode for EncodeMinimizeInt {
             }
             Self::I16(v) => {
                 if v >= 0 {
-                    encode_min!(v, writer, <=, (u8, u8::MAX));
-                    (v as u16).encode(writer)
+                    encode_min_u16(v as u16, writer)
                 } else {
                     encode_min!(v, writer, >=, (i8, i8::MIN));
                     v.encode(writer)
@@ -269,8 +271,7 @@ impl Encode for EncodeMinimizeInt {
             }
             Self::I32(v) => {
                 if v >= 0 {
-                    encode_min!(v, writer, <=, (u8, u8::MAX), (u16, u16::MAX));
-                    (v as u32).encode(writer)
+                    encode_min_u32(v as u32, writer)
                 } else {
                     encode_min!(v, writer, >=, (i8, i8::MIN), (i16, i16::MIN));
                     v.encode(writer)
@@ -278,15 +279,7 @@ impl Encode for EncodeMinimizeInt {
             }
             Self::I64(v) => {
                 if v >= 0 {
-                    encode_min!(
-                        v,
-                        writer,
-                        <=,
-                        (u8, u8::MAX),
-                        (u16, u16::MAX),
-                        (u32, u32::MAX)
-                    );
-                    (v as u64).encode(writer)
+                    encode_min_u64(v as u64, writer)
                 } else {
                     encode_min!(
                         v,
@@ -444,10 +437,6 @@ mod tests {
     }
 
     #[rstest]
-    #[case(0_u8,[0x00])]
-    #[case(0x7f_u8,[0x7f])]
-    #[case(0x80_u8,[Format::Uint8.as_byte(),0x80])]
-    #[case(u8::MAX,[Format::Uint8.as_byte(),0xff])]
     #[case(0_u16,[0x00])]
     #[case(0x7f_u16,[0x7f])]
     #[case(0x80_u16,[Format::Uint8.as_byte(),0x80])]
@@ -506,6 +495,9 @@ mod tests {
     #[case(-1_i128,[0xff])]
     #[case(u64::MAX as i128,[Format::Uint64.as_byte(),0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff])]
     #[case(i64::MIN as i128,[Format::Int64.as_byte(),0x80,0x00,0x00,0x00,0x00,0x00,0x00,0x00])]
+    #[case(0_usize,[0x00])]
+    #[case(0_isize,[0x00])]
+    #[case(-1_isize,[0xff])]
     fn encode_int_minimize<V: Into<EncodeMinimizeInt>, E: AsRef<[u8]> + Sized>(
         #[case] value: V,
         #[case] expected: E,
@@ -536,22 +528,5 @@ mod tests {
         let mut buf = vec![];
         let result = EncodeMinimizeInt::from(value).encode(&mut buf);
         assert!(matches!(result, Err(Error::InvalidFormat)));
-    }
-
-    #[rstest]
-    #[case(0_usize, [0x00])]
-    #[case(0_isize, [0x00])]
-    #[case(-1_isize, [0xff])]
-    fn encode_int_minimize_platform_ints<V: Into<EncodeMinimizeInt>, E: AsRef<[u8]> + Sized>(
-        #[case] value: V,
-        #[case] expected: E,
-    ) {
-        let expected = expected.as_ref();
-        let encoder: EncodeMinimizeInt = value.into();
-
-        let mut buf = vec![];
-        let n = encoder.encode(&mut buf).unwrap();
-        assert_eq!(buf, expected);
-        assert_eq!(n, expected.len());
     }
 }

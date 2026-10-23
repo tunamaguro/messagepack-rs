@@ -191,6 +191,28 @@ impl LosslessMinimize {
 }
 
 macro_rules! impl_minimize_int {
+    () => {
+        impl_minimize_int! {
+            encode_i8(i8) => I8,
+            encode_i16(i16) => I16,
+            encode_i32(i32) => I32,
+            encode_i64(i64) => I64,
+            encode_u8(u8) => U8,
+            encode_u16(u16) => U16,
+            encode_u32(u32) => U32,
+            encode_u64(u64) => U64,
+        }
+
+        #[inline]
+        fn encode_i128(v: i128, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            EncodeMinimizeInt::from(v).encode(writer)
+        }
+
+        #[inline]
+        fn encode_u128(v: u128, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
+            EncodeMinimizeInt::from(v).encode(writer)
+        }
+    };
     ($($method:ident($ty:ty) => $variant:ident),* $(,)?) => {
         $(
             #[inline]
@@ -202,18 +224,7 @@ macro_rules! impl_minimize_int {
 }
 
 impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
-    impl_minimize_int! {
-        encode_i8(i8) => I8,
-        encode_i16(i16) => I16,
-        encode_i32(i32) => I32,
-        encode_i64(i64) => I64,
-        encode_i128(i128) => I128,
-        encode_u8(u8) => U8,
-        encode_u16(u16) => U16,
-        encode_u32(u32) => U32,
-        encode_u64(u64) => U64,
-        encode_u128(u128) => U128,
-    }
+    impl_minimize_int!();
 
     #[inline]
     fn encode_f32(v: f32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {
@@ -229,7 +240,7 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 /// Encode a given numeric value by aggressively minimising its format.
 ///
 /// If the float is finite and its fractional part is zero, it encodes the value as an integer
-/// when that representation is smaller than the float representation.
+/// when that representation is smaller than the native float representation.
 /// Otherwise it encodes the value as a float.
 ///
 /// ## Examples
@@ -288,18 +299,7 @@ impl<W: IoWrite> NumEncoder<W> for LosslessMinimize {
 pub struct AggressiveMinimize;
 
 impl<W: IoWrite> NumEncoder<W> for AggressiveMinimize {
-    impl_minimize_int! {
-        encode_i8(i8) => I8,
-        encode_i16(i16) => I16,
-        encode_i32(i32) => I32,
-        encode_i64(i64) => I64,
-        encode_i128(i128) => I128,
-        encode_u8(u8) => U8,
-        encode_u16(u16) => U16,
-        encode_u32(u32) => U32,
-        encode_u64(u64) => U64,
-        encode_u128(u128) => U128,
-    }
+    impl_minimize_int!();
 
     #[inline]
     fn encode_f32(v: f32, writer: &mut W) -> Result<usize, Error<<W as IoWrite>::Error>> {

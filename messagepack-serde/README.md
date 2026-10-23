@@ -56,7 +56,7 @@ messagepack-serde = { version = "0.2", default-features = false }
   - Provides multiple serialization strategies:
     - `Exact`: Serializes numeric types exactly as provided.
     - `LosslessMinimize`: Minimizes size without losing information (default).
-    - `AggressiveMinimize`: Aggressively minimizes values, encoding integral floats as integers when that produces a smaller representation.
+    - `AggressiveMinimize`: Aggressively minimizes values, encoding integral floats as integers when that is smaller than the native float representation.
   - To deserialize arbitrary numeric values, use `messagepack_serde::value::Number`.
 
 - `ext` format support

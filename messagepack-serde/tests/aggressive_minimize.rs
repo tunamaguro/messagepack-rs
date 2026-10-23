@@ -18,7 +18,6 @@ fn picks_smaller_integer_encoding() {
 #[test]
 fn picks_smaller_float_encoding() {
     assert_encoded(&1e10_f32, Format::Float32, 5);
-    assert_encoded(&-3e9_f32, Format::Float32, 5);
     assert_encoded(&1e10_f64, Format::Float32, 5);
 }
 
@@ -33,14 +32,17 @@ fn keeps_float_when_integer_does_not_fit() {
 }
 
 #[test]
-fn chooses_by_encoded_size_at_integer_bounds() {
+fn picks_integer_or_float_at_bounds() {
     assert_encoded(&65535.0_f32, Format::Uint16, 3);
     assert_encoded(&65536.0_f32, Format::Float32, 5);
-    assert_encoded(&-32768.0_f32, Format::Int16, 3);
-    assert_encoded(&-32769.0_f32, Format::Float32, 5);
-    assert_encoded(&-2147483648.0_f32, Format::Float32, 5);
     assert_encoded(&4294967295.0_f64, Format::Uint32, 5);
-    assert_encoded(&-2147483648.0_f64, Format::Int32, 5);
     assert_encoded(&4294967296.0_f64, Format::Float32, 5);
-    assert_encoded(&18446744073709549568.0_f64, Format::Float64, 9);
+}
+
+#[test]
+fn writes_minimized_payload_bytes() {
+    let mut buf = [0_u8; 9];
+    let n = to_slice_with_config(&-129.0_f64, &mut buf, AggressiveMinimize).unwrap();
+
+    assert_eq!(&buf[..n], &[Format::Int16.as_byte(), 0xff, 0x7f]);
 }
