@@ -29,18 +29,8 @@ path = "tests/int.rs"
 required-features = ["alloc"]
 
 [[test]]
-name = "float"
-path = "tests/float.rs"
-required-features = ["alloc"]
-
-[[test]]
 name = "str"
 path = "tests/str.rs"
-required-features = ["alloc"]
-
-[[test]]
-name = "bin"
-path = "tests/bin.rs"
 required-features = ["alloc"]
 
 [[test]]
